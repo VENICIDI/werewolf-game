@@ -1,0 +1,114 @@
+{
+  "roles": {
+    "villager": {
+      "name": "村民",
+      "nameEn": "Villager",
+      "camp": "villager",
+      "description": "没有特殊技能，通过发言和投票找出狼人",
+      "skills": [],
+      "actionPhase": null,
+      "priority": 0
+    },
+    "werewolf": {
+      "name": "狼人",
+      "nameEn": "Werewolf",
+      "camp": "werewolf",
+      "description": "夜晚可以杀人，白天隐藏身份",
+      "skills": [
+        {
+          "name": "击杀",
+          "description": "每晚可以选择一名玩家击杀",
+          "targetType": "single",
+          "targetCamp": "any",
+          "canTargetSelf": false,
+          "canTargetTeammate": false
+        }
+      ],
+      "actionPhase": "werewolf_action",
+      "priority": 10,
+      "teamAction": true
+    },
+    "seer": {
+      "name": "预言家",
+      "nameEn": "Seer",
+      "camp": "villager",
+      "description": "每晚可以查验一名玩家的身份",
+      "skills": [
+        {
+          "name": "查验",
+          "description": "每晚可以查验一名玩家是好人还是狼人",
+          "targetType": "single",
+          "targetCamp": "any",
+          "canTargetSelf": false,
+          "resultType": "camp"
+        }
+      ],
+      "actionPhase": "seer_action",
+      "priority": 20
+    },
+    "witch": {
+      "name": "女巫",
+      "nameEn": "Witch",
+      "camp": "villager",
+      "description": "有一瓶解药和一瓶毒药，解药可以救人，毒药可以毒人",
+      "skills": [
+        {
+          "name": "解药",
+          "description": "可以救活当晚被狼人击杀的玩家",
+          "targetType": "single",
+          "targetCamp": "any",
+          "canTargetSelf": true,
+          "usageLimit": 1,
+          "canUseWhen": "after_werewolf"
+        },
+        {
+          "name": "毒药",
+          "description": "可以毒死一名玩家",
+          "targetType": "single",
+          "targetCamp": "any",
+          "canTargetSelf": false,
+          "usageLimit": 1
+        }
+      ],
+      "actionPhase": "witch_action",
+      "priority": 30
+    },
+    "hunter": {
+      "name": "猎人",
+      "nameEn": "Hunter",
+      "camp": "villager",
+      "description": "死亡时可以开枪带走一名玩家",
+      "skills": [
+        {
+          "name": "开枪",
+          "description": "死亡时可以开枪带走一名玩家",
+          "targetType": "single",
+          "targetCamp": "any",
+          "canTargetSelf": false,
+          "trigger": "on_death",
+          "canBeBlocked": true
+        }
+      ],
+      "actionPhase": "hunter_action",
+      "priority": 40
+    },
+    "guard": {
+      "name": "守卫",
+      "nameEn": "Guard",
+      "camp": "villager",
+      "description": "每晚可以守护一名玩家，被守护的玩家当晚不会被狼人杀死",
+      "skills": [
+        {
+          "name": "守护",
+          "description": "每晚可以守护一名玩家，被守护的玩家不会被狼人杀死",
+          "targetType": "single",
+          "targetCamp": "any",
+          "canTargetSelf": false,
+          "cannotGuardConsecutive": true
+        }
+      ],
+      "actionPhase": "guard_action",
+      "priority": 25
+    }
+  }
+}

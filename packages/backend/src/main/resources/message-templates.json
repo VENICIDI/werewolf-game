@@ -1,0 +1,99 @@
+{
+  "version": "1.0",
+  "description": "游戏消息模板配置",
+  "system": {
+    "gameStart": "游戏开始！共有 {playerCount} 名玩家参与。",
+    "roleAssigned": "你的身份是：{roleName}。{roleDesc}",
+    "nightStart": "第 {round} 天夜晚开始了，所有人请闭眼。",
+    "dayStart": "天亮了，第 {round} 天开始了。",
+    "gameOver": "游戏结束！{winnerCamp} 获胜！"
+  },
+  "night": {
+    "werewolf": {
+      "wakeUp": "狼人请睁眼，请选择要击杀的目标。",
+      "action": "狼人选择了击杀 {target}。",
+      "sleep": "狼人请闭眼。"
+    },
+    "seer": {
+      "wakeUp": "预言家请睁眼，请选择要查验的目标。",
+      "result": "{target} 的身份是 {result}。",
+      "sleep": "预言家请闭眼。"
+    },
+    "witch": {
+      "wakeUp": "女巫请睁眼，今晚 {deathInfo}。",
+      "deathInfo": "{player} 死了",
+      "noDeath": "今晚没有人死亡",
+      "sleep": "女巫请闭眼。"
+    },
+    "guard": {
+      "wakeUp": "守卫请睁眼，请选择要守护的目标。",
+      "sleep": "守卫请闭眼。"
+    },
+    "hunter": {
+      "wakeUp": "猎人请睁眼。",
+      "sleep": "猎人请闭眼。"
+    }
+  },
+  "day": {
+    "announceDeath": {
+      "single": "昨晚，{player} 死了。",
+      "multiple": "昨晚，{players} 死了。",
+      "none": "昨晚是平安夜，没有人死亡。",
+      "lastWords": "{player} 请发表遗言。"
+    },
+    "discussion": {
+      "start": "现在开始自由讨论。",
+      "speakTurn": "请 {player} 发言。",
+      "timeLeft": "剩余时间：{time} 秒。"
+    },
+    "voting": {
+      "start": "现在开始投票，请选择要放逐的玩家。",
+      "vote": "{voter} 投票给了 {target}。",
+      "abstain": "{voter} 选择了弃票。",
+      "result": "投票结果：{result}",
+      "executed": "{player} 被放逐。",
+      "tie": "平票，本轮无人被放逐。",
+      "noVotes": "无人投票，本轮无人被放逐。"
+    },
+    "execution": {
+      "lastWords": "{player} 请发表遗言。",
+      "hunterShoot": "猎人 {player} 开枪带走了 {target}。"
+    }
+  },
+  "skills": {
+    "witch": {
+      "saveSuccess": "女巫使用解药救活了 {player}。",
+      "poisonSuccess": "女巫使用毒药毒死了 {player}。",
+      "saveUsed": "解药已使用。",
+      "poisonUsed": "毒药已使用。"
+    },
+    "guard": {
+      "guardSuccess": "守卫成功守护了 {player}。",
+      "conflict": "同守同救，{player} 死亡。"
+    },
+    "hunter": {
+      "canShoot": "猎人可以开枪。",
+      "cannotShoot": "猎人不能开枪。",
+      "shoot": "猎人开枪带走了 {target}。"
+    }
+  },
+  "errors": {
+    "invalidTarget": "无效的目标。",
+    "skillUsed": "技能已使用。",
+    "cannotTargetSelf": "不能选择自己。",
+    "cannotTargetTeammate": "不能选择队友。",
+    "notYourTurn": "现在不是你的回合。",
+    "gameNotStarted": "游戏尚未开始。",
+    "gameAlreadyStarted": "游戏已经开始。",
+    "playerDead": "该玩家已死亡。",
+    "playerNotFound": "找不到该玩家。"
+  },
+  "websocket": {
+    "playerJoin": "{player} 加入了房间。",
+    "playerLeave": "{player} 离开了房间。",
+    "playerReady": "{player} 已准备。",
+    "playerUnready": "{player} 取消准备。",
+    "chat": "{player}: {message}",
+    "system": "系统: {message}"
+  }
+}

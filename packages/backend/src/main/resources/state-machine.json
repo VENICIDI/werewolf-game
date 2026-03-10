@@ -1,0 +1,58 @@
+{
+  "stateMachine": {
+    "initial": "waiting",
+    "states": {
+      "waiting": {
+        "name": "等待中",
+        "description": "等待玩家加入",
+        "allowedActions": ["join", "leave", "ready", "chat"],
+        "transitions": {
+          "start": {
+            "target": "night",
+            "condition": "allReady && playerCount >= minPlayers",
+            "action": "assignRoles"
+          }
+        }
+      },
+      "night": {
+        "name": "夜晚阶段",
+        "description": "夜晚行动阶段",
+        "allowedActions": ["roleAction"],
+        "subStates": ["night_start", "werewolf_action", "seer_action", "guard_action", "witch_action", "hunter_action"],
+        "transitions": {
+          "next": {
+            "target": "day",
+            "action": "processNightActions"
+          }
+        }
+      },
+      "day": {
+        "name": "白天阶段",
+        "description": "白天讨论投票阶段",
+        "allowedActions": ["speak", "vote", "chat"],
+        "subStates": ["day_start", "announce_death", "discussion", "voting", "execution"],
+        "transitions": {
+          "next": {
+            "target": "night",
+            "action": "incrementRound"
+          },
+          "end": {
+            "target": "finished",
+            "condition": "hasWinner"
+          }
+        }
+      },
+      "finished": {
+        "name": "游戏结束",
+        "description": "游戏已结束",
+        "allowedActions": ["viewResult", "chat"],
+        "transitions": {
+          "restart": {
+            "target": "waiting",
+            "action": "resetGame"
+          }
+        }
+      }
+    }
+  }
+}

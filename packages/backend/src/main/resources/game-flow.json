@@ -1,0 +1,209 @@
+{
+  "version": "1.0",
+  "description": "狼人杀游戏流程配置",
+  "gameModes": {
+    "standard_9": {
+      "name": "标准9人局",
+      "playerCount": 9,
+      "roleDistribution": {
+        "werewolf": 3,
+        "villager": 3,
+        "seer": 1,
+        "witch": 1,
+        "hunter": 1
+      },
+      "flow": {
+        "night": [
+          {
+            "phase": "night_start",
+            "duration": 3000,
+            "broadcast": "天黑了，所有人请闭眼"
+          },
+          {
+            "phase": "werewolf_action",
+            "duration": 30000,
+            "roles": ["werewolf"],
+            "broadcast": "狼人请睁眼，请选择要击杀的目标",
+            "endBroadcast": "狼人请闭眼"
+          },
+          {
+            "phase": "seer_action",
+            "duration": 20000,
+            "roles": ["seer"],
+            "broadcast": "预言家请睁眼，请选择要查验的目标",
+            "endBroadcast": "预言家请闭眼"
+          },
+          {
+            "phase": "witch_action",
+            "duration": 30000,
+            "roles": ["witch"],
+            "broadcast": "女巫请睁眼，今晚死的是TA，你要使用解药吗？你要使用毒药吗？",
+            "endBroadcast": "女巫请闭眼",
+            "showDeathInfo": true
+          },
+          {
+            "phase": "hunter_action",
+            "duration": 15000,
+            "roles": ["hunter"],
+            "broadcast": "猎人请睁眼",
+            "endBroadcast": "猎人请闭眼"
+          }
+        ],
+        "day": [
+          {
+            "phase": "day_start",
+            "duration": 3000,
+            "broadcast": "天亮了"
+          },
+          {
+            "phase": "announce_death",
+            "duration": 10000,
+            "action": "announceDeath",
+            "allowLastWords": true,
+            "lastWordsTime": 60000
+          },
+          {
+            "phase": "discussion",
+            "duration": 180000,
+            "action": "discussion",
+            "speakOrder": "seat",
+            "speakTime": 60000,
+            "allowMultipleRounds": false
+          },
+          {
+            "phase": "voting",
+            "duration": 30000,
+            "action": "vote",
+            "canAbstain": true,
+            "voteType": "single"
+          },
+          {
+            "phase": "execution",
+            "duration": 10000,
+            "action": "execute",
+            "allowLastWords": true,
+            "lastWordsTime": 60000
+          }
+        ]
+      },
+      "rules": {
+        "firstNightNoKill": false,
+        "witchCanSaveSelf": false,
+        "witchCanSaveFirstNight": true,
+        "hunterCanShootWhenDied": true,
+        "hunterCanShootWhenVotedOut": true,
+        "hunterCannotShootWhenPoisoned": true,
+        "seerKnowsIdentity": true,
+        "tieVote": "noExecution",
+        "consecutiveNoKill": false
+      }
+    },
+    "standard_12": {
+      "name": "标准12人局",
+      "playerCount": 12,
+      "roleDistribution": {
+        "werewolf": 4,
+        "villager": 4,
+        "seer": 1,
+        "witch": 1,
+        "hunter": 1,
+        "guard": 1
+      },
+      "flow": {
+        "night": [
+          {
+            "phase": "night_start",
+            "duration": 3000,
+            "broadcast": "天黑了，所有人请闭眼"
+          },
+          {
+            "phase": "werewolf_action",
+            "duration": 30000,
+            "roles": ["werewolf"],
+            "broadcast": "狼人请睁眼，请选择要击杀的目标",
+            "endBroadcast": "狼人请闭眼"
+          },
+          {
+            "phase": "seer_action",
+            "duration": 20000,
+            "roles": ["seer"],
+            "broadcast": "预言家请睁眼，请选择要查验的目标",
+            "endBroadcast": "预言家请闭眼"
+          },
+          {
+            "phase": "guard_action",
+            "duration": 20000,
+            "roles": ["guard"],
+            "broadcast": "守卫请睁眼，请选择要守护的目标",
+            "endBroadcast": "守卫请闭眼"
+          },
+          {
+            "phase": "witch_action",
+            "duration": 30000,
+            "roles": ["witch"],
+            "broadcast": "女巫请睁眼，今晚死的是TA，你要使用解药吗？你要使用毒药吗？",
+            "endBroadcast": "女巫请闭眼",
+            "showDeathInfo": true
+          },
+          {
+            "phase": "hunter_action",
+            "duration": 15000,
+            "roles": ["hunter"],
+            "broadcast": "猎人请睁眼",
+            "endBroadcast": "猎人请闭眼"
+          }
+        ],
+        "day": [
+          {
+            "phase": "day_start",
+            "duration": 3000,
+            "broadcast": "天亮了"
+          },
+          {
+            "phase": "announce_death",
+            "duration": 10000,
+            "action": "announceDeath",
+            "allowLastWords": true,
+            "lastWordsTime": 60000
+          },
+          {
+            "phase": "discussion",
+            "duration": 240000,
+            "action": "discussion",
+            "speakOrder": "seat",
+            "speakTime": 90000,
+            "allowMultipleRounds": false
+          },
+          {
+            "phase": "voting",
+            "duration": 30000,
+            "action": "vote",
+            "canAbstain": true,
+            "voteType": "single"
+          },
+          {
+            "phase": "execution",
+            "duration": 10000,
+            "action": "execute",
+            "allowLastWords": true,
+            "lastWordsTime": 60000
+          }
+        ]
+      },
+      "rules": {
+        "firstNightNoKill": false,
+        "witchCanSaveSelf": true,
+        "witchCanSaveFirstNight": true,
+        "guardCanProtectSelf": false,
+        "guardCannotProtectConsecutive": true,
+        "guardWitchConflict": "die",
+        "hunterCanShootWhenDied": true,
+        "hunterCanShootWhenVotedOut": true,
+        "hunterCannotShootWhenPoisoned": true,
+        "seerKnowsIdentity": true,
+        "tieVote": "noExecution",
+        "consecutiveNoKill": false
+      }
+    }
+  }
+}

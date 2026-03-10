@@ -1,0 +1,83 @@
+{
+  "aiBehaviors": {
+    "werewolf": {
+      "name": "狼人AI",
+      "description": "狼人阵营AI的行为模式",
+      "nightStrategy": {
+        "killPriority": [
+          "seer",
+          "witch",
+          "hunter",
+          "guard",
+          "villager"
+        ],
+        "avoidKilling": [
+          "werewolf"
+        ],
+        "fakeIdentity": ["villager", "seer", "witch"],
+        "teamCoordination": true
+      },
+      "dayStrategy": {
+        "speakStyle": "defensive",
+        "accusePriority": ["seer", "villager"],
+        "defendTeammate": true,
+        "fakeClaim": {
+          "enabled": true,
+          "preferredRoles": ["villager", "seer", "witch"]
+        }
+      }
+    },
+    "villager": {
+      "name": "村民AI",
+      "description": "村民阵营AI的行为模式",
+      "dayStrategy": {
+        "speakStyle": "analytical",
+        "suspicionThreshold": 0.6,
+        "trustThreshold": 0.7,
+        "voteStrategy": "evidence_based"
+      }
+    },
+    "seer": {
+      "name": "预言家AI",
+      "description": "预言家AI的行为模式",
+      "nightStrategy": {
+        "checkPriority": [
+          "suspicious",
+          "active_speaker",
+          "random"
+        ]
+      },
+      "dayStrategy": {
+        "revealTiming": "when_confident",
+        "revealThreshold": 0.8,
+        "fakeSeerDetection": true
+      }
+    },
+    "witch": {
+      "name": "女巫AI",
+      "description": "女巫AI的行为模式",
+      "nightStrategy": {
+        "saveStrategy": {
+          "saveConfirmedGood": true,
+          "saveProbability": 0.8,
+          "avoidSaveIfKilled": true
+        },
+        "poisonStrategy": {
+          "poisonConfirmedWerewolf": true,
+          "poisonSuspicious": 0.7
+        }
+      }
+    },
+    "hunter": {
+      "name": "猎人AI",
+      "description": "猎人AI的行为模式",
+      "dayStrategy": {
+        "revealTiming": "when_threatened",
+        "shootStrategy": {
+          "shootConfirmedWerewolf": true,
+          "shootSuspicious": 0.75
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,44 @@
+{
+  "winConditions": {
+    "werewolf": {
+      "name": "狼人阵营胜利",
+      "description": "所有神职死亡，或所有平民死亡",
+      "conditions": [
+        {
+          "type": "allDead",
+          "targetRoles": ["seer", "witch", "hunter", "guard"],
+          "description": "所有神职死亡"
+        },
+        {
+          "type": "allDead",
+          "targetRoles": ["villager"],
+          "description": "所有平民死亡"
+        }
+      ],
+      "priority": 1
+    },
+    "villager": {
+      "name": "村民阵营胜利",
+      "description": "所有狼人死亡",
+      "conditions": [
+        {
+          "type": "allDead",
+          "targetRoles": ["werewolf"],
+          "description": "所有狼人死亡"
+        }
+      ],
+      "priority": 2
+    },
+    "thirdParty": {
+      "name": "第三方胜利",
+      "description": "特殊角色达成胜利条件",
+      "conditions": [],
+      "priority": 0
+    }
+  },
+  "checkTiming": [
+    "after_night",
+    "after_execution",
+    "after_hunter_shoot"
+  ]
+}

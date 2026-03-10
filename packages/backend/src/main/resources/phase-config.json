@@ -1,0 +1,119 @@
+{
+  "phases": {
+    "night_start": {
+      "name": "夜晚开始",
+      "nameEn": "NightStart",
+      "type": "system",
+      "duration": 3000,
+      "description": "天黑请闭眼",
+      "actions": [],
+      "broadcast": "天黑了，所有人请闭眼"
+    },
+    "werewolf_action": {
+      "name": "狼人行动",
+      "nameEn": "WerewolfAction",
+      "type": "action",
+      "duration": 30000,
+      "description": "狼人请睁眼，选择要击杀的目标",
+      "role": "werewolf",
+      "actions": ["kill"],
+      "broadcast": "狼人请睁眼",
+      "endBroadcast": "狼人请闭眼"
+    },
+    "seer_action": {
+      "name": "预言家行动",
+      "nameEn": "SeerAction",
+      "type": "action",
+      "duration": 20000,
+      "description": "预言家请睁眼，选择要查验的目标",
+      "role": "seer",
+      "actions": ["check"],
+      "broadcast": "预言家请睁眼",
+      "endBroadcast": "预言家请闭眼"
+    },
+    "guard_action": {
+      "name": "守卫行动",
+      "nameEn": "GuardAction",
+      "type": "action",
+      "duration": 20000,
+      "description": "守卫请睁眼，选择要守护的目标",
+      "role": "guard",
+      "actions": ["guard"],
+      "broadcast": "守卫请睁眼",
+      "endBroadcast": "守卫请闭眼"
+    },
+    "witch_action": {
+      "name": "女巫行动",
+      "nameEn": "WitchAction",
+      "type": "action",
+      "duration": 30000,
+      "description": "女巫请睁眼，今晚死的是TA，你要使用解药吗？你要使用毒药吗？",
+      "role": "witch",
+      "actions": ["save", "poison"],
+      "broadcast": "女巫请睁眼",
+      "endBroadcast": "女巫请闭眼",
+      "showDeathInfo": true
+    },
+    "hunter_action": {
+      "name": "猎人行动",
+      "nameEn": "HunterAction",
+      "type": "action",
+      "duration": 15000,
+      "description": "猎人请睁眼",
+      "role": "hunter",
+      "actions": [],
+      "broadcast": "猎人请睁眼",
+      "endBroadcast": "猎人请闭眼",
+      "note": "猎人被动技能，仅确认身份"
+    },
+    "day_start": {
+      "name": "白天开始",
+      "nameEn": "DayStart",
+      "type": "system",
+      "duration": 3000,
+      "description": "天亮了",
+      "actions": [],
+      "broadcast": "天亮了"
+    },
+    "announce_death": {
+      "name": "公布死亡",
+      "nameEn": "AnnounceDeath",
+      "type": "system",
+      "duration": 10000,
+      "description": "公布昨晚死亡玩家",
+      "actions": ["announce"],
+      "needDeathInfo": true
+    },
+    "discussion": {
+      "name": "讨论发言",
+      "nameEn": "Discussion",
+      "type": "discussion",
+      "duration": 180000,
+      "description": "玩家轮流发言，讨论谁是狼人",
+      "actions": ["speak"],
+      "speakOrder": "seat",
+      "speakTime": 60000
+    },
+    "voting": {
+      "name": "投票",
+      "nameEn": "Voting",
+      "type": "vote",
+      "duration": 30000,
+      "description": "请投票选出要放逐的玩家",
+      "actions": ["vote"],
+      "canAbstain": true,
+      "broadcast": "现在开始投票"
+    },
+    "execution": {
+      "name": "处决",
+      "nameEn": "Execution",
+      "type": "system",
+      "duration": 10000,
+      "description": "公布投票结果，处决得票最多的玩家",
+      "actions": ["execute"],
+      "needVoteResult": true,
+      "allowLastWords": true,
+      "lastWordsTime": 60000
+    }
+  }
+}

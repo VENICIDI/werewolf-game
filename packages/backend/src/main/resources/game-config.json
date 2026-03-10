@@ -1,0 +1,97 @@
+{
+  "gameTypes": {
+    "standard_9": {
+      "name": "标准9人局",
+      "description": "3狼人 3村民 预言家 女巫 猎人",
+      "minPlayers": 9,
+      "maxPlayers": 9,
+      "roles": {
+        "werewolf": 3,
+        "villager": 3,
+        "seer": 1,
+        "witch": 1,
+        "hunter": 1
+      },
+      "phases": [
+        "night_start",
+        "werewolf_action",
+        "seer_action",
+        "witch_action",
+        "hunter_action",
+        "day_start",
+        "announce_death",
+        "discussion",
+        "voting",
+        "execution"
+      ],
+      "rules": {
+        "firstNightNoKill": false,
+        "witchCanSaveSelf": false,
+        "hunterCanShootWhenDied": true,
+        "seerKnowsIdentity": true
+      }
+    },
+    "standard_12": {
+      "name": "标准12人局",
+      "description": "4狼人 4村民 预言家 女巫 猎人 守卫",
+      "minPlayers": 12,
+      "maxPlayers": 12,
+      "roles": {
+        "werewolf": 4,
+        "villager": 4,
+        "seer": 1,
+        "witch": 1,
+        "hunter": 1,
+        "guard": 1
+      },
+      "phases": [
+        "night_start",
+        "werewolf_action",
+        "seer_action",
+        "guard_action",
+        "witch_action",
+        "hunter_action",
+        "day_start",
+        "announce_death",
+        "discussion",
+        "voting",
+        "execution"
+      ],
+      "rules": {
+        "firstNightNoKill": false,
+        "witchCanSaveSelf": true,
+        "hunterCanShootWhenDied": true,
+        "seerKnowsIdentity": true,
+        "guardCanProtectSelf": false
+      }
+    },
+    "beginner_6": {
+      "name": "新手6人局",
+      "description": "2狼人 2村民 预言家 女巫",
+      "minPlayers": 6,
+      "maxPlayers": 6,
+      "roles": {
+        "werewolf": 2,
+        "villager": 2,
+        "seer": 1,
+        "witch": 1
+      },
+      "phases": [
+        "night_start",
+        "werewolf_action",
+        "seer_action",
+        "witch_action",
+        "day_start",
+        "announce_death",
+        "discussion",
+        "voting",
+        "execution"
+      ],
+      "rules": {
+        "firstNightNoKill": true,
+        "witchCanSaveSelf": true,
+        "seerKnowsIdentity": true
+      }
+    }
+  }
+}

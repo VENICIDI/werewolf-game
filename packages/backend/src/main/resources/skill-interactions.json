@@ -1,0 +1,106 @@
+{
+  "version": "1.0",
+  "description": "技能交互配置 - 定义技能之间的优先级和冲突规则",
+  "priority": {
+    "description": "数字越小优先级越高，先执行",
+    "list": [
+      { "phase": "guard_action", "priority": 10 },
+      { "phase": "werewolf_action", "priority": 20 },
+      { "phase": "seer_action", "priority": 30 },
+      { "phase": "witch_save", "priority": 40 },
+      { "phase": "witch_poison", "priority": 50 }
+    ]
+  },
+  "interactions": {
+    "guard_and_werewolf": {
+      "description": "守卫守护 vs 狼人击杀",
+      "result": "guarded_player_survives",
+      "message": "被守护的玩家不会死亡"
+    },
+    "guard_and_witch_save": {
+      "description": "守卫守护 + 女巫解药同时使用",
+      "result": "player_dies",
+      "message": "同守同救，玩家死亡",
+      "rules": {
+        "standard": "die",
+        "variant": "survive"
+      }
+    },
+    "werewolf_and_witch_save": {
+      "description": "狼人击杀 + 女巫解药",
+      "result": "player_survives",
+      "message": "女巫救活了被击杀的玩家",
+      "witchSees": "death_info"
+    },
+    "poison_and_all": {
+      "description": "女巫毒药",
+      "result": "target_dies",
+      "cannotBeSaved": true,
+      "blocksHunter": true
+    },
+    "hunter_and_poison": {
+      "description": "猎人被毒死",
+      "result": "cannot_shoot",
+      "message": "被毒死的猎人不能开枪"
+    },
+    "hunter_and_vote": {
+      "description": "猎人被投票出局",
+      "result": "can_shoot",
+      "message": "被票死的猎人可以开枪"
+    },
+    "hunter_and_kill": {
+      "description": "猎人被狼人杀死",
+      "result": "can_shoot",
+      "message": "被刀死的猎人可以开枪"
+    }
+  },
+  "deathTypes": {
+    "werewolf_kill": {
+      "name": "狼人击杀",
+      "canBeSaved": true,
+      "hunterCanShoot": true,
+      "announce": true
+    },
+    "witch_poison": {
+      "name": "女巫毒杀",
+      "canBeSaved": false,
+      "hunterCanShoot": false,
+      "announce": true,
+      "showAs": "death"
+    },
+    "vote_execution": {
+      "name": "投票处决",
+      "canBeSaved": false,
+      "hunterCanShoot": true,
+      "announce": true
+    },
+    "guard_witch_conflict": {
+      "name": "同守同救",
+      "canBeSaved": false,
+      "hunterCanShoot": true,
+      "announce": true
+    }
+  },
+  "skillUsage": {
+    "witch": {
+      "save": {
+        "canUseOnSelf": {
+          "standard": false,
+          "variant": true
+        },
+        "knowsTarget": true,
+        "canUseFirstNight": true
+      },
+      "poison": {
+        "canUseOnSelf": false,
+        "knowsTarget": false,
+        "canUseFirstNight": false
+      }
+    },
+    "guard": {
+      "cannotGuardConsecutive": true,
+      "canGuardSelf": false,
+      "guardWithWitch": "conflict"
+    }
+  }
+}

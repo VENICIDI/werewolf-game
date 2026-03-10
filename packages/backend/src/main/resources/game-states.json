@@ -1,0 +1,120 @@
+{
+  "version": "1.0",
+  "description": "游戏状态机配置",
+  "states": {
+    "waiting": {
+      "id": "waiting",
+      "name": "等待中",
+      "description": "等待玩家加入和准备",
+      "allowedActions": ["join", "leave", "ready", "unready", "chat"],
+      "transitions": [
+        {
+          "to": "starting",
+          "condition": "allReady && playerCount >= minPlayers",
+          "action": "startGame"
+        }
+      ]
+    },
+    "starting": {
+      "id": "starting",
+      "name": "开始中",
+      "description": "游戏开始，分配角色",
+      "allowedActions": [],
+      "transitions": [
+        {
+          "to": "night",
+          "action": "enterNight"
+        }
+      ]
+    },
+    "night": {
+      "id": "night",
+      "name": "夜晚阶段",
+      "description": "夜晚行动阶段",
+      "allowedActions": ["roleAction"],
+      "subStates": ["night_start", "werewolf_action", "seer_action", "guard_action", "witch_action", "hunter_action"],
+      "transitions": [
+        {
+          "to": "day",
+          "condition": "nightActionsComplete",
+          "action": "enterDay"
+        }
+      ]
+    },
+    "day": {
+      "id": "day",
+      "name": "白天阶段",
+      "description": "白天讨论投票阶段",
+      "allowedActions": ["speak", "vote", "chat"],
+      "subStates": ["day_start", "announce_death", "discussion", "voting", "execution"],
+      "transitions": [
+        {
+          "to": "checking",
+          "condition": "dayActionsComplete",
+          "action": "checkWinCondition"
+        }
+      ]
+    },
+    "checking": {
+      "id": "checking",
+      "name": "判定中",
+      "description": "检查胜负条件",
+      "allowedActions": [],
+      "transitions": [
+        {
+          "to": "finished",
+          "condition": "hasWinner",
+          "action": "endGame"
+        },
+        {
+          "to": "night",
+          "condition": "noWinner",
+          "action": "nextRound"
+        }
+      ]
+    },
+    "finished": {
+      "id": "finished",
+      "name": "已结束",
+      "description": "游戏已结束",
+      "allowedActions": ["viewResult", "chat", "restart"],
+      "transitions": [
+        {
+          "to": "waiting",
+          "action": "resetGame"
+        }
+      ]
+    }
+  },
+  "playerStates": {
+    "alive": {
+      "id": "alive",
+      "name": "存活",
+      "canVote": true,
+      "canSpeak": true,
+      "canUseSkill": true
+    },
+    "dead": {
+      "id": "dead",
+      "name": "死亡",
+      "canVote": false,
+      "canSpeak": false,
+      "canUseSkill": false,
+      "canView": true
+    },
+    "dying": {
+      "id": "dying",
+      "name": "濒死",
+      "canVote": false,
+      "canSpeak": true,
+      "canUseSkill": true,
+      "note": "猎人濒死状态可以开枪"
+    }
+  },
+  "phaseStates": {
+    "pending": "等待中",
+    "active": "进行中",
+    "completed": "已完成",
+    "skipped": "已跳过"
+  }
+}

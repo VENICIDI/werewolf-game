@@ -1,0 +1,321 @@
+{
+  "version": "1.0",
+  "description": "狼人杀完整角色配置",
+  "roles": {
+    "villager": {
+      "id": "villager",
+      "name": "村民",
+      "nameEn": "Villager",
+      "camp": "villager",
+      "campName": "好人阵营",
+      "type": "normal",
+      "description": "没有特殊技能，通过分析发言和投票找出狼人",
+      "shortDesc": "平民，无特殊技能",
+      "skills": [],
+      "actionPhase": null,
+      "priority": 0,
+      "canUseSkillAtNight": false,
+      "winCondition": "所有狼人死亡",
+      "difficulty": 1,
+      "tips": [
+        "认真听发言，找出逻辑漏洞",
+        "不要轻易暴露自己的身份",
+        "学会分析票型"
+      ]
+    },
+    "werewolf": {
+      "id": "werewolf",
+      "name": "狼人",
+      "nameEn": "Werewolf",
+      "camp": "werewolf",
+      "campName": "狼人阵营",
+      "type": "werewolf",
+      "description": "夜晚可以睁眼杀人，白天需要隐藏身份并误导好人",
+      "shortDesc": "夜晚杀人，白天隐藏",
+      "skills": [
+        {
+          "id": "kill",
+          "name": "击杀",
+          "description": "每晚可以选择一名玩家击杀",
+          "targetType": "single",
+          "targetCamp": "any",
+          "canTargetSelf": false,
+          "canTargetTeammate": false,
+          "usageLimit": -1,
+          "priority": 10
+        }
+      ],
+      "actionPhase": "werewolf_action",
+      "priority": 10,
+      "canUseSkillAtNight": true,
+      "winCondition": "所有神职死亡或所有平民死亡",
+      "difficulty": 3,
+      "teamAction": true,
+      "tips": [
+        "学会悍跳预言家",
+        "注意狼队友的配合",
+        "选择合适的刀法"
+      ]
+    },
+    "seer": {
+      "id": "seer",
+      "name": "预言家",
+      "nameEn": "Seer",
+      "camp": "villager",
+      "campName": "好人阵营",
+      "type": "god",
+      "description": "每晚可以查验一名玩家的身份，是好人阵营的信息核心",
+      "shortDesc": "每晚查验一名玩家身份",
+      "skills": [
+        {
+          "id": "check",
+          "name": "查验",
+          "description": "每晚可以查验一名玩家是好人还是狼人",
+          "targetType": "single",
+          "targetCamp": "any",
+          "canTargetSelf": false,
+          "canTargetTeammate": false,
+          "usageLimit": -1,
+          "priority": 20,
+          "resultType": "camp",
+          "resultGood": "好人",
+          "resultBad": "狼人"
+        }
+      ],
+      "actionPhase": "seer_action",
+      "priority": 20,
+      "canUseSkillAtNight": true,
+      "winCondition": "所有狼人死亡",
+      "difficulty": 4,
+      "tips": [
+        "选择合适的时机跳身份",
+        "留好警徽流",
+        "注意狼人的悍跳"
+      ]
+    },
+    "witch": {
+      "id": "witch",
+      "name": "女巫",
+      "nameEn": "Witch",
+      "camp": "villager",
+      "campName": "好人阵营",
+      "type": "god",
+      "description": "有一瓶解药和一瓶毒药，解药可以救人，毒药可以毒人",
+      "shortDesc": "解药救人，毒药杀人",
+      "skills": [
+        {
+          "id": "save",
+          "name": "解药",
+          "description": "可以救活当晚被狼人击杀的玩家",
+          "targetType": "single",
+          "targetCamp": "any",
+          "canTargetSelf": true,
+          "canTargetTeammate": true,
+          "usageLimit": 1,
+          "priority": 30,
+          "canUseWhen": "after_werewolf",
+          "knowsTarget": true
+        },
+        {
+          "id": "poison",
+          "name": "毒药",
+          "description": "可以毒死一名玩家",
+          "targetType": "single",
+          "targetCamp": "any",
+          "canTargetSelf": false,
+          "canTargetTeammate": false,
+          "usageLimit": 1,
+          "priority": 35
+        }
+      ],
+      "actionPhase": "witch_action",
+      "priority": 30,
+      "canUseSkillAtNight": true,
+      "winCondition": "所有狼人死亡",
+      "difficulty": 4,
+      "tips": [
+        "第一晚建议救人",
+        "毒药留给确定的狼人",
+        "注意狼人自刀"
+      ]
+    },
+    "hunter": {
+      "id": "hunter",
+      "name": "猎人",
+      "nameEn": "Hunter",
+      "camp": "villager",
+      "campName": "好人阵营",
+      "type": "god",
+      "description": "死亡时可以开枪带走一名玩家，被毒死不能开枪",
+      "shortDesc": "死亡时可以开枪",
+      "skills": [
+        {
+          "id": "shoot",
+          "name": "开枪",
+          "description": "死亡时可以开枪带走一名玩家",
+          "targetType": "single",
+          "targetCamp": "any",
+          "canTargetSelf": false,
+          "canTargetTeammate": false,
+          "usageLimit": 1,
+          "trigger": "on_death",
+          "canBeBlocked": true,
+          "blockedBy": ["poison"]
+        }
+      ],
+      "actionPhase": "hunter_action",
+      "priority": 40,
+      "canUseSkillAtNight": false,
+      "winCondition": "所有狼人死亡",
+      "difficulty": 3,
+      "tips": [
+        "不要轻易暴露身份",
+        "被票死可以带人",
+        "被毒死不能开枪"
+      ]
+    },
+    "guard": {
+      "id": "guard",
+      "name": "守卫",
+      "nameEn": "Guard",
+      "camp": "villager",
+      "campName": "好人阵营",
+      "type": "god",
+      "description": "每晚可以守护一名玩家，被守护的玩家不会被狼人杀死",
+      "shortDesc": "每晚守护一名玩家",
+      "skills": [
+        {
+          "id": "guard",
+          "name": "守护",
+          "description": "每晚可以守护一名玩家，被守护的玩家不会被狼人杀死",
+          "targetType": "single",
+          "targetCamp": "any",
+          "canTargetSelf": false,
+          "canTargetTeammate": true,
+          "usageLimit": -1,
+          "priority": 25,
+          "cannotGuardConsecutive": true,
+          "guardWithWitchConflict": true
+        }
+      ],
+      "actionPhase": "guard_action",
+      "priority": 25,
+      "canUseSkillAtNight": true,
+      "winCondition": "所有狼人死亡",
+      "difficulty": 4,
+      "tips": [
+        "不要连续守同一个人",
+        "可以守女巫",
+        "注意和女巫的配合"
+      ]
+    },
+    "idiot": {
+      "id": "idiot",
+      "name": "白痴",
+      "nameEn": "Idiot",
+      "camp": "villager",
+      "campName": "好人阵营",
+      "type": "god",
+      "description": "被投票出局时不会死亡，但会失去投票权",
+      "shortDesc": "被票不死，失去投票权",
+      "skills": [
+        {
+          "id": "survive",
+          "name": "免疫",
+          "description": "被投票出局时不会死亡",
+          "trigger": "on_voted_out",
+          "effect": "survive_but_no_vote",
+          "usageLimit": 1
+        }
+      ],
+      "actionPhase": null,
+      "priority": 0,
+      "canUseSkillAtNight": false,
+      "winCondition": "所有狼人死亡",
+      "difficulty": 2,
+      "tips": [
+        "可以故意表现得像狼",
+        "被票出后帮好人分析",
+        "不要浪费免疫机会"
+      ]
+    },
+    "white_werewolf": {
+      "id": "white_werewolf",
+      "name": "白狼王",
+      "nameEn": "White Werewolf",
+      "camp": "werewolf",
+      "campName": "狼人阵营",
+      "type": "werewolf",
+      "description": "白天可以自爆并带走一名玩家",
+      "shortDesc": "白天自爆带走一人",
+      "skills": [
+        {
+          "id": "kill",
+          "name": "击杀",
+          "description": "每晚可以选择一名玩家击杀",
+          "targetType": "single",
+          "targetCamp": "any",
+          "canTargetSelf": false,
+          "canTargetTeammate": false,
+          "usageLimit": -1,
+          "priority": 10
+        },
+        {
+          "id": "self_explode",
+          "name": "自爆",
+          "description": "白天可以自爆并带走一名玩家",
+          "targetType": "single",
+          "targetCamp": "any",
+          "canTargetSelf": false,
+          "canTargetTeammate": false,
+          "usageLimit": 1,
+          "trigger": "day_self_explode",
+          "canUseDuring": "day"
+        }
+      ],
+      "actionPhase": "werewolf_action",
+      "priority": 10,
+      "canUseSkillAtNight": true,
+      "winCondition": "所有神职死亡或所有平民死亡",
+      "difficulty": 4,
+      "teamAction": true,
+      "tips": [
+        "选择合适的时机自爆",
+        "可以带走关键的神职",
+        "注意自爆的时机"
+      ]
+    }
+  },
+  "camps": {
+    "villager": {
+      "id": "villager",
+      "name": "好人阵营",
+      "nameEn": "Villager Camp",
+      "description": "找出所有狼人",
+      "winCondition": "所有狼人死亡",
+      "roles": ["villager", "seer", "witch", "hunter", "guard", "idiot"]
+    },
+    "werewolf": {
+      "id": "werewolf",
+      "name": "狼人阵营",
+      "nameEn": "Werewolf Camp",
+      "description": "杀死所有好人",
+      "winCondition": "所有神职死亡或所有平民死亡",
+      "roles": ["werewolf", "white_werewolf"]
+    }
+  },
+  "roleTypes": {
+    "normal": {
+      "name": "普通角色",
+      "description": "没有特殊技能"
+    },
+    "god": {
+      "name": "神职",
+      "description": "拥有特殊技能"
+    },
+    "werewolf": {
+      "name": "狼人",
+      "description": "狼人阵营"
+    }
+  }
+}
