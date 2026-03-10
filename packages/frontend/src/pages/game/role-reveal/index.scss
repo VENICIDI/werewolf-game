@@ -1,0 +1,224 @@
+.role-reveal-container {
+  min-height: 100vh;
+  position: relative;
+  overflow: hidden;
+  padding: 40px 24px;
+}
+
+.background {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: -1;
+  transition: all 0.5s ease;
+
+  &.villager {
+    background: linear-gradient(180deg, #1a2e1a 0%, #0f1f0f 100%);
+  }
+
+  &.werewolf {
+    background: linear-gradient(180deg, #2e1a1a 0%, #1f0f0f 100%);
+  }
+}
+
+.header {
+  text-align: center;
+  margin-bottom: 40px;
+
+  .title {
+    display: block;
+    font-size: 28px;
+    font-weight: bold;
+    color: #fff;
+    margin-bottom: 8px;
+  }
+
+  .subtitle {
+    display: block;
+    font-size: 16px;
+    color: #a0a0a0;
+  }
+}
+
+.countdown-section {
+  text-align: center;
+  padding: 60px 0;
+
+  .countdown-number {
+    display: block;
+    font-size: 120px;
+    font-weight: bold;
+    color: #e94560;
+    line-height: 1;
+    margin-bottom: 20px;
+    animation: pulse 1s ease-in-out infinite;
+  }
+
+  .countdown-text {
+    display: block;
+    font-size: 18px;
+    color: #a0a0a0;
+  }
+}
+
+@keyframes pulse {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.1);
+    opacity: 0.8;
+  }
+}
+
+.role-section {
+  animation: fadeIn 0.5s ease;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.camp-badge {
+  text-align: center;
+  margin-bottom: 20px;
+
+  &.villager {
+    .camp-name {
+      background: rgba(76, 175, 80, 0.3);
+      color: #4CAF50;
+    }
+  }
+
+  &.werewolf {
+    .camp-name {
+      background: rgba(244, 67, 54, 0.3);
+      color: #F44336;
+    }
+  }
+
+  .camp-name {
+    display: inline-block;
+    padding: 8px 24px;
+    border-radius: 20px;
+    font-size: 14px;
+    font-weight: 600;
+  }
+}
+
+.role-card {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 24px;
+  padding: 40px;
+  text-align: center;
+  border: 2px solid;
+  margin-bottom: 24px;
+
+  .role-icon {
+    display: block;
+    font-size: 80px;
+    margin-bottom: 16px;
+  }
+
+  .role-name {
+    display: block;
+    font-size: 32px;
+    font-weight: bold;
+    color: #fff;
+    margin-bottom: 4px;
+  }
+
+  .role-name-en {
+    display: block;
+    font-size: 14px;
+    color: #a0a0a0;
+    margin-bottom: 12px;
+  }
+
+  .role-short {
+    display: block;
+    font-size: 14px;
+    color: #e94560;
+  }
+}
+
+.description-section {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 16px;
+  padding: 20px;
+  margin-bottom: 20px;
+
+  .description-title {
+    display: block;
+    font-size: 16px;
+    font-weight: 600;
+    color: #fff;
+    margin-bottom: 12px;
+  }
+
+  .description-text {
+    display: block;
+    font-size: 14px;
+    color: #a0a0a0;
+    line-height: 1.6;
+  }
+}
+
+.tips-section {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 16px;
+  padding: 20px;
+  margin-bottom: 24px;
+
+  .tips-title {
+    display: block;
+    font-size: 16px;
+    font-weight: 600;
+    color: #fff;
+    margin-bottom: 12px;
+  }
+
+  .tip-item {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 8px;
+
+    .tip-dot {
+      font-size: 14px;
+      color: #e94560;
+    }
+
+    .tip-text {
+      flex: 1;
+      font-size: 14px;
+      color: #a0a0a0;
+      line-height: 1.5;
+    }
+  }
+}
+
+.enter-game-btn {
+  width: 100%;
+  height: 52px;
+  background: linear-gradient(135deg, #e94560 0%, #c73e54 100%);
+  border: none;
+  border-radius: 26px;
+  color: #fff;
+  font-size: 18px;
+  font-weight: 600;
+  margin-top: 20px;
+
+  &::after {
+    border: none;
+  }
+}
