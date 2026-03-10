@@ -1,0 +1,23 @@
+{
+  "name": "werewolf-game",
+  "version": "1.0.0",
+  "description": "基于 RAG 增强的 AI 狼人杀游戏平台",
+  "private": true,
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "dev:backend": "cd packages/backend && ./mvnw spring-boot:run",
+    "dev:frontend": "cd packages/frontend && npm run dev",
+    "build": "npm run build:backend && npm run build:frontend",
+    "build:backend": "cd packages/backend && ./mvnw clean package",
+    "build:frontend": "cd packages/frontend && npm run build",
+    "test": "npm run test:backend && npm run test:frontend",
+    "test:backend": "cd packages/backend && ./mvnw test",
+    "test:frontend": "cd packages/frontend && npm test"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.0"
+  }
+}

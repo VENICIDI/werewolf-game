@@ -1,0 +1,44 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: werewolf-backend
+  
+  datasource:
+    url: jdbc:mysql://localhost:3306/werewolf?useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
+    username: werewolf
+    password: werewolf123
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.MySQL8Dialect
+        format_sql: true
+  
+  redis:
+    host: localhost
+    port: 6379
+    password: 
+    database: 0
+    timeout: 6000ms
+    lettuce:
+      pool:
+        max-active: 8
+        max-idle: 8
+        min-idle: 0
+
+# JWT配置
+jwt:
+  secret: werewolf-secret-key-2024-very-long-and-secure-key-for-jwt-signing
+  expiration: 86400000  # 24小时
+
+# 日志
+logging:
+  level:
+    com.werewolf: DEBUG
+    org.springframework.web.socket: DEBUG

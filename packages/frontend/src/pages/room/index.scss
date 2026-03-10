@@ -1,0 +1,374 @@
+.room-container {
+  min-height: 100vh;
+  background: linear-gradient(180deg, #1a1a2e 0%, #0f0f1e 100%);
+  padding: 20px;
+  padding-bottom: 100px;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  margin-bottom: 24px;
+
+  .back-btn {
+    width: 40px;
+    font-size: 24px;
+    color: #fff;
+  }
+
+  .room-info-header {
+    flex: 1;
+    text-align: center;
+
+    .room-name {
+      display: block;
+      font-size: 18px;
+      font-weight: 600;
+      color: #fff;
+      margin-bottom: 4px;
+    }
+
+    .room-code {
+      display: block;
+      font-size: 14px;
+      color: #e94560;
+    }
+  }
+
+  .placeholder {
+    width: 40px;
+  }
+}
+
+.loading {
+  text-align: center;
+  padding: 40px;
+  color: #a0a0a0;
+}
+
+// 创建房间表单
+.create-form {
+  .form-item {
+    margin-bottom: 24px;
+
+    .label {
+      display: block;
+      font-size: 14px;
+      color: #fff;
+      margin-bottom: 12px;
+    }
+
+    .input {
+      width: 100%;
+      height: 48px;
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid #2d2d44;
+      border-radius: 12px;
+      padding: 0 16px;
+      color: #fff;
+      font-size: 14px;
+
+      &::placeholder {
+        color: #666;
+      }
+    }
+
+    .player-options {
+      display: flex;
+      gap: 12px;
+
+      .option {
+        flex: 1;
+        height: 48px;
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid #2d2d44;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+
+        &.active {
+          background: #0f3460;
+          border-color: #e94560;
+        }
+
+        .option-num {
+          font-size: 14px;
+          color: #fff;
+        }
+      }
+    }
+  }
+
+  .create-btn {
+    width: 100%;
+    height: 48px;
+    background: linear-gradient(135deg, #e94560 0%, #c73e54 100%);
+    border: none;
+    border-radius: 12px;
+    color: #fff;
+    font-size: 16px;
+    font-weight: 600;
+    margin-top: 20px;
+
+    &::after {
+      border: none;
+    }
+  }
+}
+
+// 玩家列表
+.players-section {
+  .section-title {
+    display: block;
+    font-size: 14px;
+    color: #a0a0a0;
+    margin-bottom: 16px;
+  }
+
+  .players-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+
+    .player-card {
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 12px;
+      padding: 12px;
+      text-align: center;
+      position: relative;
+      border: 1px solid #2d2d44;
+
+      &.empty {
+        opacity: 0.5;
+      }
+
+      .player-avatar {
+        width: 48px;
+        height: 48px;
+        border-radius: 50%;
+        background: #0f3460;
+        margin: 0 auto 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+
+        &.empty {
+          background: rgba(255, 255, 255, 0.1);
+        }
+
+        .avatar-img {
+          width: 100%;
+          height: 100%;
+        }
+
+        .avatar-default {
+          font-size: 24px;
+        }
+      }
+
+      .player-name {
+        display: block;
+        font-size: 12px;
+        color: #fff;
+        margin-bottom: 4px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .host-badge {
+        display: inline-block;
+        font-size: 10px;
+        color: #e94560;
+        background: rgba(233, 69, 96, 0.2);
+        padding: 2px 8px;
+        border-radius: 8px;
+        margin-bottom: 4px;
+      }
+
+      .seat-num {
+        display: block;
+        font-size: 12px;
+        color: #666;
+      }
+    }
+  }
+}
+
+// 连接状态
+.room-info-header {
+  .ws-status {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    margin-top: 8px;
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+
+      &.connected {
+        background: #4caf50;
+      }
+
+      &.disconnected {
+        background: #f44336;
+      }
+    }
+
+    .status-text {
+      font-size: 12px;
+      color: #a0a0a0;
+    }
+  }
+}
+
+// 玩家准备状态
+.player-card {
+  &.ready {
+    border-color: #4caf50;
+  }
+
+  .ready-badge {
+    display: inline-block;
+    font-size: 10px;
+    color: #4caf50;
+    background: rgba(76, 175, 80, 0.2);
+    padding: 2px 8px;
+    border-radius: 8px;
+    margin-bottom: 4px;
+  }
+}
+
+// 聊天区域
+.chat-section {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 16px;
+  padding: 16px;
+  margin-bottom: 100px;
+  border: 1px solid #2d2d44;
+
+  .section-title {
+    display: block;
+    font-size: 14px;
+    color: #a0a0a0;
+    margin-bottom: 12px;
+  }
+
+  .chat-messages {
+    height: 150px;
+    overflow-y: auto;
+    margin-bottom: 12px;
+
+    .chat-empty {
+      text-align: center;
+      color: #666;
+      font-size: 14px;
+      padding: 20px;
+    }
+
+    .chat-item {
+      margin-bottom: 8px;
+
+      .chat-sender {
+        font-size: 12px;
+        color: #e94560;
+        margin-right: 8px;
+      }
+
+      .chat-content {
+        font-size: 14px;
+        color: #fff;
+      }
+    }
+  }
+
+  .chat-input-area {
+    display: flex;
+    gap: 8px;
+
+    .chat-input {
+      flex: 1;
+      height: 40px;
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid #2d2d44;
+      border-radius: 20px;
+      padding: 0 16px;
+      color: #fff;
+      font-size: 14px;
+
+      &::placeholder {
+        color: #666;
+      }
+    }
+
+    .chat-send {
+      width: 60px;
+      height: 40px;
+      background: #0f3460;
+      border: none;
+      border-radius: 20px;
+      color: #fff;
+      font-size: 14px;
+      line-height: 40px;
+
+      &::after {
+        border: none;
+      }
+    }
+  }
+}
+
+// 底部操作栏
+.action-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 20px;
+  background: linear-gradient(180deg, transparent 0%, #0f0f1e 20%);
+  display: flex;
+  gap: 12px;
+
+  .action-btn {
+    flex: 1;
+    height: 48px;
+    border: none;
+    border-radius: 12px;
+    font-size: 16px;
+    font-weight: 600;
+
+    &::after {
+      border: none;
+    }
+
+    &.leave {
+      background: #2d2d44;
+      color: #fff;
+    }
+
+    &.ready {
+      background: linear-gradient(135deg, #e94560 0%, #c73e54 100%);
+      color: #fff;
+    }
+
+    &.cancel {
+      background: #666;
+      color: #fff;
+    }
+
+    &.start {
+      background: linear-gradient(135deg, #e94560 0%, #c73e54 100%);
+      color: #fff;
+
+      &[disabled] {
+        background: #333;
+        color: #666;
+      }
+    }
+  }
+}

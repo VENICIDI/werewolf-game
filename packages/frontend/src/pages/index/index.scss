@@ -1,0 +1,153 @@
+.index-container {
+  min-height: 100vh;
+  background: linear-gradient(180deg, #1a1a2e 0%, #0f0f1e 100%);
+  padding: 40px 24px;
+}
+
+.header {
+  text-align: center;
+  margin-bottom: 40px;
+
+  .title {
+    display: block;
+    font-size: 48px;
+    font-weight: bold;
+    color: #e94560;
+    margin-bottom: 12px;
+  }
+
+  .subtitle {
+    display: block;
+    font-size: 14px;
+    color: #a0a0a0;
+  }
+}
+
+.user-card {
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+  border-radius: 16px;
+  padding: 24px;
+  margin-bottom: 24px;
+  border: 1px solid #2d2d44;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+
+  .user-info-row {
+    .welcome {
+      display: block;
+      font-size: 18px;
+      color: #fff;
+      margin-bottom: 8px;
+    }
+
+    .rating {
+      display: block;
+      font-size: 14px;
+      color: #e94560;
+    }
+  }
+
+  .logout-text {
+    font-size: 14px;
+    color: #a0a0a0;
+    padding: 8px 16px;
+    border: 1px solid #2d2d44;
+    border-radius: 16px;
+
+    &:active {
+      background: rgba(255, 255, 255, 0.1);
+    }
+  }
+}
+
+.login-card {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 16px;
+  padding: 24px;
+  margin-bottom: 24px;
+  text-align: center;
+
+  .tip {
+    display: block;
+    font-size: 14px;
+    color: #a0a0a0;
+    margin-bottom: 16px;
+  }
+
+  .btn-login {
+    background: linear-gradient(135deg, #e94560 0%, #c73e54 100%);
+    color: #fff;
+    border: none;
+    border-radius: 24px;
+    padding: 12px 32px;
+    font-size: 14px;
+  }
+}
+
+.action-section {
+  margin-bottom: 32px;
+
+  .section-title {
+    display: block;
+    font-size: 16px;
+    font-weight: 600;
+    color: #fff;
+    margin-bottom: 16px;
+  }
+
+  .action-buttons {
+    display: flex;
+    gap: 16px;
+
+    .btn-large {
+      flex: 1;
+      padding: 16px 0;
+      font-size: 16px;
+      font-weight: 600;
+    }
+  }
+}
+
+.features-section {
+  .section-title {
+    display: block;
+    font-size: 16px;
+    font-weight: 600;
+    color: #fff;
+    margin-bottom: 16px;
+  }
+
+  .feature-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .feature-item {
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 12px;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+
+    .feature-icon {
+      font-size: 32px;
+      margin-bottom: 8px;
+    }
+
+    .feature-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: #fff;
+      margin-bottom: 4px;
+    }
+
+    .feature-desc {
+      font-size: 12px;
+      color: #a0a0a0;
+    }
+  }
+}
