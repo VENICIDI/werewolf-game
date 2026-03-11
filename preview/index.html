@@ -3,714 +3,685 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>狼人杀 - 页面预览</title>
+    <title>狼人杀 - 血色月夜</title>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;900&family=Crimson+Text:ital,wght@0,400;0,600;1,400&family=Noto+Serif+SC:wght@400;700;900&display=swap" rel="stylesheet">
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        :root {
+            --blood-red: #8b0000;
+            --blood-dark: #4a0000;
+            --gold: #d4af37;
+            --gold-dim: #8a7020;
+            --parchment: #1a1510;
+            --parchment-light: #2a2018;
+            --shadow: #0a0806;
+            --moon: #c4c4c4;
+            --text: #e8dcc8;
         }
         
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: #0f0f1e;
-            color: #fff;
+            font-family: 'Noto Serif SC', 'Crimson Text', serif;
+            background: var(--shadow);
+            color: var(--text);
             min-height: 100vh;
+            overflow-x: hidden;
         }
         
-        .page {
-            min-height: 100vh;
-            padding: 20px;
-            display: none;
+        /* 背景层 */
+        .bg-layer {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            pointer-events: none;
+            z-index: 0;
         }
         
-        .page.active {
-            display: block;
+        .bg-moon {
+            position: absolute;
+            top: 5%; right: 10%;
+            width: 120px; height: 120px;
+            background: radial-gradient(circle at 30% 30%, #f5f5f5 0%, #c4c4c4 50%, #888 100%);
+            border-radius: 50%;
+            box-shadow: 0 0 60px rgba(196, 196, 196, 0.3);
+            opacity: 0.8;
+        }
+        
+        .bg-moon::after {
+            content: '';
+            position: absolute;
+            top: 20%; left: 25%;
+            width: 15px; height: 15px;
+            background: #999;
+            border-radius: 50%;
+            box-shadow: 20px 10px 0 -2px #888, -10px 25px 0 -3px #aaa, 30px 30px 0 -4px #777;
+        }
+        
+        .bg-fog {
+            position: absolute;
+            bottom: 0; left: 0; right: 0;
+            height: 200px;
+            background: linear-gradient(180deg, transparent 0%, rgba(74, 0, 0, 0.3) 50%, rgba(74, 0, 0, 0.6) 100%);
+            animation: fogMove 8s ease-in-out infinite;
+        }
+        
+        @keyframes fogMove {
+            0%, 100% { transform: translateX(-10px); opacity: 0.6; }
+            50% { transform: translateX(10px); opacity: 0.8; }
+        }
+        
+        .bg-noise {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+            opacity: 0.03;
+            mix-blend-mode: overlay;
         }
         
         /* 导航 */
-        .nav {
+        .nav-seal {
             position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            background: #1a1a2e;
-            padding: 15px 20px;
+            top: 0; left: 0; right: 0;
+            background: linear-gradient(180deg, rgba(10,8,6,0.95) 0%, rgba(10,8,6,0.8) 100%);
+            padding: 12px 16px;
             display: flex;
-            gap: 10px;
+            justify-content: center;
+            gap: 8px;
             z-index: 100;
-            border-bottom: 1px solid #2d2d44;
+            border-bottom: 2px solid var(--blood-dark);
+            box-shadow: 0 4px 20px rgba(0,0,0,0.8);
         }
         
         .nav-btn {
-            padding: 8px 16px;
-            background: #0f3460;
-            border: none;
-            border-radius: 8px;
-            color: #fff;
-            font-size: 12px;
+            padding: 10px 16px;
+            background: transparent;
+            border: 1px solid transparent;
+            color: var(--gold-dim);
+            font-family: 'Noto Serif SC', serif;
+            font-size: 13px;
             cursor: pointer;
+            position: relative;
+            transition: all 0.3s;
+            letter-spacing: 1px;
         }
         
-        .nav-btn.active {
-            background: #e94560;
+        .nav-btn::before { content: '◆'; margin-right: 6px; opacity: 0; transition: opacity 0.3s; }
+        .nav-btn:hover { color: var(--gold); text-shadow: 0 0 10px rgba(212, 175, 55, 0.5); }
+        .nav-btn.active { color: var(--blood-red); border-bottom: 2px solid var(--blood-red); }
+        .nav-btn.active::before { opacity: 1; color: var(--blood-red); }
+        
+        /* 页面 */
+        .page {
+            min-height: 100vh;
+            padding: 80px 16px 40px;
+            display: none;
+            position: relative;
+            z-index: 1;
+        }
+        .page.active { display: block; }
+        
+        /* 羊皮纸卡片 */
+        .parchment {
+            background: linear-gradient(135deg, var(--parchment-light) 0%, var(--parchment) 50%, #15100c 100%);
+            border: 1px solid #3d3025;
+            border-radius: 2px 12px 2px 12px;
+            position: relative;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.05);
+        }
+        .parchment::before {
+            content: '';
+            position: absolute;
+            top: -1px; left: 20px; right: 20px;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, var(--blood-dark), transparent);
+        }
+        .parchment::after {
+            content: '';
+            position: absolute;
+            bottom: -1px; left: 30px; right: 30px;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, rgba(212,175,55,0.3), transparent);
         }
         
         /* 首页 */
-        .index-page {
-            padding-top: 70px;
-        }
-        
-        .header {
-            text-align: center;
-            margin-bottom: 40px;
-            padding-top: 20px;
-        }
-        
-        .header .title {
-            font-size: 48px;
-            color: #e94560;
+        .hero { text-align: center; padding: 40px 20px; position: relative; }
+        .hero-title {
+            font-family: 'Cinzel', 'Noto Serif SC', serif;
+            font-size: 42px;
+            font-weight: 900;
+            color: var(--blood-red);
+            text-shadow: 0 0 20px rgba(139, 0, 0, 0.5), 0 2px 4px rgba(0,0,0,0.8);
+            letter-spacing: 8px;
             margin-bottom: 8px;
+            position: relative;
         }
+        .hero-title::before, .hero-title::after { content: '✦'; position: absolute; top: 50%; transform: translateY(-50%); color: var(--gold); font-size: 16px; }
+        .hero-title::before { left: -30px; }
+        .hero-title::after { right: -30px; }
+        .hero-subtitle { font-size: 14px; color: var(--gold-dim); letter-spacing: 4px; font-style: italic; }
         
-        .header .subtitle {
-            font-size: 14px;
-            color: #a0a0a0;
+        /* 用户徽章 */
+        .user-badge { display: flex; align-items: center; gap: 16px; padding: 20px; margin-bottom: 24px; }
+        .avatar-seal {
+            width: 64px; height: 64px;
+            border-radius: 50%;
+            background: radial-gradient(circle at 30% 30%, var(--gold) 0%, var(--gold-dim) 50%, var(--blood-dark) 100%);
+            border: 3px solid var(--gold);
+            box-shadow: 0 0 20px rgba(212, 175, 55, 0.3), inset 0 2px 4px rgba(255,255,255,0.3);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 28px; position: relative;
         }
+        .avatar-seal::after { content: ''; position: absolute; inset: -6px; border: 1px dashed var(--gold-dim); border-radius: 50%; opacity: 0.5; }
+        .user-info { flex: 1; }
+        .user-name { font-size: 18px; font-weight: 700; color: var(--text); margin-bottom: 4px; }
+        .user-rank { font-size: 13px; color: var(--gold); display: flex; align-items: center; gap: 6px; }
+        .rank-icon { color: var(--blood-red); }
         
-        .user-card {
-            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-            border-radius: 16px;
-            padding: 24px;
-            margin-bottom: 24px;
-            border: 1px solid #2d2d44;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
+        /* 封印按钮 */
+        .seal-btn {
+            width: 100%; padding: 16px 24px;
+            background: linear-gradient(180deg, rgba(139,0,0,0.9) 0%, rgba(74,0,0,0.95) 100%);
+            border: 2px solid var(--gold);
+            border-radius: 4px;
+            color: var(--text);
+            font-family: 'Noto Serif SC', serif;
+            font-size: 16px; font-weight: 700;
+            letter-spacing: 4px;
+            cursor: pointer;
+            position: relative;
+            box-shadow: 0 6px 0 var(--blood-dark), 0 8px 20px rgba(0,0,0,0.5);
+            transition: all 0.1s;
         }
+        .seal-btn::before { content: '◈'; margin-right: 8px; color: var(--gold); }
+        .seal-btn::after { content: '◈'; margin-left: 8px; color: var(--gold); }
+        .seal-btn:active { transform: translateY(6px); box-shadow: 0 0 0 var(--blood-dark), 0 2px 10px rgba(0,0,0,0.5); }
+        .seal-btn.secondary { background: linear-gradient(180deg, rgba(45,45,68,0.9) 0%, rgba(26,26,46,0.95) 100%); border-color: #4a4a6a; box-shadow: 0 6px 0 #1a1a2e, 0 8px 20px rgba(0,0,0,0.5); }
+        .seal-btn.secondary:active { box-shadow: 0 0 0 #1a1a2e, 0 2px 10px rgba(0,0,0,0.5); }
         
-        .user-card .welcome {
-            font-size: 18px;
-            margin-bottom: 4px;
-        }
-        
-        .user-card .rating {
-            font-size: 14px;
-            color: #e94560;
-        }
-        
-        .user-card .logout {
-            padding: 8px 16px;
-            border: 1px solid #2d2d44;
-            border-radius: 16px;
-            font-size: 14px;
-            color: #a0a0a0;
-        }
-        
-        .login-card {
-            background: rgba(255, 255, 255, 0.05);
-            border-radius: 16px;
-            padding: 24px;
-            margin-bottom: 24px;
+        /* 功能卡片 */
+        .feature-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 24px; }
+        .feature-card {
+            background: rgba(26, 21, 16, 0.6);
+            border: 1px solid #3d3025;
+            border-radius: 8px;
+            padding: 20px 12px;
             text-align: center;
+            position: relative;
+            transition: all 0.3s;
         }
-        
-        .login-card .tip {
-            font-size: 14px;
-            color: #a0a0a0;
-            margin-bottom: 16px;
-        }
-        
-        .btn-login {
-            background: linear-gradient(135deg, #e94560 0%, #c73e54 100%);
-            color: #fff;
-            border: none;
-            border-radius: 24px;
-            padding: 12px 32px;
-            font-size: 14px;
-        }
-        
-        .action-section {
-            margin-bottom: 32px;
-        }
-        
-        .section-title {
-            font-size: 16px;
-            font-weight: 600;
-            margin-bottom: 16px;
-        }
-        
-        .action-buttons {
-            display: flex;
-            gap: 16px;
-        }
-        
-        .btn-primary, .btn-secondary {
-            flex: 1;
-            padding: 16px;
-            border: none;
-            border-radius: 12px;
-            font-size: 16px;
-            font-weight: 600;
-            color: #fff;
-        }
-        
-        .btn-primary {
-            background: linear-gradient(135deg, #e94560 0%, #c73e54 100%);
-        }
-        
-        .btn-secondary {
-            background: #0f3460;
-        }
-        
-        .feature-list {
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-        }
-        
-        .feature-item {
-            background: rgba(255, 255, 255, 0.05);
-            border-radius: 12px;
-            padding: 16px;
-            text-align: center;
-        }
-        
-        .feature-item .icon {
-            font-size: 32px;
-            margin-bottom: 8px;
-        }
-        
-        .feature-item .title {
-            font-size: 14px;
-            font-weight: 600;
-            margin-bottom: 4px;
-        }
-        
-        .feature-item .desc {
-            font-size: 12px;
-            color: #a0a0a0;
-        }
+        .feature-card:hover { border-color: var(--gold-dim); box-shadow: 0 0 20px rgba(212, 175, 55, 0.1); }
+        .feature-icon { font-size: 32px; margin-bottom: 8px; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5)); }
+        .feature-title { font-size: 13px; font-weight: 700; color: var(--gold); margin-bottom: 4px; letter-spacing: 1px; }
+        .feature-desc { font-size: 11px; color: #8a7a6a; line-height: 1.4; }
         
         /* 登录页 */
-        .login-page {
-            padding-top: 70px;
+        .auth-container { max-width: 360px; margin: 0 auto; padding-top: 40px; }
+        .auth-logo { text-align: center; margin-bottom: 40px; }
+        .auth-logo .wolf-icon {
+            width: 100px; height: 100px;
+            margin: 0 auto 20px;
+            background: radial-gradient(circle at 30% 30%, var(--parchment-light) 0%, var(--parchment) 100%);
+            border: 3px solid var(--gold);
+            border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 50px;
+            box-shadow: 0 0 40px rgba(139, 0, 0, 0.3), inset 0 2px 4px rgba(255,255,255,0.1);
+            position: relative;
         }
-        
-        .logo-section {
-            text-align: center;
-            margin: 40px 0;
+        .auth-logo .wolf-icon::before {
+            content: ''; position: absolute; inset: -8px;
+            border: 1px dashed var(--gold-dim); border-radius: 50%;
+            animation: rotate 20s linear infinite;
         }
+        @keyframes rotate { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        .auth-logo h1 { font-family: 'Cinzel', 'Noto Serif SC', serif; font-size: 28px; color: var(--blood-red); letter-spacing: 6px; }
         
-        .logo-section .icon {
-            font-size: 80px;
-            margin-bottom: 16px;
-        }
-        
-        .logo-section .title {
-            font-size: 32px;
-            color: #e94560;
-            font-weight: bold;
-        }
-        
-        .form-section {
-            margin-bottom: 40px;
-        }
-        
-        .form-item {
-            margin-bottom: 20px;
-        }
-        
-        .form-item .label {
-            display: block;
-            font-size: 14px;
-            margin-bottom: 8px;
-        }
-        
-        .form-item input {
-            width: 100%;
-            height: 48px;
-            background: rgba(255, 255, 255, 0.1);
-            border: 1px solid #2d2d44;
-            border-radius: 12px;
+        /* 表单 */
+        .form-group { margin-bottom: 20px; }
+        .form-label { display: block; font-size: 13px; color: var(--gold-dim); margin-bottom: 8px; letter-spacing: 1px; }
+        .form-label::before { content: '◆ '; color: var(--blood-red); }
+        .form-input {
+            width: 100%; height: 52px;
+            background: rgba(10, 8, 6, 0.8);
+            border: 1px solid #3d3025;
+            border-radius: 4px;
             padding: 0 16px;
-            color: #fff;
-            font-size: 14px;
+            color: var(--text);
+            font-family: 'Noto Serif SC', serif;
+            font-size: 15px;
+            transition: all 0.3s;
         }
-        
-        .submit-btn {
-            width: 100%;
-            height: 48px;
-            background: linear-gradient(135deg, #e94560 0%, #c73e54 100%);
-            border: none;
-            border-radius: 24px;
-            color: #fff;
-            font-size: 16px;
-            font-weight: 600;
-            margin-top: 16px;
-        }
-        
-        .link-text {
-            text-align: center;
-            font-size: 14px;
-            color: #a0a0a0;
-        }
-        
-        .link-text .highlight {
-            color: #e94560;
-        }
+        .form-input:focus { outline: none; border-color: var(--gold); box-shadow: 0 0 0 2px rgba(212, 175, 55, 0.1), inset 0 0 20px rgba(139,0,0,0.1); }
+        .form-input::placeholder { color: #5a4a3a; }
         
         /* 房间列表 */
-        .room-list-page {
-            padding-top: 70px;
-        }
+        .section-header { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; padding-bottom: 12px; border-bottom: 1px solid var(--blood-dark); }
+        .section-title { font-family: 'Cinzel', 'Noto Serif SC', serif; font-size: 18px; font-weight: 700; color: var(--gold); letter-spacing: 2px; }
+        .section-line { flex: 1; height: 1px; background: linear-gradient(90deg, var(--blood-dark), transparent); }
         
-        .join-by-code {
-            display: flex;
-            gap: 12px;
-            margin-bottom: 12px;
-        }
-        
-        .join-by-code input {
-            flex: 1;
-            height: 44px;
-            background: rgba(255, 255, 255, 0.1);
-            border: 1px solid #2d2d44;
-            border-radius: 12px;
-            padding: 0 16px;
-            color: #fff;
-            font-size: 14px;
-        }
-        
-        .join-by-code button {
-            width: 80px;
-            height: 44px;
-            background: #0f3460;
-            border: none;
-            border-radius: 12px;
-            color: #fff;
-            font-size: 14px;
-        }
-        
-        .create-room-btn {
-            width: 100%;
-            height: 48px;
-            background: linear-gradient(135deg, #e94560 0%, #c73e54 100%);
-            border: none;
-            border-radius: 12px;
-            color: #fff;
-            font-size: 16px;
-            font-weight: 600;
-            margin-bottom: 20px;
-        }
-        
-        .room-card {
-            background: rgba(255, 255, 255, 0.05);
-            border-radius: 16px;
+        /* 通缉令卡片 */
+        .wanted-card {
+            background: linear-gradient(135deg, rgba(26,21,16,0.95) 0%, rgba(20,15,10,0.98) 100%);
+            border: 1px solid #4a3c32;
+            border-radius: 4px 16px 4px 16px;
             padding: 16px;
-            margin-bottom: 12px;
-            border: 1px solid #2d2d44;
+            margin-bottom: 16px;
+            position: relative;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.5);
         }
-        
-        .room-card .header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 12px;
-            text-align: left;
-        }
-        
-        .room-card .name {
-            font-size: 16px;
-            font-weight: 600;
-        }
-        
-        .room-card .lock {
-            font-size: 14px;
-        }
-        
-        .room-card .info {
-            margin-bottom: 12px;
-        }
-        
-        .room-card .code {
-            font-size: 14px;
-            color: #e94560;
-            margin-bottom: 4px;
-        }
-        
-        .room-card .host {
-            font-size: 12px;
-            color: #a0a0a0;
-        }
-        
-        .room-card .footer {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        
-        .room-card .players {
-            font-size: 14px;
-            color: #a0a0a0;
-        }
-        
-        .room-card .join-btn {
-            width: 80px;
-            height: 36px;
-            background: #0f3460;
-            border: none;
-            border-radius: 18px;
-            color: #fff;
-            font-size: 14px;
-        }
-        
-        /* 房间详情 */
-        .room-page {
-            padding-top: 70px;
-        }
-        
-        .room-header {
-            text-align: center;
-            margin-bottom: 24px;
-        }
-        
-        .room-header .name {
-            font-size: 18px;
-            font-weight: 600;
-            margin-bottom: 4px;
-        }
-        
-        .room-header .code {
-            font-size: 14px;
-            color: #e94560;
-        }
-        
-        .players-grid {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 12px;
-            margin-bottom: 100px;
-        }
-        
-        .player-card {
-            background: rgba(255, 255, 255, 0.05);
-            border-radius: 12px;
-            padding: 12px;
-            text-align: center;
-            border: 1px solid #2d2d44;
-        }
-        
-        .player-card.empty {
-            opacity: 0.5;
-        }
-        
-        .player-card .avatar {
-            width: 48px;
-            height: 48px;
+        .wanted-card::before {
+            content: ''; position: absolute;
+            top: 8px; right: 8px;
+            width: 40px; height: 40px;
+            border: 2px solid var(--blood-red);
             border-radius: 50%;
-            background: #0f3460;
+            opacity: 0.3;
+            transform: rotate(15deg);
+        }
+        .wanted-card.locked::after { content: '🔒'; position: absolute; top: 12px; right: 12px; font-size: 20px; }
+        .wanted-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+        .wanted-name { font-size: 16px; font-weight: 700; color: var(--text); display: flex; align-items: center; gap: 8px; }
+        .wanted-name::before { content: '❖'; color: var(--blood-red); }
+        .wanted-code {
+            font-family: monospace; font-size: 14px; color: var(--gold);
+            letter-spacing: 2px;
+            background: rgba(139, 0, 0, 0.2);
+            padding: 4px 12px;
+            border-radius: 4px;
+            border: 1px solid var(--blood-dark);
+        }
+        .wanted-info { display: flex; gap: 16px; margin-bottom: 16px; font-size: 13px; color: #8a7a6a; }
+        .wanted-info span { display: flex; align-items: center; gap: 6px; }
+        .wanted-footer { display: flex; justify-content: space-between; align-items: center; }
+        .player-count { display: flex; align-items: center; gap: 8px; font-size: 14px; color: var(--text); }
+        .player-dots { display: flex; gap: 4px; }
+        .player-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--blood-dark); }
+        .player-dot.active { background: var(--blood-red); box-shadow: 0 0 6px var(--blood-red); }
+        .join-btn {
+            padding: 10px 24px;
+            background: rgba(139, 0, 0, 0.8);
+            border: 1px solid var(--blood-red);
+            border-radius: 4px;
+            color: var(--text);
+            font-family: 'Noto Serif SC', serif;
+            font-size: 14px; font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            letter-spacing: 2px;
+        }
+        .join-btn:hover { background: var(--blood-red); box-shadow: 0 0 20px rgba(139, 0, 0, 0.4); }
+        
+        /* 圆桌 */
+        .round-table { position: relative; width: 100%; max-width: 400px; margin: 0 auto; aspect-ratio: 1; }
+        .table-center {
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            width: 140px; height: 140px;
+            background: radial-gradient(circle, var(--parchment-light) 0%, var(--parchment) 70%, #0a0806 100%);
+            border: 3px solid var(--gold);
+            border-radius: 50%;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            box-shadow: 0 0 40px rgba(212, 175, 55, 0.2), inset 0 0 60px rgba(0,0,0,0.5);
+        }
+        .table-center .room-name { font-size: 16px; font-weight: 700; color: var(--gold); margin-bottom: 4px; }
+        .table-center .room-code { font-family: monospace; font-size: 14px; color: var(--blood-red); letter-spacing: 2px; }
+        
+        /* 座位 */
+        .seat { position: absolute; width: 70px; text-align: center; }
+        .seat-avatar {
+            width: 56px; height: 56px;
             margin: 0 auto 8px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 24px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--parchment-light) 0%, var(--parchment) 100%);
+            border: 2px solid var(--gold-dim);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 24px; position: relative;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.5);
         }
+        .seat-avatar.host { border-color: var(--blood-red); box-shadow: 0 0 20px rgba(139, 0, 0, 0.3); }
+        .seat-avatar.host::after { content: '👑'; position: absolute; top: -8px; right: -4px; font-size: 14px; }
+        .seat-avatar.empty { background: rgba(26, 21, 16, 0.5); border-color: #3d3025; opacity: 0.6; }
+        .seat-name { font-size: 12px; color: var(--text); margin-bottom: 2px; }
+        .seat-number { font-size: 11px; color: var(--gold-dim); }
         
-        .player-card.empty .avatar {
-            background: rgba(255, 255, 255, 0.1);
-        }
+        /* 座位位置 */
+        .seat:nth-child(2) { top: 0; left: 50%; transform: translateX(-50%); }
+        .seat:nth-child(3) { top: 15%; right: 5%; }
+        .seat:nth-child(4) { top: 50%; right: 0; transform: translateY(-50%); }
+        .seat:nth-child(5) { bottom: 15%; right: 5%; }
+        .seat:nth-child(6) { bottom: 0; left: 50%; transform: translateX(-50%); }
+        .seat:nth-child(7) { bottom: 15%; left: 5%; }
+        .seat:nth-child(8) { top: 50%; left: 0; transform: translateY(-50%); }
+        .seat:nth-child(9) { top: 15%; left: 5%; }
         
-        .player-card .username {
-            font-size: 12px;
-            margin-bottom: 4px;
-        }
-        
-        .player-card .badge {
-            display: inline-block;
-            font-size: 10px;
-            color: #e94560;
-            background: rgba(233, 69, 96, 0.2);
-            padding: 2px 8px;
-            border-radius: 8px;
-            margin-bottom: 4px;
-        }
-        
-        .player-card .seat {
-            font-size: 12px;
-            color: #666;
-        }
-        
+        /* 底部操作栏 */
         .action-bar {
             position: fixed;
-            bottom: 0;
-            left: 0;
-            right: 0;
+            bottom: 0; left: 0; right: 0;
             padding: 20px;
-            background: linear-gradient(180deg, transparent 0%, #0f0f1e 20%);
-            display: flex;
-            gap: 12px;
+            background: linear-gradient(180deg, transparent 0%, rgba(10,8,6,0.95) 30%);
+            display: flex; gap: 12px;
+            z-index: 50;
         }
+        .action-bar button { flex: 1; height: 52px; border: none; border-radius: 4px; font-family: 'Noto Serif SC', serif; font-size: 15px; font-weight: 700; letter-spacing: 3px; cursor: pointer; transition: all 0.3s; }
+        .btn-leave { background: rgba(45, 45, 68, 0.9); border: 1px solid #4a4a6a; color: #a0a0a0; }
+        .btn-leave:hover { background: rgba(139, 0, 0, 0.5); border-color: var(--blood-red); color: var(--text); }
+        .btn-ready {
+            background: linear-gradient(180deg, rgba(139,0,0,0.9) 0%, rgba(74,0,0,0.95) 100%);
+            border: 2px solid var(--gold);
+            color: var(--text);
+            box-shadow: 0 4px 0 var(--blood-dark);
+        }
+        .btn-ready:hover { box-shadow: 0 4px 0 var(--blood-dark), 0 0 30px rgba(139, 0, 0, 0.4); }
+        .btn-ready:active { transform: translateY(4px); box-shadow: 0 0 0 var(--blood-dark); }
         
-        .action-bar button {
-            flex: 1;
-            height: 48px;
-            border: none;
-            border-radius: 12px;
-            font-size: 16px;
-            font-weight: 600;
-            color: #fff;
-        }
+        /* 输入组 */
+        .input-group { display: flex; gap: 12px; margin-bottom: 16px; }
+        .input-group input { flex: 1; height: 48px; background: rgba(10, 8, 6, 0.8); border: 1px solid #3d3025; border-radius: 4px; padding: 0 16px; color: var(--text); font-family: 'Noto Serif SC', serif; font-size: 14px; }
+        .input-group button { width: 80px; height: 48px; background: rgba(139, 0, 0, 0.6); border: 1px solid var(--blood-dark); border-radius: 4px; color: var(--text); font-family: 'Noto Serif SC', serif; font-size: 14px; cursor: pointer; transition: all 0.3s; }
+        .input-group button:hover { background: var(--blood-red); }
         
-        .action-bar .leave {
-            background: #2d2d44;
-        }
+        /* 链接 */
+        .auth-link { text-align: center; margin-top: 24px; font-size: 14px; color: #8a7a6a; }
+        .auth-link a { color: var(--blood-red); text-decoration: none; border-bottom: 1px dashed var(--blood-dark); padding-bottom: 2px; transition: all 0.3s; }
+        .auth-link a:hover { color: var(--gold); border-bottom-color: var(--gold); }
         
-        .action-bar .ready {
-            background: linear-gradient(135deg, #e94560 0%, #c73e54 100%);
-        }
+        /* 滚动条 */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: var(--shadow); }
+        ::-webkit-scrollbar-thumb { background: var(--blood-dark); border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--blood-red); }
     </style>
 </head>
 <body>
+    <!-- 背景层 -->
+    <div class="bg-layer">
+        <div class="bg-moon"></div>
+        <div class="bg-fog"></div>
+        <div class="bg-noise"></div>
+    </div>
+
     <!-- 导航 -->
-    <div class="nav">
+    <div class="nav-seal">
         <button class="nav-btn active" onclick="showPage('index')">首页</button>
         <button class="nav-btn" onclick="showPage('login')">登录</button>
         <button class="nav-btn" onclick="showPage('register')">注册</button>
-        <button class="nav-btn" onclick="showPage('room-list')">房间列表</button>
-        <button class="nav-btn" onclick="showPage('room')">房间详情</button>
+        <button class="nav-btn" onclick="showPage('room-list')">房间</button>
+        <button class="nav-btn" onclick="showPage('room')">游戏</button>
     </div>
 
     <!-- 首页 -->
-    <div id="index" class="page index-page active">
-        <div class="header">
-            <div class="title">🐺 狼人杀</div>
-            <div class="subtitle">基于 RAG 增强的 AI 对战平台</div>
+    <div id="index" class="page active">
+        <div class="hero">
+            <h1 class="hero-title">狼人杀</h1>
+            <p class="hero-subtitle">Werewolf · 血色月夜</p>
         </div>
         
-        <div class="user-card">
-            <div>
-                <div class="welcome">欢迎，龙虾大人</div>
-                <div class="rating">积分: 1250</div>
-            </div>
-            <div class="logout">退出</div>
-        </div>
-        
-        <div class="action-section">
-            <div class="section-title">快速开始</div>
-            <div class="action-buttons">
-                <button class="btn-primary">加入房间</button>
-                <button class="btn-secondary">创建房间</button>
+        <div class="parchment user-badge">
+            <div class="avatar-seal">🦞</div>
+            <div class="user-info">
+                <div class="user-name">龙虾大人</div>
+                <div class="user-rank">
+                    <span class="rank-icon">◆</span>
+                    <span>猎魔人 · 1250 积分</span>
+                </div>
             </div>
         </div>
         
-        <div class="section-title">游戏特色</div>
-        <div class="feature-list">
-            <div class="feature-item">
-                <div class="icon">🤖</div>
-                <div class="title">AI 对战</div>
-                <div class="desc">与智能 AI 玩家一决高下</div>
+        <div style="display: flex; gap: 12px; margin-bottom: 24px;">
+            <button class="seal-btn">加入房间</button>
+            <button class="seal-btn secondary">创建房间</button>
+        </div>
+        
+        <div class="feature-grid">
+            <div class="feature-card">
+                <div class="feature-icon">🤖</div>
+                <div class="feature-title">AI 对战</div>
+                <div class="feature-desc">与智能 AI<br>一决高下</div>
             </div>
-            <div class="feature-item">
-                <div class="icon">🧠</div>
-                <div class="title">RAG 增强</div>
-                <div class="desc">AI 具备狼人杀专业知识</div>
+            <div class="feature-card">
+                <div class="feature-icon">🧠</div>
+                <div class="feature-title">RAG 增强</div>
+                <div class="feature-desc">AI 具备<br>专业知识</div>
             </div>
-            <div class="feature-item">
-                <div class="icon">👥</div>
-                <div class="title">多人联机</div>
-                <div class="desc">支持 6-12 人对战</div>
+            <div class="feature-card">
+                <div class="feature-icon">👥</div>
+                <div class="feature-title">多人联机</div>
+                <div class="feature-desc">支持 6-12人<br>同时对战</div>
             </div>
         </div>
     </div>
 
     <!-- 登录页 -->
-    <div id="login" class="page login-page">
-        <div class="logo-section">
-            <div class="icon">🐺</div>
-            <div class="title">狼人杀</div>
-        </div>
-        
-        <div class="form-section">
-            <div class="form-item">
-                <label class="label">用户名</label>
-                <input type="text" placeholder="请输入用户名">
+    <div id="login" class="page">
+        <div class="auth-container">
+            <div class="auth-logo">
+                <div class="wolf-icon">🐺</div>
+                <h1>狼人杀</h1>
             </div>
-            <div class="form-item">
-                <label class="label">密码</label>
-                <input type="password" placeholder="请输入密码">
+            
+            <div class="parchment" style="padding: 32px 24px;">
+                <div class="form-group">
+                    <label class="form-label">用户名</label>
+                    <input type="text" class="form-input" placeholder="请输入你的代号">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">密码</label>
+                    <input type="password" class="form-input" placeholder="••••••••">
+                </div>
+                <button class="seal-btn" style="margin-top: 8px;">登 录</button>
             </div>
-            <button class="submit-btn">登 录</button>
-        </div>
-        
-        <div class="link-text">
-            还没有账号？<span class="highlight">立即注册</span>
+            
+            <div class="auth-link">
+                尚未获得身份？<a href="#" onclick="showPage('register')">立即注册</a>
+            </div>
         </div>
     </div>
 
     <!-- 注册页 -->
-    <div id="register" class="page login-page">
-        <div class="logo-section">
-            <div class="icon">🐺</div>
-            <div class="title">创建账号</div>
-        </div>
-        
-        <div class="form-section">
-            <div class="form-item">
-                <label class="label">用户名</label>
-                <input type="text" placeholder="3-20位字符">
+    <div id="register" class="page">
+        <div class="auth-container">
+            <div class="auth-logo">
+                <div class="wolf-icon">🐺</div>
+                <h1>创建身份</h1>
             </div>
-            <div class="form-item">
-                <label class="label">邮箱</label>
-                <input type="text" placeholder="example@email.com">
+            
+            <div class="parchment" style="padding: 32px 24px;">
+                <div class="form-group">
+                    <label class="form-label">代号</label>
+                    <input type="text" class="form-input" placeholder="3-20位字符">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">邮箱</label>
+                    <input type="text" class="form-input" placeholder="example@email.com">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">密码</label>
+                    <input type="password" class="form-input" placeholder="6-20位字符">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">确认密码</label>
+                    <input type="password" class="form-input" placeholder="再次输入">
+                </div>
+                <button class="seal-btn" style="margin-top: 8px;">注 册</button>
             </div>
-            <div class="form-item">
-                <label class="label">密码</label>
-                <input type="password" placeholder="6-20位字符">
+            
+            <div class="auth-link">
+                已有身份？<a href="#" onclick="showPage('login')">立即登录</a>
             </div>
-            <div class="form-item">
-                <label class="label">确认密码</label>
-                <input type="password" placeholder="再次输入密码">
-            </div>
-            <button class="submit-btn">注 册</button>
-        </div>
-        
-        <div class="link-text">
-            已有账号？<span class="highlight">立即登录</span>
         </div>
     </div>
 
     <!-- 房间列表 -->
-    <div id="room-list" class="page room-list-page">
-        <div class="section-title">房间列表</div>
+    <div id="room-list" class="page">
+        <div class="section-header">
+            <span class="section-title">通缉令</span>
+            <div class="section-line"></div>
+        </div>
         
-        <div class="join-by-code">
-            <input type="text" placeholder="输入房间号加入">
+        <div class="input-group">
+            <input type="text" placeholder="输入房间暗号">
             <button>加入</button>
         </div>
         
-        <button class="create-room-btn">+ 创建房间</button>
+        <button class="seal-btn" style="margin-bottom: 20px;">+ 发布通缉令</button>
         
-        <div class="room-card">
-            <div class="header">
-                <span class="name">新手房</span>
-                <span class="lock"></span>
+        <div class="wanted-card">
+            <div class="wanted-header">
+                <span class="wanted-name">新手村</span>
+                <span class="wanted-code">ABC123</span>
             </div>
-            <div class="info">
-                <div class="code">房间号: ABC123</div>
-                <div class="host">房主: 龙虾大人</div>
+            <div class="wanted-info">
+                <span>👤 龙虾大人</span>
+                <span>⚔️ 标准局</span>
             </div>
-            <div class="footer">
-                <span class="players">👥 5/9</span>
+            <div class="wanted-footer">
+                <div class="player-count">
+                    <span>5/9</span>
+                    <div class="player-dots">
+                        <div class="player-dot active"></div>
+                        <div class="player-dot active"></div>
+                        <div class="player-dot active"></div>
+                        <div class="player-dot active"></div>
+                        <div class="player-dot active"></div>
+                        <div class="player-dot"></div>
+                        <div class="player-dot"></div>
+                        <div class="player-dot"></div>
+                        <div class="player-dot"></div>
+                    </div>
+                </div>
                 <button class="join-btn">加入</button>
             </div>
         </div>
         
-        <div class="room-card">
-            <div class="header">
-                <span class="name">高手局 🔒</span>
+        <div class="wanted-card locked">
+            <div class="wanted-header">
+                <span class="wanted-name">高手局</span>
+                <span class="wanted-code">XYZ789</span>
             </div>
-            <div class="info">
-                <div class="code">房间号: XYZ789</div>
-                <div class="host">房主: 狼王</div>
+            <div class="wanted-info">
+                <span>👤 狼王</span>
+                <span>⚔️ 高级局</span>
             </div>
-            <div class="footer">
-                <span class="players">👥 8/12</span>
+            <div class="wanted-footer">
+                <div class="player-count">
+                    <span>8/12</span>
+                    <div class="player-dots">
+                        <div class="player-dot active"></div>
+                        <div class="player-dot active"></div>
+                        <div class="player-dot active"></div>
+                        <div class="player-dot active"></div>
+                        <div class="player-dot active"></div>
+                        <div class="player-dot active"></div>
+                        <div class="player-dot active"></div>
+                        <div class="player-dot active"></div>
+                        <div class="player-dot"></div>
+                        <div class="player-dot"></div>
+                        <div class="player-dot"></div>
+                        <div class="player-dot"></div>
+                    </div>
+                </div>
                 <button class="join-btn">加入</button>
             </div>
         </div>
         
-        <div class="room-card">
-            <div class="header">
-                <span class="name">AI 对战房</span>
+        <div class="wanted-card">
+            <div class="wanted-header">
+                <span class="wanted-name">AI 狩猎场</span>
+                <span class="wanted-code">AI2024</span>
             </div>
-            <div class="info">
-                <div class="code">房间号: AI2024</div>
-                <div class="host">房主: 系统</div>
+            <div class="wanted-info">
+                <span>👤 系统</span>
+                <span>⚔️ AI对战</span>
             </div>
-            <div class="footer">
-                <span class="players">👥 3/9</span>
+            <div class="wanted-footer">
+                <div class="player-count">
+                    <span>3/9</span>
+                    <div class="player-dots">
+                        <div class="player-dot active"></div>
+                        <div class="player-dot active"></div>
+                        <div class="player-dot active"></div>
+                        <div class="player-dot"></div>
+                        <div class="player-dot"></div>
+                        <div class="player-dot"></div>
+                        <div class="player-dot"></div>
+                        <div class="player-dot"></div>
+                        <div class="player-dot"></div>
+                    </div>
+                </div>
                 <button class="join-btn">加入</button>
             </div>
         </div>
     </div>
 
     <!-- 房间详情 -->
-    <div id="room" class="page room-page">
-        <div class="room-header">
-            <div class="name">高手局</div>
-            <div class="code">房间号: XYZ789</div>
+    <div id="room" class="page">
+        <div style="text-align: center; margin-bottom: 24px;">
+            <div class="section-title" style="font-size: 20px;">高手局</div>
+            <div style="font-family: monospace; color: var(--gold); letter-spacing: 2px; margin-top: 4px;">XYZ789</div>
         </div>
         
-        <div class="section-title">玩家列表 (8/9)</div>
-        
-        <div class="players-grid">
-            <div class="player-card">
-                <div class="avatar">👤</div>
-                <div class="username">龙虾大人</div>
-                <div class="badge">房主</div>
-                <div class="seat">1号</div>
+        <div class="round-table">
+            <div class="table-center">
+                <div class="room-name">等待中</div>
+                <div class="room-code">8/9</div>
             </div>
-            <div class="player-card">
-                <div class="avatar">👤</div>
-                <div class="username">狼王</div>
-                <div class="seat">2号</div>
+            
+            <div class="seat">
+                <div class="seat-avatar host">🦞</div>
+                <div class="seat-name">龙虾大人</div>
+                <div class="seat-number">1号</div>
             </div>
-            <div class="player-card">
-                <div class="avatar">👤</div>
-                <div class="username">预言家</div>
-                <div class="seat">3号</div>
+            <div class="seat">
+                <div class="seat-avatar">🐺</div>
+                <div class="seat-name">狼王</div>
+                <div class="seat-number">2号</div>
             </div>
-            <div class="player-card">
-                <div class="avatar">👤</div>
-                <div class="username">女巫</div>
-                <div class="seat">4号</div>
+            <div class="seat">
+                <div class="seat-avatar">🔮</div>
+                <div class="seat-name">预言家</div>
+                <div class="seat-number">3号</div>
             </div>
-            <div class="player-card">
-                <div class="avatar">👤</div>
-                <div class="username">猎人</div>
-                <div class="seat">5号</div>
+            <div class="seat">
+                <div class="seat-avatar">🧙</div>
+                <div class="seat-name">女巫</div>
+                <div class="seat-number">4号</div>
             </div>
-            <div class="player-card">
-                <div class="avatar">🤖</div>
-                <div class="username">AI-1</div>
-                <div class="seat">6号</div>
+            <div class="seat">
+                <div class="seat-avatar">🏹</div>
+                <div class="seat-name">猎人</div>
+                <div class="seat-number">5号</div>
             </div>
-            <div class="player-card">
-                <div class="avatar">🤖</div>
-                <div class="username">AI-2</div>
-                <div class="seat">7号</div>
+            <div class="seat">
+                <div class="seat-avatar">🤖</div>
+                <div class="seat-name">AI-1</div>
+                <div class="seat-number">6号</div>
             </div>
-            <div class="player-card">
-                <div class="avatar">🤖</div>
-                <div class="username">AI-3</div>
-                <div class="seat">8号</div>
+            <div class="seat">
+                <div class="seat-avatar">🤖</div>
+                <div class="seat-name">AI-2</div>
+                <div class="seat-number">7号</div>
             </div>
-            <div class="player-card empty">
-                <div class="avatar">+</div>
-                <div class="username">等待加入</div>
-                <div class="seat">9号</div>
+            <div class="seat">
+                <div class="seat-avatar">🤖</div>
+                <div class="seat-name">AI-3</div>
+                <div class="seat-number">8号</div>
             </div>
         </div>
+        
+        <div style="height: 100px;"></div>
         
         <div class="action-bar">
-            <button class="leave">离开房间</button>
-            <button class="ready">准 备</button>
+            <button class="btn-leave">离开</button>
+            <button class="btn-ready">准 备</button>
         </div>
     </div>
 
     <script>
         function showPage(pageId) {
-            // 隐藏所有页面
-            document.querySelectorAll('.page').forEach(page => {
-                page.classList.remove('active');
-            });
-            // 显示目标页面
+            document.querySelectorAll('.page').forEach(page => page.classList.remove('active'));
             document.getElementById(pageId).classList.add('active');
-            // 更新导航按钮状态
-            document.querySelectorAll('.nav-btn').forEach(btn => {
-                btn.classList.remove('active');
-            });
+            document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
             event.target.classList.add('active');
         }
     </script>
