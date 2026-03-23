@@ -37,6 +37,11 @@ jwt:
   secret: werewolf-secret-key-2024-very-long-and-secure-key-for-jwt-signing
   expiration: 86400000  # 24小时
 
+# 微信配置（需要在实际部署时填写）
+wechat:
+  appid: ${WECHAT_APPID:}  # 微信小程序 AppID
+  secret: ${WECHAT_SECRET:}  # 微信小程序 AppSecret
+
 # 日志
 logging:
   level:

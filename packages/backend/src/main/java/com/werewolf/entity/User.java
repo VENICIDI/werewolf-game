@@ -19,10 +19,10 @@ public class User {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
     
-    @Column(unique = true, nullable = false, length = 50)
+    @Column(unique = true, length = 50)
     private String username;
     
-    @Column(nullable = false)
+    @Column
     private String password;
     
     @Column(unique = true, length = 100)
@@ -40,11 +40,30 @@ public class User {
     @Column(name = "rating")
     private Integer rating = 1000;
     
+    // 微信登录相关字段
+    @Column(name = "wx_openid", unique = true, length = 100)
+    private String wxOpenid;
+    
+    @Column(name = "wx_unionid", length = 100)
+    private String wxUnionid;
+    
+    @Enumerated(EnumType.STRING)
+    @Column(name = "login_type", nullable = false, length = 20)
+    private LoginType loginType = LoginType.APP;
+    
     @Column(name = "created_at")
     private LocalDateTime createdAt;
     
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
+    
+    /**
+     * 登录类型枚举
+     */
+    public enum LoginType {
+        APP,      // 账号密码登录
+        WECHAT    // 微信登录
+    }
     
     @PrePersist
     protected void onCreate() {
