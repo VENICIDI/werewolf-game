@@ -65,7 +65,7 @@ public class RoomWebSocketHandler extends TextWebSocketHandler {
         String username = getUsernameFromSession(session);
         
         try {
-            WebSocketMessage message = objectMapper.readValue(textMessage.getPayload(), WebSocketMessage
+            WebSocketMessage message = objectMapper.readValue(textMessage.getPayload(), WebSocketMessage.class);
             String msgType = message.getType();
             
             switch (msgType) {
@@ -133,7 +133,9 @@ public class RoomWebSocketHandler extends TextWebSocketHandler {
     private void handleReadyMessage(String roomCode, Long userId, String username, WebSocketMessage message) {
         try {
             boolean ready = (Boolean) message.getData();
-            roomService.setReady(roomCode, userId, ready);
+            Room room = roomService.findByRoomCode(roomCode)
+                    .orElseThrow(() -> new RuntimeException("房间不存在"));
+            roomService.setReady(room.getId(), userId, ready);
             
             WebSocketMessage response = new WebSocketMessage(
                     WebSocketMessage.Type.PLAYER_READY,

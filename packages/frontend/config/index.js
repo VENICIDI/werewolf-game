@@ -41,7 +41,13 @@ const config = {
       }
     },
     devServer: {
-      port: 3000,
+      port: 10086,
+      client: {
+        overlay: {
+          warnings: false,
+          errors: true
+        }
+      },
       proxy: {
         '/api': {
           target: 'http://localhost:8080',

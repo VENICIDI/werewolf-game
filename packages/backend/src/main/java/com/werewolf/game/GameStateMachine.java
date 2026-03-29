@@ -32,8 +32,8 @@ public class GameStateMachine {
     private void initTransitions() {
         // waiting -> starting
         addTransition("waiting", "starting", 
-            ctx -> ctx.getGame().getCurrentPlayers() >= 6,
-            ctx -> log.info("游戏开始，玩家数: {}", ctx.getGame().getCurrentPlayers()));
+            ctx -> ctx.getGame().getRoom() != null && ctx.getGame().getRoom().getCurrentPlayers() >= 6,
+            ctx -> log.info("游戏开始，玩家数: {}", ctx.getGame().getRoom().getCurrentPlayers()));
         
         // starting -> night
         addTransition("starting", "night",

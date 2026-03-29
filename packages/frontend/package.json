@@ -23,15 +23,18 @@
   "author": "神龙虾",
   "dependencies": {
     "@babel/runtime": "^7.23.0",
+    "@pmmmwh/react-refresh-webpack-plugin": "^0.6.2",
     "@tarojs/components": "3.6.23",
     "@tarojs/helper": "3.6.23",
-    "@tarojs/plugin-platform-weapp": "3.6.23",
+    "@tarojs/plugin-framework-react": "^3.6.23",
     "@tarojs/plugin-platform-h5": "3.6.23",
+    "@tarojs/plugin-platform-weapp": "3.6.23",
     "@tarojs/runtime": "3.6.23",
     "@tarojs/shared": "3.6.23",
     "@tarojs/taro": "3.6.23",
     "react": "^18.2.0",
-    "react-dom": "^18.2.0"
+    "react-dom": "^18.2.0",
+    "react-refresh": "^0.18.0"
   },
   "devDependencies": {
     "@babel/core": "^7.23.0",

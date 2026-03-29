@@ -61,3 +61,14 @@ Thumbs.db
 # Application
 application-local.yml
 *.local
+
+# Project runtime
+logs/
+.pids/
+.infra_mode
+
+# Python
+packages/ai-service/venv/
+packages/ai-service/.env
+__pycache__/
+*.pyc

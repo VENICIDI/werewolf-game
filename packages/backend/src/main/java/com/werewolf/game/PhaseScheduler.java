@@ -5,7 +5,6 @@ import com.werewolf.config.GameConfig;
 import com.werewolf.entity.Game;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -21,7 +20,7 @@ import java.util.concurrent.*;
 public class PhaseScheduler {
     
     private final ConfigLoader configLoader;
-    private final ExecutorService executor = Executors.newCachedThreadPool();
+    private final ScheduledExecutorService executor = Executors.newScheduledThreadPool(4);
     
     // 存储正在运行的游戏任务
     private final Map<Long, ScheduledFuture<?>> gameTasks = new ConcurrentHashMap<>();
@@ -64,9 +63,7 @@ public class PhaseScheduler {
         GameConfig.PhaseConfig phase = phases.get(phaseIndex);
         
         // 调度阶段执行
-        ScheduledFuture<?> future = CompletableFuture.delayedExecutor(
-            phase.getDuration(), TimeUnit.MILLISECONDS, executor
-        ).execute(() -> {
+        ScheduledFuture<?> future = executor.schedule(() -> {
             try {
                 executePhase(gameId, phase);
                 
@@ -76,7 +73,7 @@ public class PhaseScheduler {
             } catch (Exception e) {
                 log.error("阶段执行失败 - 游戏ID: {}, 阶段: {}", gameId, phase.getPhase(), e);
             }
-        });
+        }, phase.getDuration(), TimeUnit.MILLISECONDS);
         
         gameTasks.put(gameId, future);
     }
