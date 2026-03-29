@@ -2,7 +2,8 @@
   min-height: 100vh;
   position: relative;
   overflow: hidden;
-  padding: 40px 24px;
+  padding: 60px 24px 40px;
+  z-index: 1;
 }
 
 .background {
@@ -15,11 +16,25 @@
   transition: all 0.5s ease;
 
   &.villager {
-    background: linear-gradient(180deg, #1a2e1a 0%, #0f1f0f 100%);
+    background: linear-gradient(180deg, rgba(26, 46, 26, 0.8) 0%, var(--shadow) 100%);
+
+    &::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at 50% 50%, rgba(76, 175, 80, 0.1), transparent 70%);
+    }
   }
 
   &.werewolf {
-    background: linear-gradient(180deg, #2e1a1a 0%, #1f0f0f 100%);
+    background: linear-gradient(180deg, rgba(74, 0, 0, 0.8) 0%, var(--shadow) 100%);
+
+    &::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at 50% 50%, rgba(139, 0, 0, 0.2), transparent 70%);
+    }
   }
 }
 
@@ -29,42 +44,49 @@
 
   .title {
     display: block;
+    font-family: var(--font-display);
     font-size: 28px;
-    font-weight: bold;
-    color: #fff;
+    font-weight: 900;
+    color: var(--blood-red);
     margin-bottom: 8px;
+    letter-spacing: 4px;
+    text-shadow: 0 0 20px rgba(139, 0, 0, 0.5);
   }
 
   .subtitle {
     display: block;
-    font-size: 16px;
-    color: #a0a0a0;
+    font-size: 14px;
+    color: var(--gold-dim);
+    letter-spacing: 2px;
   }
 }
 
 .countdown-section {
   text-align: center;
-  padding: 60px 0;
+  padding: 80px 0;
 
   .countdown-number {
     display: block;
     font-size: 120px;
     font-weight: bold;
-    color: #e94560;
+    color: var(--blood-red);
     line-height: 1;
     margin-bottom: 20px;
     animation: pulse 1s ease-in-out infinite;
+    text-shadow: 0 0 40px rgba(139, 0, 0, 0.6), 0 0 20px rgba(212, 175, 55, 0.3);
   }
 
   .countdown-text {
     display: block;
     font-size: 18px;
-    color: #a0a0a0;
+    color: var(--gold);
+    letter-spacing: 3px;
   }
 }
 
 @keyframes pulse {
-  0%, 100% {
+  0%,
+  100% {
     transform: scale(1);
     opacity: 1;
   }
@@ -75,13 +97,13 @@
 }
 
 .role-section {
-  animation: fadeIn 0.5s ease;
+  animation: fadeIn 0.8s ease;
 }
 
 @keyframes fadeIn {
   from {
     opacity: 0;
-    transform: translateY(20px);
+    transform: translateY(30px);
   }
   to {
     opacity: 1;
@@ -91,134 +113,216 @@
 
 .camp-badge {
   text-align: center;
-  margin-bottom: 20px;
+  margin-bottom: 24px;
 
   &.villager {
     .camp-name {
-      background: rgba(76, 175, 80, 0.3);
-      color: #4CAF50;
+      background: rgba(76, 175, 80, 0.2);
+      color: #4caf50;
+      border: 2px solid #4caf50;
+      box-shadow: 0 0 20px rgba(76, 175, 80, 0.3);
     }
   }
 
   &.werewolf {
     .camp-name {
-      background: rgba(244, 67, 54, 0.3);
-      color: #F44336;
+      background: rgba(139, 0, 0, 0.3);
+      color: var(--blood-red);
+      border: 2px solid var(--blood-red);
+      box-shadow: 0 0 20px rgba(139, 0, 0, 0.4);
     }
   }
 
   .camp-name {
     display: inline-block;
-    padding: 8px 24px;
-    border-radius: 20px;
-    font-size: 14px;
-    font-weight: 600;
+    padding: 10px 32px;
+    border-radius: 4px;
+    font-family: var(--font-serif);
+    font-size: 16px;
+    font-weight: 700;
+    letter-spacing: 4px;
+
+    &::before {
+      content: '◆ ';
+    }
+
+    &::after {
+      content: ' ◆';
+    }
   }
 }
 
 .role-card {
-  background: rgba(255, 255, 255, 0.05);
-  border-radius: 24px;
-  padding: 40px;
+  background: linear-gradient(135deg, var(--parchment-light) 0%, var(--parchment) 100%);
+  border-radius: 2px 16px 2px 16px;
+  padding: 48px 32px;
   text-align: center;
-  border: 2px solid;
+  border: 2px solid var(--gold);
   margin-bottom: 24px;
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.7), inset 0 2px 8px rgba(255, 255, 255, 0.05);
+  position: relative;
+
+  &::before {
+    content: '';
+    position: absolute;
+    top: -2px;
+    left: 30px;
+    right: 30px;
+    height: 3px;
+    background: linear-gradient(90deg, transparent, var(--blood-dark), transparent);
+  }
+
+  &::after {
+    content: '';
+    position: absolute;
+    bottom: -2px;
+    left: 40px;
+    right: 40px;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, rgba(212, 175, 55, 0.4), transparent);
+  }
 
   .role-icon {
     display: block;
     font-size: 80px;
-    margin-bottom: 16px;
+    margin-bottom: 20px;
+    filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.5));
   }
 
   .role-name {
     display: block;
-    font-size: 32px;
-    font-weight: bold;
-    color: #fff;
-    margin-bottom: 4px;
+    font-family: var(--font-display);
+    font-size: 36px;
+    font-weight: 900;
+    color: var(--blood-red);
+    margin-bottom: 6px;
+    letter-spacing: 4px;
+    text-shadow: 0 0 15px rgba(139, 0, 0, 0.4);
   }
 
   .role-name-en {
     display: block;
     font-size: 14px;
-    color: #a0a0a0;
-    margin-bottom: 12px;
+    color: var(--gold-dim);
+    margin-bottom: 16px;
+    letter-spacing: 2px;
+    font-style: italic;
   }
 
   .role-short {
     display: block;
-    font-size: 14px;
-    color: #e94560;
+    font-size: 15px;
+    color: var(--gold);
+    letter-spacing: 1px;
   }
 }
 
 .description-section {
-  background: rgba(255, 255, 255, 0.05);
-  border-radius: 16px;
+  background: linear-gradient(135deg, rgba(26, 21, 16, 0.8) 0%, rgba(20, 15, 10, 0.9) 100%);
+  border: 1px solid #3d3025;
+  border-radius: 8px;
   padding: 20px;
   margin-bottom: 20px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
 
   .description-title {
     display: block;
     font-size: 16px;
-    font-weight: 600;
-    color: #fff;
+    font-weight: 700;
+    color: var(--gold);
     margin-bottom: 12px;
+    letter-spacing: 2px;
+
+    &::before {
+      content: '◆ ';
+      color: var(--blood-red);
+    }
   }
 
   .description-text {
     display: block;
     font-size: 14px;
-    color: #a0a0a0;
-    line-height: 1.6;
+    color: var(--text);
+    line-height: 1.8;
   }
 }
 
 .tips-section {
-  background: rgba(255, 255, 255, 0.05);
-  border-radius: 16px;
+  background: linear-gradient(135deg, rgba(26, 21, 16, 0.8) 0%, rgba(20, 15, 10, 0.9) 100%);
+  border: 1px solid #3d3025;
+  border-radius: 8px;
   padding: 20px;
   margin-bottom: 24px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
 
   .tips-title {
     display: block;
     font-size: 16px;
-    font-weight: 600;
-    color: #fff;
+    font-weight: 700;
+    color: var(--gold);
     margin-bottom: 12px;
+    letter-spacing: 2px;
+
+    &::before {
+      content: '◆ ';
+      color: var(--blood-red);
+    }
   }
 
   .tip-item {
     display: flex;
     gap: 8px;
-    margin-bottom: 8px;
+    margin-bottom: 10px;
+
+    &:last-child {
+      margin-bottom: 0;
+    }
 
     .tip-dot {
       font-size: 14px;
-      color: #e94560;
+      color: var(--blood-red);
+      margin-top: 2px;
     }
 
     .tip-text {
       flex: 1;
       font-size: 14px;
-      color: #a0a0a0;
-      line-height: 1.5;
+      color: var(--text);
+      line-height: 1.6;
     }
   }
 }
 
 .enter-game-btn {
   width: 100%;
-  height: 52px;
-  background: linear-gradient(135deg, #e94560 0%, #c73e54 100%);
-  border: none;
-  border-radius: 26px;
-  color: #fff;
+  height: 56px;
+  background: linear-gradient(180deg, rgba(139, 0, 0, 0.9) 0%, rgba(74, 0, 0, 0.95) 100%);
+  border: 2px solid var(--gold);
+  border-radius: 4px;
+  color: var(--text);
+  font-family: var(--font-serif);
   font-size: 18px;
-  font-weight: 600;
+  font-weight: 700;
+  letter-spacing: 5px;
+  box-shadow: 0 6px 0 var(--blood-dark), 0 8px 24px rgba(0, 0, 0, 0.6);
+  transition: all 0.1s;
   margin-top: 20px;
 
+  &::before {
+    content: '◈';
+    margin-right: 10px;
+    color: var(--gold);
+  }
+
   &::after {
-    border: none;
+    content: '◈';
+    margin-left: 10px;
+    color: var(--gold);
+    border: none !important;
+  }
+
+  &:active {
+    transform: translateY(6px);
+    box-shadow: 0 0 0 var(--blood-dark), 0 2px 12px rgba(0, 0, 0, 0.5);
   }
 }

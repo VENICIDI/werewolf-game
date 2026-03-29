@@ -1,10 +1,11 @@
 .room-container {
   min-height: 100vh;
-  background: linear-gradient(180deg, #1a1a2e 0%, #0f0f1e 100%);
-  padding: 20px;
-  padding-bottom: 100px;
+  padding: 80px 32px 120px;
+  position: relative;
+  z-index: 1;
 }
 
+// 顶部标题区
 .header {
   display: flex;
   align-items: center;
@@ -13,7 +14,8 @@
   .back-btn {
     width: 40px;
     font-size: 24px;
-    color: #fff;
+    color: var(--gold);
+    cursor: pointer;
   }
 
   .room-info-header {
@@ -22,16 +24,49 @@
 
     .room-name {
       display: block;
-      font-size: 18px;
-      font-weight: 600;
-      color: #fff;
+      font-family: var(--font-display);
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--gold);
       margin-bottom: 4px;
+      letter-spacing: 2px;
     }
 
     .room-code {
       display: block;
+      font-family: monospace;
       font-size: 14px;
-      color: #e94560;
+      color: var(--blood-red);
+      letter-spacing: 2px;
+    }
+
+    .ws-status {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      margin-top: 8px;
+
+      .status-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+
+        &.connected {
+          background: var(--gold);
+          box-shadow: 0 0 8px var(--gold);
+        }
+
+        &.disconnected {
+          background: var(--blood-red);
+          box-shadow: 0 0 8px var(--blood-red);
+        }
+      }
+
+      .status-text {
+        font-size: 12px;
+        color: var(--gold-dim);
+      }
     }
   }
 
@@ -43,58 +78,224 @@
 .loading {
   text-align: center;
   padding: 40px;
-  color: #a0a0a0;
+  color: var(--gold-dim);
+  font-size: 14px;
+}
+
+// 圆桌布局
+.round-table {
+  position: relative;
+  width: 100%;
+  max-width: 400px;
+  margin: 0 auto 40px;
+  aspect-ratio: 1;
+
+  .table-center {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 140px;
+    height: 140px;
+    background: radial-gradient(circle, var(--parchment-light) 0%, var(--parchment) 70%, #0a0806 100%);
+    border: 3px solid var(--gold);
+    border-radius: 50%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 0 40px rgba(212, 175, 55, 0.2), inset 0 0 60px rgba(0, 0, 0, 0.5);
+
+    .room-name {
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--gold);
+      margin-bottom: 4px;
+    }
+
+    .room-code {
+      font-family: monospace;
+      font-size: 14px;
+      color: var(--blood-red);
+      letter-spacing: 2px;
+    }
+  }
+}
+
+// 座位样式
+.seat {
+  position: absolute;
+  width: 70px;
+  text-align: center;
+
+  .seat-avatar {
+    width: 56px;
+    height: 56px;
+    margin: 0 auto 8px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--parchment-light) 0%, var(--parchment) 100%);
+    border: 2px solid var(--gold-dim);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    position: relative;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+
+    &.host {
+      border-color: var(--blood-red);
+      box-shadow: 0 0 20px rgba(139, 0, 0, 0.3);
+
+      &::after {
+        content: '👑';
+        position: absolute;
+        top: -8px;
+        right: -4px;
+        font-size: 14px;
+      }
+    }
+
+    &.empty {
+      background: rgba(26, 21, 16, 0.5);
+      border-color: #3d3025;
+      opacity: 0.6;
+    }
+
+    .avatar-img {
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+    }
+
+    .avatar-default {
+      font-size: 24px;
+    }
+  }
+
+  .seat-name {
+    font-size: 12px;
+    color: var(--text);
+    margin-bottom: 2px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .seat-number {
+    font-size: 11px;
+    color: var(--gold-dim);
+  }
+
+  .host-badge,
+  .ready-badge {
+    display: inline-block;
+    font-size: 10px;
+    padding: 2px 6px;
+    border-radius: 4px;
+    margin-bottom: 2px;
+  }
+
+  .host-badge {
+    color: var(--blood-red);
+    background: rgba(139, 0, 0, 0.2);
+    border: 1px solid var(--blood-dark);
+  }
+
+  .ready-badge {
+    color: var(--gold);
+    background: rgba(212, 175, 55, 0.2);
+    border: 1px solid var(--gold-dim);
+  }
+
+  // 座位位置 (12人)
+  &:nth-child(2) { top: 0; left: 50%; transform: translateX(-50%); }
+  &:nth-child(3) { top: 8%; right: 18%; }
+  &:nth-child(4) { top: 25%; right: 5%; }
+  &:nth-child(5) { top: 50%; right: 0; transform: translateY(-50%); }
+  &:nth-child(6) { bottom: 25%; right: 5%; }
+  &:nth-child(7) { bottom: 8%; right: 18%; }
+  &:nth-child(8) { bottom: 0; left: 50%; transform: translateX(-50%); }
+  &:nth-child(9) { bottom: 8%; left: 18%; }
+  &:nth-child(10) { bottom: 25%; left: 5%; }
+  &:nth-child(11) { top: 50%; left: 0; transform: translateY(-50%); }
+  &:nth-child(12) { top: 25%; left: 5%; }
+  &:nth-child(13) { top: 8%; left: 18%; }
 }
 
 // 创建房间表单
 .create-form {
+  background: linear-gradient(135deg, var(--parchment-light) 0%, var(--parchment) 50%, #15100c 100%);
+  border: 1px solid #3d3025;
+  border-radius: 2px 12px 2px 12px;
+  padding: 24px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+
   .form-item {
     margin-bottom: 24px;
 
     .label {
       display: block;
-      font-size: 14px;
-      color: #fff;
+      font-size: 13px;
+      color: var(--gold-dim);
       margin-bottom: 12px;
+      letter-spacing: 1px;
+
+      &::before {
+        content: '◆ ';
+        color: var(--blood-red);
+      }
     }
 
     .input {
       width: 100%;
       height: 48px;
-      background: rgba(255, 255, 255, 0.1);
-      border: 1px solid #2d2d44;
-      border-radius: 12px;
+      background: rgba(10, 8, 6, 0.8);
+      border: 1px solid #3d3025;
+      border-radius: 4px;
       padding: 0 16px;
-      color: #fff;
+      color: var(--text);
+      font-family: var(--font-serif);
       font-size: 14px;
 
+      &:focus {
+        outline: none;
+        border-color: var(--gold);
+        box-shadow: 0 0 0 2px rgba(212, 175, 55, 0.1);
+      }
+
       &::placeholder {
-        color: #666;
+        color: #5a4a3a;
       }
     }
 
     .player-options {
       display: flex;
       gap: 12px;
+      flex-wrap: wrap;
 
       .option {
         flex: 1;
+        min-width: 60px;
         height: 48px;
-        background: rgba(255, 255, 255, 0.05);
-        border: 1px solid #2d2d44;
-        border-radius: 12px;
+        background: rgba(26, 21, 16, 0.6);
+        border: 1px solid #3d3025;
+        border-radius: 4px;
         display: flex;
         align-items: center;
         justify-content: center;
+        cursor: pointer;
+        transition: all 0.3s;
 
         &.active {
-          background: #0f3460;
-          border-color: #e94560;
+          background: rgba(139, 0, 0, 0.6);
+          border-color: var(--gold);
+          box-shadow: 0 0 10px rgba(212, 175, 55, 0.2);
         }
 
         .option-num {
           font-size: 14px;
-          color: #fff;
+          color: var(--text);
+          font-weight: 600;
         }
       }
     }
@@ -102,172 +303,150 @@
 
   .create-btn {
     width: 100%;
-    height: 48px;
-    background: linear-gradient(135deg, #e94560 0%, #c73e54 100%);
-    border: none;
-    border-radius: 12px;
-    color: #fff;
+    height: 52px;
+    background: linear-gradient(180deg, rgba(139, 0, 0, 0.9) 0%, rgba(74, 0, 0, 0.95) 100%);
+    border: 2px solid var(--gold);
+    border-radius: 4px;
+    color: var(--text);
+    font-family: var(--font-serif);
     font-size: 16px;
-    font-weight: 600;
+    font-weight: 700;
+    letter-spacing: 4px;
+    box-shadow: 0 6px 0 var(--blood-dark), 0 8px 20px rgba(0, 0, 0, 0.5);
+    transition: all 0.1s;
     margin-top: 20px;
 
+    &::before {
+      content: '◈';
+      margin-right: 8px;
+      color: var(--gold);
+    }
+
     &::after {
-      border: none;
+      content: '◈';
+      margin-left: 8px;
+      color: var(--gold);
+      border: none !important;
+    }
+
+    &:active {
+      transform: translateY(6px);
+      box-shadow: 0 0 0 var(--blood-dark), 0 2px 10px rgba(0, 0, 0, 0.5);
     }
   }
 }
 
-// 玩家列表
+// 玩家网格布局(备用)
 .players-section {
   .section-title {
     display: block;
     font-size: 14px;
-    color: #a0a0a0;
+    color: var(--gold-dim);
     margin-bottom: 16px;
+    letter-spacing: 1px;
+
+    &::before {
+      content: '◆ ';
+      color: var(--blood-red);
+    }
   }
 
   .players-grid {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
     gap: 12px;
+  }
 
-    .player-card {
-      background: rgba(255, 255, 255, 0.05);
-      border-radius: 12px;
-      padding: 12px;
-      text-align: center;
-      position: relative;
-      border: 1px solid #2d2d44;
+  .player-card {
+    background: rgba(26, 21, 16, 0.6);
+    border: 1px solid #3d3025;
+    border-radius: 8px;
+    padding: 12px;
+    text-align: center;
+    transition: all 0.3s;
+
+    &.empty {
+      opacity: 0.5;
+    }
+
+    &.ready {
+      border-color: var(--gold);
+      box-shadow: 0 0 10px rgba(212, 175, 55, 0.2);
+    }
+
+    .player-avatar {
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      background: var(--parchment);
+      border: 2px solid var(--gold-dim);
+      margin: 0 auto 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
 
       &.empty {
-        opacity: 0.5;
-      }
-
-      .player-avatar {
-        width: 48px;
-        height: 48px;
-        border-radius: 50%;
-        background: #0f3460;
-        margin: 0 auto 8px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        overflow: hidden;
-
-        &.empty {
-          background: rgba(255, 255, 255, 0.1);
-        }
-
-        .avatar-img {
-          width: 100%;
-          height: 100%;
-        }
-
-        .avatar-default {
-          font-size: 24px;
-        }
-      }
-
-      .player-name {
-        display: block;
-        font-size: 12px;
-        color: #fff;
-        margin-bottom: 4px;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-      }
-
-      .host-badge {
-        display: inline-block;
-        font-size: 10px;
-        color: #e94560;
-        background: rgba(233, 69, 96, 0.2);
-        padding: 2px 8px;
-        border-radius: 8px;
-        margin-bottom: 4px;
-      }
-
-      .seat-num {
-        display: block;
-        font-size: 12px;
-        color: #666;
-      }
-    }
-  }
-}
-
-// 连接状态
-.room-info-header {
-  .ws-status {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 6px;
-    margin-top: 8px;
-
-    .status-dot {
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-
-      &.connected {
-        background: #4caf50;
-      }
-
-      &.disconnected {
-        background: #f44336;
+        background: rgba(26, 21, 16, 0.3);
+        border-color: #3d3025;
       }
     }
 
-    .status-text {
+    .player-name {
       font-size: 12px;
-      color: #a0a0a0;
+      color: var(--text);
+      margin-bottom: 4px;
     }
-  }
-}
 
-// 玩家准备状态
-.player-card {
-  &.ready {
-    border-color: #4caf50;
-  }
-
-  .ready-badge {
-    display: inline-block;
-    font-size: 10px;
-    color: #4caf50;
-    background: rgba(76, 175, 80, 0.2);
-    padding: 2px 8px;
-    border-radius: 8px;
-    margin-bottom: 4px;
+    .seat-num {
+      font-size: 12px;
+      color: #5a4a3a;
+    }
   }
 }
 
 // 聊天区域
 .chat-section {
-  background: rgba(255, 255, 255, 0.05);
-  border-radius: 16px;
+  background: linear-gradient(135deg, var(--parchment-light) 0%, var(--parchment) 100%);
+  border: 1px solid #3d3025;
+  border-radius: 8px;
   padding: 16px;
   margin-bottom: 100px;
-  border: 1px solid #2d2d44;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
 
   .section-title {
     display: block;
-    font-size: 14px;
-    color: #a0a0a0;
+    font-size: 13px;
+    color: var(--gold-dim);
     margin-bottom: 12px;
+    letter-spacing: 1px;
+
+    &::before {
+      content: '◆ ';
+      color: var(--blood-red);
+    }
   }
 
   .chat-messages {
     height: 150px;
     overflow-y: auto;
     margin-bottom: 12px;
+    padding: 8px;
+    background: rgba(10, 8, 6, 0.5);
+    border-radius: 4px;
+
+    &::-webkit-scrollbar {
+      width: 4px;
+    }
+
+    &::-webkit-scrollbar-thumb {
+      background: var(--blood-dark);
+      border-radius: 2px;
+    }
 
     .chat-empty {
       text-align: center;
-      color: #666;
-      font-size: 14px;
+      color: #5a4a3a;
+      font-size: 13px;
       padding: 20px;
     }
 
@@ -276,13 +455,13 @@
 
       .chat-sender {
         font-size: 12px;
-        color: #e94560;
+        color: var(--blood-red);
         margin-right: 8px;
       }
 
       .chat-content {
-        font-size: 14px;
-        color: #fff;
+        font-size: 13px;
+        color: var(--text);
       }
     }
   }
@@ -294,30 +473,40 @@
     .chat-input {
       flex: 1;
       height: 40px;
-      background: rgba(255, 255, 255, 0.1);
-      border: 1px solid #2d2d44;
+      background: rgba(10, 8, 6, 0.8);
+      border: 1px solid #3d3025;
       border-radius: 20px;
       padding: 0 16px;
-      color: #fff;
-      font-size: 14px;
+      color: var(--text);
+      font-size: 13px;
+
+      &:focus {
+        outline: none;
+        border-color: var(--gold-dim);
+      }
 
       &::placeholder {
-        color: #666;
+        color: #5a4a3a;
       }
     }
 
     .chat-send {
       width: 60px;
       height: 40px;
-      background: #0f3460;
-      border: none;
+      background: rgba(139, 0, 0, 0.6);
+      border: 1px solid var(--blood-dark);
       border-radius: 20px;
-      color: #fff;
-      font-size: 14px;
+      color: var(--text);
+      font-size: 13px;
+      font-weight: 600;
       line-height: 40px;
 
       &::after {
         border: none;
+      }
+
+      &:active {
+        background: var(--blood-red);
       }
     }
   }
@@ -330,44 +519,78 @@
   left: 0;
   right: 0;
   padding: 20px;
-  background: linear-gradient(180deg, transparent 0%, #0f0f1e 20%);
+  background: linear-gradient(180deg, transparent 0%, rgba(10, 8, 6, 0.95) 30%);
   display: flex;
   gap: 12px;
+  z-index: 50;
 
   .action-btn {
     flex: 1;
-    height: 48px;
-    border: none;
-    border-radius: 12px;
-    font-size: 16px;
-    font-weight: 600;
+    height: 52px;
+    border: 2px solid;
+    border-radius: 4px;
+    font-family: var(--font-serif);
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: 3px;
+    cursor: pointer;
+    transition: all 0.3s;
 
     &::after {
-      border: none;
+      border: none !important;
     }
 
     &.leave {
-      background: #2d2d44;
-      color: #fff;
+      background: rgba(45, 45, 68, 0.9);
+      border-color: #4a4a6a;
+      color: #a0a0a0;
+
+      &:active {
+        background: rgba(139, 0, 0, 0.5);
+        border-color: var(--blood-red);
+        color: var(--text);
+      }
     }
 
     &.ready {
-      background: linear-gradient(135deg, #e94560 0%, #c73e54 100%);
-      color: #fff;
+      background: linear-gradient(180deg, rgba(139, 0, 0, 0.9) 0%, rgba(74, 0, 0, 0.95) 100%);
+      border-color: var(--gold);
+      color: var(--text);
+      box-shadow: 0 4px 0 var(--blood-dark);
+
+      &:active {
+        transform: translateY(4px);
+        box-shadow: 0 0 0 var(--blood-dark);
+      }
     }
 
     &.cancel {
-      background: #666;
-      color: #fff;
+      background: rgba(45, 45, 68, 0.9);
+      border-color: #4a4a6a;
+      color: var(--text);
+
+      &:active {
+        background: rgba(45, 45, 68, 1);
+      }
     }
 
     &.start {
-      background: linear-gradient(135deg, #e94560 0%, #c73e54 100%);
-      color: #fff;
+      background: linear-gradient(180deg, rgba(139, 0, 0, 0.9) 0%, rgba(74, 0, 0, 0.95) 100%);
+      border-color: var(--gold);
+      color: var(--text);
+      box-shadow: 0 4px 0 var(--blood-dark);
+
+      &:active {
+        transform: translateY(4px);
+        box-shadow: 0 0 0 var(--blood-dark);
+      }
 
       &[disabled] {
-        background: #333;
-        color: #666;
+        background: rgba(45, 45, 68, 0.5);
+        border-color: #2d2d44;
+        color: #5a4a3a;
+        cursor: not-allowed;
+        opacity: 0.6;
       }
     }
   }

@@ -1,8 +1,9 @@
 const config = {
   projectName: 'werewolf-frontend',
   date: '2024-3-10',
-  designWidth: 750,
+  designWidth: 375,
   deviceRatio: {
+    375: 2,
     640: 2.34 / 2,
     750: 1,
     828: 1.81 / 2
@@ -35,6 +36,13 @@ const config = {
     publicPath: '/',
     staticDirectory: 'static',
     postcss: {
+      pxtransform: {
+        enable: true,
+        config: {
+          maxRootSize: 40,
+          minRootSize: 20
+        }
+      },
       autoprefixer: {
         enable: true,
         config: {}
