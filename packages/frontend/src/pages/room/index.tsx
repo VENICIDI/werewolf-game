@@ -2,7 +2,9 @@ import { useEffect, useState, useCallback } from 'react'
 import Taro, { getCurrentInstance } from '@tarojs/taro'
 import { View, Text, Button, Input, ScrollView } from '@tarojs/components'
 import { getRoomDetail, createRoom, leaveRoom, setReady } from '../../api/room'
-import { getUserInfo, isLoggedIn } from '../../api/auth'
+import { getUserInfo } from '../../api/auth'
+import { checkLogin } from '../../utils/auth-guard'
+import { isLoggedIn } from '../../api/auth'
 import { wsManager, WebSocketState } from '../../utils/websocket'
 import './index.scss'
 
@@ -42,7 +44,7 @@ export default function Room() {
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([])
   const [chatInput, setChatInput] = useState('')
   const [wsConnected, setWsConnected] = useState(false)
-  
+
   // 创建房间表单
   const [roomName, setRoomName] = useState('')
   const [maxPlayers, setMaxPlayers] = useState(9)
@@ -52,7 +54,6 @@ export default function Room() {
   const roomCode = router?.params?.code
   const action = router?.params?.action
 
-  // 初始化 WebSocket 监听
   useEffect(() => {
     if (!isLoggedIn()) {
       Taro.showToast({ title: '请先登录', icon: 'none' })
@@ -69,37 +70,34 @@ export default function Room() {
       connectWebSocket(roomCode)
     }
 
-    // 组件卸载时断开 WebSocket
     return () => {
       wsManager.disconnect()
     }
   }, [])
 
-  // 连接 WebSocket
   const connectWebSocket = async (code: string) => {
     try {
-      // 设置消息处理器
       wsManager.on('JOIN_ROOM', handlePlayerJoin)
       wsManager.on('LEAVE_ROOM', handlePlayerLeave)
       wsManager.on('ROOM_UPDATE', handleRoomUpdate)
       wsManager.on('PLAYER_READY', handlePlayerReady)
       wsManager.on('PLAYER_CHAT', handlePlayerChat)
       wsManager.on('HEARTBEAT_ACK', handleHeartbeatAck)
-      
+
       wsManager.setOnOpen(() => {
         setWsConnected(true)
         console.log('WebSocket 已连接')
       })
-      
+
       wsManager.setOnClose(() => {
         setWsConnected(false)
         console.log('WebSocket 已断开')
       })
-      
+
       wsManager.setOnError((error) => {
         console.error('WebSocket 错误:', error)
       })
-      
+
       await wsManager.connect(code)
     } catch (error: any) {
       console.error('WebSocket 连接失败:', error)
@@ -107,7 +105,6 @@ export default function Room() {
     }
   }
 
-  // WebSocket 消息处理器
   const handlePlayerJoin = useCallback((message: any) => {
     Taro.showToast({ title: `${message.senderName} 加入了房间`, icon: 'none' })
     if (roomCode) fetchRoomDetail(roomCode)
@@ -127,9 +124,9 @@ export default function Room() {
     if (message.senderId === userInfo?.id) {
       setIsReady(message.data)
     }
-    Taro.showToast({ 
-      title: `${message.senderName} ${message.data ? '已准备' : '取消准备'}`, 
-      icon: 'none' 
+    Taro.showToast({
+      title: `${message.senderName} ${message.data ? '已准备' : '取消准备'}`,
+      icon: 'none'
     })
     if (roomCode) fetchRoomDetail(roomCode)
   }, [roomCode])
@@ -144,19 +141,16 @@ export default function Room() {
     setChatMessages(prev => [...prev, newMessage])
   }, [])
 
-  const handleHeartbeatAck = useCallback(() => {
-    // 心跳响应，无需处理
-  }, [])
+  const handleHeartbeatAck = useCallback(() => {}, [])
 
   const fetchRoomDetail = async (code: string) => {
     setLoading(true)
     try {
       const res: any = await getRoomDetail(code)
       setRoom(res)
-      // 检查自己是否已准备
       const userInfo = getUserInfo()
       const me = res.players?.find((p: Player) => p.userId === userInfo?.id)
-      // 这里简化处理，实际应该从后端获取准备状态
+      if (me?.isReady) setIsReady(true)
     } catch (error: any) {
       Taro.showToast({ title: error.message || '获取房间信息失败', icon: 'none' })
       setTimeout(() => {
@@ -182,8 +176,6 @@ export default function Room() {
       })
       Taro.hideLoading()
       Taro.showToast({ title: '创建成功', icon: 'success' })
-      
-      // 跳转到房间详情
       setTimeout(() => {
         Taro.redirectTo({ url: `/pages/room/index?code=${res.roomCode}` })
       }, 500)
@@ -195,7 +187,6 @@ export default function Room() {
 
   const handleLeaveRoom = async () => {
     if (!room) return
-    
     Taro.showModal({
       title: '提示',
       content: '确定要离开房间吗？',
@@ -218,11 +209,8 @@ export default function Room() {
 
   const handleReady = async () => {
     if (!room) return
-    
     try {
-      // 通过 WebSocket 发送准备状态
       wsManager.sendReady(!isReady)
-      // 同时调用 HTTP API
       await setReady(room.roomCode, !isReady)
       setIsReady(!isReady)
       Taro.showToast({ title: isReady ? '已取消准备' : '已准备', icon: 'success' })
@@ -241,47 +229,80 @@ export default function Room() {
     Taro.showToast({ title: '游戏开始功能开发中...', icon: 'none' })
   }
 
-  // 创建房间界面
+  const getRoleDesc = (num: number) => {
+    switch (num) {
+      case 6: return '4村民 + 2狼人'
+      case 9: return '3村民 + 3神职 + 3狼人'
+      case 12: return '4村民 + 4神职 + 4狼人'
+      default: return ''
+    }
+  }
+
+  // ====== 创建房间界面 ======
   if (isCreating) {
     return (
       <View className='room-container'>
-        <View className='header'>
-          <Text className='back-btn' onClick={() => Taro.navigateBack()}>←</Text>
-          <Text className='title'>创建房间</Text>
-          <View className='placeholder'></View>
+        <View className='nav-header'>
+          <View className='back-btn' onClick={() => Taro.navigateBack()}>
+            <Text className='back-icon'>←</Text>
+          </View>
+          <Text className='nav-title'>创建房间</Text>
+          <View className='nav-placeholder'></View>
         </View>
 
         <View className='create-form'>
-          <View className='form-item'>
-            <Text className='label'>房间名称</Text>
+          {/* 顶部装饰 */}
+          <View className='form-deco-top'>
+            <Text className='form-deco-icon'>⚔</Text>
+            <Text className='form-deco-text'>设立你的猎场</Text>
+          </View>
+
+          {/* 房间名称 */}
+          <View className='form-group'>
+            <View className='form-label-row'>
+              <Text className='form-label-icon'>📝</Text>
+              <Text className='form-label'>房间名称</Text>
+            </View>
             <Input
-              className='input'
-              placeholder='请输入房间名称'
+              className='form-input'
+              placeholder='给你的房间起个名字'
               value={roomName}
               onInput={(e) => setRoomName(e.detail.value)}
               maxLength={20}
             />
           </View>
 
-          <View className='form-item'>
-            <Text className='label'>人数设置</Text>
+          {/* 人数设置 */}
+          <View className='form-group'>
+            <View className='form-label-row'>
+              <Text className='form-label-icon'>👥</Text>
+              <Text className='form-label'>人数设置</Text>
+            </View>
             <View className='player-options'>
               {[6, 9, 12].map((num) => (
                 <View
                   key={num}
-                  className={`option ${maxPlayers === num ? 'active' : ''}`}
+                  className={`player-option ${maxPlayers === num ? 'active' : ''}`}
                   onClick={() => setMaxPlayers(num)}
                 >
-                  <Text className='option-num'>{num}人</Text>
+                  <Text className='option-num'>{num}</Text>
+                  <Text className='option-unit'>人</Text>
+                  <Text className='option-desc'>{getRoleDesc(num)}</Text>
+                  {maxPlayers === num && <View className='option-check'>✓</View>}
                 </View>
               ))}
             </View>
           </View>
 
-          <View className='form-item'>
-            <Text className='label'>房间密码 (可选)</Text>
+          {/* 房间密码 */}
+          <View className='form-group'>
+            <View className='form-label-row'>
+              <Text className='form-label-icon'>🔒</Text>
+              <Text className='form-label'>房间密码</Text>
+              <Text className='form-label-hint'>可选</Text>
+            </View>
             <Input
-              className='input'
+              className='form-input'
               type='password'
               placeholder='不设置则为公开房间'
               value={password}
@@ -290,124 +311,197 @@ export default function Room() {
             />
           </View>
 
-          <Button className='create-btn' onClick={handleCreateRoom}>
-            创建房间
+          {/* 创建按钮 */}
+          <Button className='form-submit-btn' onClick={handleCreateRoom}>
+            <Text className='btn-deco'>◈</Text>
+            <Text className='btn-text'>创建房间</Text>
+            <Text className='btn-deco'>◈</Text>
           </Button>
         </View>
       </View>
     )
   }
 
-  // 房间详情界面
+  // ====== 加载中 ======
   if (!room) {
     return (
       <View className='room-container'>
-        <View className='loading'>加载中...</View>
+        <View className='loading-state'>
+          <Text className='loading-icon'>🌙</Text>
+          <Text className='loading-text'>进入房间中...</Text>
+        </View>
       </View>
     )
   }
 
   const userInfo = getUserInfo()
   const isHost = userInfo?.id === room.hostId
+  const readyCount = room.players?.filter(p => p.isReady || p.isHost).length || 0
 
   return (
     <View className='room-container'>
-      {/* 头部 */}
-      <View className='header'>
-        <Text className='back-btn' onClick={() => Taro.navigateBack()}>←</Text>
-        <View className='room-info-header'>
-          <Text className='room-name'>{room.roomName}</Text>
-          <Text className='room-code'>房间号: {room.roomCode}</Text>
-          <View className='ws-status'>
-            <Text className={`status-dot ${wsConnected ? 'connected' : 'disconnected'}`}></Text>
-            <Text className='status-text'>{wsConnected ? '实时连接中' : '未连接'}</Text>
+      {/* 顶部导航 */}
+      <View className='nav-header'>
+        <View className='back-btn' onClick={() => Taro.navigateBack()}>
+          <Text className='back-icon'>←</Text>
+        </View>
+        <View className='nav-center'>
+          <Text className='nav-room-name'>{room.roomName}</Text>
+          <View className='nav-meta'>
+            <Text className='nav-room-code'>{room.roomCode}</Text>
+            <View className={`ws-indicator ${wsConnected ? 'on' : 'off'}`}>
+              <Text className='ws-dot'></Text>
+              <Text className='ws-label'>{wsConnected ? '已连接' : '未连接'}</Text>
+            </View>
           </View>
         </View>
-        <View className='placeholder'></View>
+        <View className='nav-placeholder'></View>
       </View>
 
-      {/* 玩家列表 */}
-      <View className='players-section'>
-        <Text className='section-title'>
-          玩家列表 ({room.currentPlayers}/{room.maxPlayers})
-        </Text>
-        <View className='players-grid'>
-          {room.players?.map((player, index) => (
-            <View key={player.userId} className={`player-card ${player.isReady ? 'ready' : ''}`}>
-              <View className='player-avatar'>
-                {player.avatarUrl ? (
-                  <image src={player.avatarUrl} className='avatar-img' />
-                ) : (
-                  <Text className='avatar-default'>👤</Text>
-                )}
-              </View>
-              <Text className='player-name'>{player.username}</Text>
-              {player.isHost && <Text className='host-badge'>房主</Text>}
-              {player.isReady && <Text className='ready-badge'>已准备</Text>}
-              <Text className='seat-num'>{index + 1}号</Text>
+      <ScrollView className='room-body' scrollY>
+        {/* 房间信息卡片 */}
+        <View className='room-info-card'>
+          <View className='info-row'>
+            <View className='info-cell'>
+              <Text className='info-cell-label'>房主</Text>
+              <Text className='info-cell-value'>👤 {room.hostName}</Text>
             </View>
-          ))}
-          {/* 空位 */}
-          {Array.from({ length: room.maxPlayers - (room.players?.length || 0) }).map((_, i) => (
-            <View key={`empty-${i}`} className='player-card empty'>
-              <View className='player-avatar empty'>
-                <Text className='avatar-default'>+</Text>
-              </View>
-              <Text className='player-name'>等待加入</Text>
-              <Text className='seat-num'>{(room.players?.length || 0) + i + 1}号</Text>
+            <View className='info-cell-divider'></View>
+            <View className='info-cell'>
+              <Text className='info-cell-label'>人数</Text>
+              <Text className='info-cell-value'>{room.currentPlayers}/{room.maxPlayers}</Text>
             </View>
-          ))}
+            <View className='info-cell-divider'></View>
+            <View className='info-cell'>
+              <Text className='info-cell-label'>已准备</Text>
+              <Text className='info-cell-value ready-value'>{readyCount}/{room.currentPlayers}</Text>
+            </View>
+          </View>
+          {/* 进度条 */}
+          <View className='info-progress'>
+            <View className='info-progress-bar'>
+              <View
+                className='info-progress-fill'
+                style={{ width: `${(room.currentPlayers / room.maxPlayers) * 100}%` }}
+              ></View>
+            </View>
+          </View>
         </View>
-      </View>
 
-      {/* 聊天区域 */}
-      <View className='chat-section'>
-        <Text className='section-title'>聊天</Text>
-        <ScrollView className='chat-messages' scrollY>
-          {chatMessages.length === 0 ? (
-            <Text className='chat-empty'>暂无消息</Text>
-          ) : (
-            chatMessages.map((msg, index) => (
-              <View key={index} className='chat-item'>
-                <Text className='chat-sender'>{msg.senderName}:</Text>
-                <Text className='chat-content'>{msg.content}</Text>
+        {/* 玩家列表 */}
+        <View className='players-section'>
+          <View className='section-header'>
+            <Text className='section-icon'>⚔</Text>
+            <Text className='section-title'>猎人集结</Text>
+            <View className='section-line'></View>
+          </View>
+
+          <View className='players-grid'>
+            {room.players?.map((player, index) => (
+              <View
+                key={player.userId}
+                className={`player-card ${player.isReady ? 'ready' : ''} ${player.isHost ? 'host' : ''}`}
+              >
+                <View className='player-avatar'>
+                  {player.avatarUrl ? (
+                    <image src={player.avatarUrl} className='avatar-img' />
+                  ) : (
+                    <Text className='avatar-emoji'>
+                      {player.isHost ? '👑' : '🐺'}
+                    </Text>
+                  )}
+                  {player.isReady && (
+                    <View className='ready-mark'>
+                      <Text className='ready-mark-text'>✓</Text>
+                    </View>
+                  )}
+                </View>
+                <Text className='player-name'>{player.username}</Text>
+                <View className='player-badges'>
+                  {player.isHost && <Text className='badge host-badge'>房主</Text>}
+                  {player.isReady && !player.isHost && <Text className='badge ready-badge'>已准备</Text>}
+                </View>
+                <Text className='seat-number'>{index + 1}号位</Text>
               </View>
-            ))
-          )}
-        </ScrollView>
-        <View className='chat-input-area'>
-          <Input
-            className='chat-input'
-            placeholder='输入消息...'
-            value={chatInput}
-            onInput={(e) => setChatInput(e.detail.value)}
-            onConfirm={handleSendChat}
-          />
-          <Button className='chat-send' onClick={handleSendChat}>
-            发送
-          </Button>
+            ))}
+
+            {/* 空位 */}
+            {Array.from({ length: room.maxPlayers - (room.players?.length || 0) }).map((_, i) => (
+              <View key={`empty-${i}`} className='player-card empty'>
+                <View className='player-avatar empty'>
+                  <Text className='avatar-emoji'>+</Text>
+                </View>
+                <Text className='player-name empty-name'>等待加入</Text>
+                <Text className='seat-number'>{(room.players?.length || 0) + i + 1}号位</Text>
+              </View>
+            ))}
+          </View>
         </View>
-      </View>
+
+        {/* 聊天区域 */}
+        <View className='chat-section'>
+          <View className='section-header'>
+            <Text className='section-icon'>💬</Text>
+            <Text className='section-title'>聊天</Text>
+            <View className='section-line'></View>
+          </View>
+
+          <View className='chat-box'>
+            <ScrollView className='chat-messages' scrollY scrollWithAnimation>
+              {chatMessages.length === 0 ? (
+                <View className='chat-empty'>
+                  <Text className='chat-empty-text'>暂无消息，来打个招呼吧 👋</Text>
+                </View>
+              ) : (
+                chatMessages.map((msg, index) => {
+                  const isMe = msg.senderId === userInfo?.id
+                  return (
+                    <View key={index} className={`chat-item ${isMe ? 'me' : ''}`}>
+                      <Text className='chat-sender'>{msg.senderName}</Text>
+                      <Text className='chat-content'>{msg.content}</Text>
+                    </View>
+                  )
+                })
+              )}
+            </ScrollView>
+
+            <View className='chat-input-row'>
+              <Input
+                className='chat-input'
+                placeholder='说点什么...'
+                value={chatInput}
+                onInput={(e) => setChatInput(e.detail.value)}
+                onConfirm={handleSendChat}
+              />
+              <Button className='chat-send-btn' onClick={handleSendChat}>
+                发送
+              </Button>
+            </View>
+          </View>
+        </View>
+      </ScrollView>
 
       {/* 底部操作栏 */}
-      <View className='action-bar'>
-        <Button className='action-btn leave' onClick={handleLeaveRoom}>
+      <View className='bottom-bar'>
+        <Button className='bar-btn leave-btn' onClick={handleLeaveRoom}>
           离开房间
         </Button>
         {isHost ? (
-          <Button 
-            className='action-btn start' 
+          <Button
+            className='bar-btn start-btn'
             onClick={handleStartGame}
             disabled={room.currentPlayers < 6}
           >
-            开始游戏
+            {room.currentPlayers < 6
+              ? `还需 ${6 - room.currentPlayers} 人`
+              : '开始游戏'}
           </Button>
         ) : (
-          <Button 
-            className={`action-btn ${isReady ? 'cancel' : 'ready'}`}
+          <Button
+            className={`bar-btn ${isReady ? 'cancel-btn' : 'ready-btn'}`}
             onClick={handleReady}
           >
-            {isReady ? '取消准备' : '准备'}
+            {isReady ? '取消准备' : '准备就绪'}
           </Button>
         )}
       </View>

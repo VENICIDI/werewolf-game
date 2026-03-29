@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import Taro from '@tarojs/taro'
 import { View, Text, Button, ScrollView } from '@tarojs/components'
 import { isLoggedIn, getUserInfo, clearAuth } from '../../api/auth'
+import { checkLogin } from '../../utils/auth-guard'
 import './index.scss'
 
 // 角色图鉴数据

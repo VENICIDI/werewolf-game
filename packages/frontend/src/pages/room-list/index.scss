@@ -1,79 +1,132 @@
+// ============================================
+// 房间列表页 - 狩猎集会
+// ============================================
+
 .room-list-container {
   min-height: 100vh;
-  padding: 80px 32px 40px;
+  padding: 24px 20px 32px;
   position: relative;
   z-index: 1;
 }
 
-// 标题区域
-.header {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 20px;
-  padding-bottom: 12px;
-  border-bottom: 1px solid var(--blood-dark);
+// ---- 页面头部 ----
+.page-header {
+  margin-bottom: 24px;
+  padding-top: 8px;
 
-  .title {
-    display: block;
-    font-family: var(--font-display);
-    font-size: 18px;
-    font-weight: 700;
-    color: var(--gold);
-    letter-spacing: 2px;
+  .header-title-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 8px;
+
+    .header-icon {
+      font-size: 24px;
+    }
+
+    .header-title {
+      font-family: var(--font-display);
+      font-size: 22px;
+      font-weight: 700;
+      color: var(--gold);
+      letter-spacing: 3px;
+    }
   }
 
-  .subtitle {
-    flex: 1;
-    height: 1px;
-    background: linear-gradient(90deg, var(--blood-dark), transparent);
+  .header-subtitle {
+    display: block;
+    font-size: 13px;
+    color: #7a6a5a;
+    line-height: 1.6;
+    padding-left: 2px;
+  }
+
+  .header-divider {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 16px;
+
+    .divider-line {
+      flex: 1;
+      height: 1px;
+      background: linear-gradient(90deg, var(--blood-dark), transparent);
+
+      &:last-child {
+        background: linear-gradient(270deg, var(--blood-dark), transparent);
+      }
+    }
+
+    .divider-icon {
+      color: var(--blood-red);
+      font-size: 12px;
+      opacity: 0.6;
+    }
   }
 }
 
-// 操作区域
-.action-area {
-  margin-bottom: 20px;
+// ---- 快捷操作区 ----
+.quick-actions {
+  margin-bottom: 24px;
 
   .join-by-code {
     display: flex;
-    gap: 12px;
-    margin-bottom: 16px;
+    gap: 10px;
+    margin-bottom: 12px;
 
-    .code-input {
+    .input-wrapper {
       flex: 1;
-      height: 48px;
-      background: rgba(10, 8, 6, 0.8);
+      display: flex;
+      align-items: center;
+      height: 46px;
+      background: rgba(10, 8, 6, 0.85);
       border: 1px solid #3d3025;
-      border-radius: 4px;
-      padding: 0 16px;
-      color: var(--text);
-      font-family: var(--font-serif);
-      font-size: 14px;
+      border-radius: 8px;
+      padding: 0 14px;
       transition: all 0.3s;
 
-      &:focus {
-        outline: none;
+      &:focus-within {
         border-color: var(--gold);
         box-shadow: 0 0 0 2px rgba(212, 175, 55, 0.1);
       }
 
-      &::placeholder {
-        color: #5a4a3a;
+      .input-prefix {
+        font-size: 14px;
+        margin-right: 8px;
+        opacity: 0.6;
+      }
+
+      .code-input {
+        flex: 1;
+        height: 100%;
+        color: var(--text);
+        font-family: monospace;
+        font-size: 15px;
+        letter-spacing: 3px;
+        border: none;
+        background: transparent;
+
+        &::placeholder {
+          color: #5a4a3a;
+          font-family: var(--font-serif);
+          letter-spacing: 0;
+          font-size: 13px;
+        }
       }
     }
 
     .join-btn {
-      width: 80px;
-      height: 48px;
-      background: rgba(139, 0, 0, 0.6);
-      border: 1px solid var(--blood-dark);
-      border-radius: 4px;
+      width: 72px;
+      height: 46px;
+      background: linear-gradient(180deg, rgba(139, 0, 0, 0.8) 0%, rgba(100, 0, 0, 0.9) 100%);
+      border: 1px solid var(--blood-red);
+      border-radius: 8px;
       color: var(--text);
-      font-family: var(--font-serif);
       font-size: 14px;
-      cursor: pointer;
-      transition: all 0.3s;
-      line-height: 48px;
+      font-weight: 600;
+      line-height: 46px;
+      letter-spacing: 2px;
+      transition: all 0.2s;
 
       &::after {
         border: none;
@@ -81,27 +134,31 @@
 
       &:active {
         background: var(--blood-red);
+        transform: scale(0.96);
       }
     }
   }
 
   .create-btn {
     width: 100%;
-    height: 52px;
-    background: linear-gradient(180deg, rgba(139, 0, 0, 0.9) 0%, rgba(74, 0, 0, 0.95) 100%);
-    border: 2px solid var(--gold);
-    border-radius: 4px;
+    height: 50px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    background: linear-gradient(180deg, rgba(139, 0, 0, 0.85) 0%, rgba(60, 0, 0, 0.95) 100%);
+    border: 1.5px solid var(--gold);
+    border-radius: 8px;
     color: var(--text);
     font-family: var(--font-serif);
-    font-size: 16px;
+    font-size: 15px;
     font-weight: 700;
     letter-spacing: 4px;
-    box-shadow: 0 6px 0 var(--blood-dark), 0 8px 20px rgba(0, 0, 0, 0.5);
-    transition: all 0.1s;
-    line-height: 52px;
+    box-shadow: 0 4px 0 var(--blood-dark), 0 6px 16px rgba(0, 0, 0, 0.4);
+    transition: all 0.15s;
 
-    &::before {
-      content: '+ ';
+    .btn-icon {
+      font-size: 16px;
     }
 
     &::after {
@@ -109,187 +166,415 @@
     }
 
     &:active {
-      transform: translateY(6px);
-      box-shadow: 0 0 0 var(--blood-dark), 0 2px 10px rgba(0, 0, 0, 0.5);
+      transform: translateY(4px);
+      box-shadow: 0 0 0 var(--blood-dark), 0 2px 8px rgba(0, 0, 0, 0.4);
     }
   }
 }
 
-// 房间列表
-.room-list {
-  min-height: calc(100vh - 320px);
-
-  .loading {
-    text-align: center;
-    padding: 40px;
-    color: var(--gold-dim);
-    font-size: 14px;
-  }
-
-  .empty {
-    text-align: center;
-    padding: 60px 20px;
-
-    .empty-icon {
-      display: block;
-      font-size: 48px;
-      margin-bottom: 16px;
-      opacity: 0.5;
-    }
-
-    .empty-text {
-      display: block;
-      font-size: 16px;
-      color: var(--text);
-      margin-bottom: 8px;
-    }
-
-    .empty-tip {
-      display: block;
-      font-size: 14px;
-      color: #5a4a3a;
-    }
-  }
-}
-
-// 通缉令卡片
-.room-card {
-  background: linear-gradient(135deg, rgba(26, 21, 16, 0.95) 0%, rgba(20, 15, 10, 0.98) 100%);
-  border: 1px solid #4a3c32;
-  border-radius: 4px 16px 4px 16px;
-  padding: 16px;
+// ---- 列表头部 ----
+.list-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   margin-bottom: 16px;
-  position: relative;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
 
-  // 血红印章装饰
-  &::before {
-    content: '';
-    position: absolute;
-    top: 8px;
-    right: 8px;
-    width: 40px;
-    height: 40px;
-    border: 2px solid var(--blood-red);
-    border-radius: 50%;
-    opacity: 0.3;
-    transform: rotate(15deg);
-  }
-
-  // 锁定房间标记
-  &.locked::after {
-    content: '🔒';
-    position: absolute;
-    top: 12px;
-    right: 12px;
-    font-size: 20px;
-  }
-
-  .room-header {
+  .list-title-row {
     display: flex;
-    justify-content: space-between;
+    align-items: baseline;
+    gap: 10px;
+
+    .list-title {
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--gold);
+      letter-spacing: 1px;
+
+      &::before {
+        content: '◆ ';
+        color: var(--blood-red);
+        font-size: 10px;
+      }
+    }
+
+    .room-count {
+      font-size: 12px;
+      color: #6a5a4a;
+    }
+  }
+
+  .refresh-btn {
+    width: 32px;
+    height: 32px;
+    display: flex;
     align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    background: rgba(26, 21, 16, 0.6);
+    border: 1px solid #3d3025;
+    cursor: pointer;
+    transition: all 0.3s;
+
+    &:active {
+      background: rgba(139, 0, 0, 0.3);
+      border-color: var(--blood-red);
+    }
+
+    .refresh-icon {
+      font-size: 16px;
+      color: var(--gold-dim);
+      transition: transform 0.6s ease;
+
+      &.spinning {
+        animation: spin 0.8s linear infinite;
+      }
+    }
+  }
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+// ---- 房间列表 ----
+.room-list {
+  height: calc(100vh - 320px);
+}
+
+// ---- 加载状态 ----
+.loading-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 60px 20px;
+
+  .loading-icon {
+    font-size: 40px;
+    margin-bottom: 16px;
+    animation: moonPulse 2s ease-in-out infinite;
+  }
+
+  .loading-text {
+    font-size: 14px;
+    color: #7a6a5a;
+    letter-spacing: 2px;
+  }
+}
+
+@keyframes moonPulse {
+  0%, 100% { opacity: 0.5; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.1); }
+}
+
+// ---- 空状态 ----
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 48px 24px;
+  background: linear-gradient(135deg, rgba(26, 21, 16, 0.4) 0%, rgba(20, 15, 10, 0.6) 100%);
+  border: 1px dashed #3d3025;
+  border-radius: 12px;
+
+  .empty-icon {
+    font-size: 48px;
+    margin-bottom: 16px;
+    opacity: 0.7;
+  }
+
+  .empty-title {
+    display: block;
+    font-family: var(--font-display);
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--gold);
+    margin-bottom: 8px;
+    letter-spacing: 3px;
+  }
+
+  .empty-desc {
+    display: block;
+    font-size: 13px;
+    color: #6a5a4a;
+    text-align: center;
+    line-height: 1.6;
+    margin-bottom: 24px;
+  }
+
+  .empty-create-btn {
+    padding: 10px 32px;
+    background: linear-gradient(180deg, rgba(139, 0, 0, 0.8) 0%, rgba(74, 0, 0, 0.9) 100%);
+    border: 1.5px solid var(--gold);
+    border-radius: 6px;
+    color: var(--text);
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: 3px;
+    line-height: 1;
+
+    &::after {
+      border: none;
+    }
+
+    &:active {
+      background: var(--blood-red);
+    }
+  }
+}
+
+// ---- 房间卡片 ----
+.room-card {
+  position: relative;
+  margin-bottom: 14px;
+  border-radius: 10px;
+  overflow: hidden;
+  background: linear-gradient(135deg, rgba(28, 22, 16, 0.95) 0%, rgba(18, 14, 10, 0.98) 100%);
+  border: 1px solid #3a2e24;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.4);
+  transition: all 0.2s ease;
+
+  &:active {
+    transform: scale(0.985);
+    box-shadow: 0 1px 6px rgba(0, 0, 0, 0.5);
+  }
+
+  // 卡片顶部装饰线
+  .card-top-deco {
+    height: 3px;
+    background: linear-gradient(90deg, transparent, var(--blood-dark), var(--blood-red), var(--blood-dark), transparent);
+    opacity: 0.6;
+  }
+
+  &.playing .card-top-deco {
+    background: linear-gradient(90deg, transparent, #8b4513, #d4af37, #8b4513, transparent);
+    opacity: 0.8;
+  }
+
+  &.finished .card-top-deco {
+    background: linear-gradient(90deg, transparent, #333, #555, #333, transparent);
+    opacity: 0.4;
+  }
+
+  .card-body {
+    padding: 14px 16px 16px;
+  }
+
+  // 第一行
+  .card-row-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
     margin-bottom: 12px;
 
-    .room-name {
-      font-size: 16px;
-      font-weight: 700;
-      color: var(--text);
+    .room-name-area {
       display: flex;
       align-items: center;
       gap: 8px;
+      flex: 1;
+      min-width: 0;
 
-      &::before {
-        content: '❖';
-        color: var(--blood-red);
+      .room-name {
+        font-size: 16px;
+        font-weight: 700;
+        color: var(--text);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .lock-badge {
+        font-size: 12px;
+        flex-shrink: 0;
       }
     }
 
-    .lock-icon {
-      font-size: 14px;
-      color: var(--gold-dim);
-    }
-  }
+    .status-tag {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      padding: 3px 10px;
+      border-radius: 20px;
+      font-size: 11px;
+      flex-shrink: 0;
 
-  .room-info {
-    margin-bottom: 16px;
+      .status-dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+      }
 
-    .room-code {
-      display: inline-block;
-      font-family: monospace;
-      font-size: 14px;
-      color: var(--gold);
-      letter-spacing: 2px;
-      background: rgba(139, 0, 0, 0.2);
-      padding: 4px 12px;
-      border-radius: 4px;
-      border: 1px solid var(--blood-dark);
-      margin-bottom: 8px;
-    }
+      .status-text {
+        font-size: 11px;
+        letter-spacing: 1px;
+      }
 
-    .host-name {
-      display: block;
-      font-size: 13px;
-      color: #8a7a6a;
+      &.waiting {
+        background: rgba(139, 0, 0, 0.2);
+        border: 1px solid rgba(139, 0, 0, 0.4);
 
-      &::before {
-        content: '👤 ';
+        .status-dot {
+          background: #4caf50;
+          box-shadow: 0 0 6px rgba(76, 175, 80, 0.6);
+          animation: dotBlink 2s ease-in-out infinite;
+        }
+
+        .status-text {
+          color: #8bc34a;
+        }
+      }
+
+      &.playing {
+        background: rgba(212, 175, 55, 0.15);
+        border: 1px solid rgba(212, 175, 55, 0.3);
+
+        .status-dot {
+          background: var(--gold);
+          box-shadow: 0 0 6px rgba(212, 175, 55, 0.6);
+        }
+
+        .status-text {
+          color: var(--gold);
+        }
+      }
+
+      &.finished {
+        background: rgba(100, 100, 100, 0.15);
+        border: 1px solid rgba(100, 100, 100, 0.3);
+
+        .status-dot {
+          background: #888;
+        }
+
+        .status-text {
+          color: #888;
+        }
       }
     }
   }
 
-  .room-footer {
+  @keyframes dotBlink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+
+  // 第二行
+  .card-row-info {
     display: flex;
-    justify-content: space-between;
     align-items: center;
+    margin-bottom: 14px;
+    padding: 10px 12px;
+    background: rgba(10, 8, 6, 0.4);
+    border-radius: 6px;
 
-    .player-count {
+    .info-item {
+      flex: 1;
       display: flex;
-      align-items: center;
-      gap: 8px;
-      font-size: 14px;
-      color: var(--text);
+      flex-direction: column;
+      gap: 3px;
 
-      .count-icon {
-        font-size: 14px;
+      .info-label {
+        font-size: 10px;
+        color: #5a4a3a;
+        letter-spacing: 1px;
+        text-transform: uppercase;
       }
 
-      .count-text {
-        font-size: 14px;
-      }
+      .info-value {
+        font-size: 13px;
+        color: var(--text);
 
-      // 玩家点阵
-      .player-dots {
+        &.code {
+          font-family: monospace;
+          font-size: 14px;
+          color: var(--gold);
+          letter-spacing: 2px;
+        }
+      }
+    }
+
+    .info-divider {
+      width: 1px;
+      height: 28px;
+      background: #3d3025;
+      margin: 0 14px;
+      flex-shrink: 0;
+    }
+  }
+
+  // 第三行
+  .card-row-bottom {
+    display: flex;
+    align-items: flex-end;
+    gap: 14px;
+
+    .player-progress {
+      flex: 1;
+
+      .progress-header {
         display: flex;
-        gap: 4px;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 6px;
 
-        .player-dot {
-          width: 8px;
-          height: 8px;
-          border-radius: 50%;
-          background: var(--blood-dark);
+        .progress-label {
+          font-size: 11px;
+          color: #6a5a4a;
+        }
 
-          &.active {
-            background: var(--blood-red);
-            box-shadow: 0 0 6px var(--blood-red);
+        .progress-num {
+          font-size: 14px;
+          font-weight: 700;
+          color: var(--text);
+          font-family: monospace;
+
+          .progress-slash {
+            color: #5a4a3a;
+            margin: 0 1px;
+          }
+        }
+      }
+
+      .progress-bar {
+        height: 6px;
+        background: rgba(10, 8, 6, 0.6);
+        border-radius: 3px;
+        overflow: hidden;
+        border: 1px solid rgba(61, 48, 37, 0.5);
+
+        .progress-fill {
+          height: 100%;
+          background: linear-gradient(90deg, var(--blood-dark), var(--blood-red));
+          border-radius: 3px;
+          transition: width 0.5s ease;
+          position: relative;
+
+          &::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            right: 0;
+            bottom: 0;
+            width: 20px;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.15));
           }
         }
       }
     }
 
-    .join-room-btn {
-      padding: 10px 24px;
-      background: rgba(139, 0, 0, 0.8);
+    .card-join-btn {
+      width: 76px;
+      height: 36px;
+      background: linear-gradient(180deg, rgba(139, 0, 0, 0.85) 0%, rgba(90, 0, 0, 0.95) 100%);
       border: 1px solid var(--blood-red);
-      border-radius: 4px;
+      border-radius: 6px;
       color: var(--text);
-      font-family: var(--font-serif);
-      font-size: 14px;
+      font-size: 13px;
       font-weight: 600;
-      cursor: pointer;
-      transition: all 0.3s;
       letter-spacing: 2px;
       line-height: 36px;
+      flex-shrink: 0;
+      transition: all 0.2s;
 
       &::after {
         border: none;
@@ -297,92 +582,94 @@
 
       &:active {
         background: var(--blood-red);
-        box-shadow: 0 0 20px rgba(139, 0, 0, 0.4);
+        box-shadow: 0 0 16px rgba(139, 0, 0, 0.5);
       }
 
+      &.full,
       &[disabled] {
-        background: rgba(45, 45, 68, 0.5);
-        border-color: #2d2d44;
+        background: rgba(40, 36, 32, 0.6);
+        border-color: #3d3025;
         color: #5a4a3a;
-        cursor: not-allowed;
-        opacity: 0.6;
+        opacity: 0.7;
       }
     }
   }
 }
 
-// 弹窗样式
+// ---- 密码弹窗 ----
 .modal-overlay {
   position: fixed;
   top: 0;
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(10, 8, 6, 0.95);
+  background: rgba(5, 3, 2, 0.92);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 1000;
+  animation: fadeIn 0.2s ease;
 
   .modal-content {
-    width: 80%;
-    max-width: 320px;
-    background: linear-gradient(135deg, var(--parchment-light) 0%, var(--parchment) 50%, #15100c 100%);
+    width: 85%;
+    max-width: 340px;
+    background: linear-gradient(135deg, #2a2018 0%, #1a1510 50%, #12100c 100%);
     border: 1px solid #3d3025;
-    border-radius: 2px 12px 2px 12px;
-    padding: 24px;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.8);
-    position: relative;
+    border-radius: 12px;
+    padding: 28px 24px;
+    box-shadow: 0 16px 48px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(212, 175, 55, 0.1);
+    animation: slideUp 0.3s ease;
 
-    &::before {
-      content: '';
-      position: absolute;
-      top: -1px;
-      left: 20px;
-      right: 20px;
-      height: 2px;
-      background: linear-gradient(90deg, transparent, var(--blood-dark), transparent);
-    }
+    .modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      margin-bottom: 6px;
 
-    .modal-title {
-      display: block;
-      font-family: var(--font-display);
-      font-size: 18px;
-      font-weight: 700;
-      color: var(--blood-red);
-      text-align: center;
-      margin-bottom: 8px;
-      letter-spacing: 2px;
-    }
-
-    .modal-room {
-      display: block;
-      font-size: 14px;
-      color: var(--gold-dim);
-      text-align: center;
-      margin-bottom: 20px;
-    }
-
-    .modal-input {
-      width: 100%;
-      height: 48px;
-      background: rgba(10, 8, 6, 0.8);
-      border: 1px solid #3d3025;
-      border-radius: 4px;
-      padding: 0 16px;
-      color: var(--text);
-      font-family: var(--font-serif);
-      font-size: 14px;
-      margin-bottom: 20px;
-
-      &:focus {
-        outline: none;
-        border-color: var(--gold);
-        box-shadow: 0 0 0 2px rgba(212, 175, 55, 0.1);
+      .modal-icon {
+        font-size: 22px;
       }
 
-      &::placeholder {
-        color: #5a4a3a;
+      .modal-title {
+        font-family: var(--font-display);
+        font-size: 18px;
+        font-weight: 700;
+        color: var(--gold);
+        letter-spacing: 2px;
+      }
+    }
+
+    .modal-room-name {
+      display: block;
+      text-align: center;
+      font-size: 13px;
+      color: #7a6a5a;
+      margin-bottom: 20px;
+    }
+
+    .modal-input-wrapper {
+      margin-bottom: 24px;
+
+      .modal-input {
+        width: 100%;
+        height: 48px;
+        background: rgba(10, 8, 6, 0.8);
+        border: 1px solid #3d3025;
+        border-radius: 8px;
+        padding: 0 16px;
+        color: var(--text);
+        font-size: 14px;
+        transition: all 0.3s;
+
+        &:focus {
+          border-color: var(--gold);
+          box-shadow: 0 0 0 2px rgba(212, 175, 55, 0.1);
+        }
+
+        &::placeholder {
+          color: #5a4a3a;
+        }
       }
     }
 
@@ -393,32 +680,30 @@
       .modal-btn {
         flex: 1;
         height: 44px;
-        border: 2px solid var(--gold-dim);
-        border-radius: 4px;
-        font-family: var(--font-serif);
+        border-radius: 8px;
         font-size: 14px;
         font-weight: 600;
         letter-spacing: 2px;
-        transition: all 0.3s;
         line-height: 44px;
+        transition: all 0.2s;
 
         &::after {
           border: none;
         }
 
         &.cancel {
-          background: rgba(45, 45, 68, 0.8);
-          border-color: #4a4a6a;
-          color: #a0a0a0;
+          background: rgba(40, 36, 32, 0.8);
+          border: 1px solid #4a3c32;
+          color: #8a7a6a;
 
           &:active {
-            background: rgba(45, 45, 68, 1);
+            background: rgba(60, 50, 40, 0.8);
           }
         }
 
         &.confirm {
-          background: linear-gradient(180deg, rgba(139, 0, 0, 0.9) 0%, rgba(74, 0, 0, 0.95) 100%);
-          border-color: var(--gold);
+          background: linear-gradient(180deg, rgba(139, 0, 0, 0.85) 0%, rgba(74, 0, 0, 0.95) 100%);
+          border: 1.5px solid var(--gold);
           color: var(--text);
 
           &:active {
@@ -427,5 +712,21 @@
         }
       }
     }
+  }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }

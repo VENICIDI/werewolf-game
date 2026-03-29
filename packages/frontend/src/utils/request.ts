@@ -1,4 +1,5 @@
 import Taro from '@tarojs/taro'
+import { checkLogin } from './auth-guard'
 
 // API 基础地址 - H5 环境使用相对路径走 devServer 代理，避免跨域问题
 const BASE_URL = process.env.TARO_ENV === 'h5' ? '/api' : 'http://localhost:8080/api'
@@ -31,17 +32,13 @@ const request = (options: any) => {
             reject(data)
           }
         } else if (res.statusCode === 401) {
-          // Token 过期，清除登录状态
+          // Token 过期，清除登录状态并弹出登录提示
           Taro.removeStorageSync('token')
           Taro.removeStorageSync('userInfo')
-          Taro.showToast({
-            title: '登录已过期，请重新登录',
-            icon: 'none'
+          checkLogin({
+            title: '登录已过期',
+            message: '你的身份令牌已失效，需要重新登录以继续操作'
           })
-          // 跳转到登录页
-          setTimeout(() => {
-            Taro.navigateTo({ url: '/pages/login/index' })
-          }, 1500)
           reject(res)
         } else {
           Taro.showToast({

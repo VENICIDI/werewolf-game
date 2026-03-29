@@ -1,441 +1,599 @@
+// ============================================
+// 房间页 - 猎场
+// ============================================
+
 .room-container {
   min-height: 100vh;
-  padding: 80px 32px 120px;
+  padding-bottom: 0;
   position: relative;
   z-index: 1;
+  display: flex;
+  flex-direction: column;
 }
 
-// 顶部标题区
-.header {
+// ================ 顶部导航 ================
+.nav-header {
   display: flex;
   align-items: center;
-  margin-bottom: 24px;
+  padding: 12px 16px;
+  background: rgba(10, 8, 6, 0.9);
+  border-bottom: 1px solid rgba(61, 48, 37, 0.5);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  backdrop-filter: blur(10px);
 
   .back-btn {
-    width: 40px;
-    font-size: 24px;
-    color: var(--gold);
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    background: rgba(26, 21, 16, 0.8);
+    border: 1px solid #3d3025;
     cursor: pointer;
+    flex-shrink: 0;
+
+    &:active {
+      background: rgba(139, 0, 0, 0.3);
+    }
+
+    .back-icon {
+      font-size: 18px;
+      color: var(--gold);
+    }
   }
 
-  .room-info-header {
+  .nav-center {
     flex: 1;
     text-align: center;
+    padding: 0 8px;
 
-    .room-name {
+    .nav-room-name {
       display: block;
       font-family: var(--font-display);
-      font-size: 20px;
+      font-size: 17px;
       font-weight: 700;
       color: var(--gold);
+      letter-spacing: 2px;
       margin-bottom: 4px;
-      letter-spacing: 2px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
 
-    .room-code {
-      display: block;
-      font-family: monospace;
-      font-size: 14px;
-      color: var(--blood-red);
-      letter-spacing: 2px;
-    }
-
-    .ws-status {
+    .nav-meta {
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: 6px;
-      margin-top: 8px;
+      gap: 12px;
 
-      .status-dot {
-        width: 8px;
-        height: 8px;
-        border-radius: 50%;
-
-        &.connected {
-          background: var(--gold);
-          box-shadow: 0 0 8px var(--gold);
-        }
-
-        &.disconnected {
-          background: var(--blood-red);
-          box-shadow: 0 0 8px var(--blood-red);
-        }
+      .nav-room-code {
+        font-family: monospace;
+        font-size: 12px;
+        color: var(--blood-red);
+        letter-spacing: 2px;
+        background: rgba(139, 0, 0, 0.15);
+        padding: 1px 8px;
+        border-radius: 4px;
       }
 
-      .status-text {
-        font-size: 12px;
-        color: var(--gold-dim);
+      .ws-indicator {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+
+        .ws-dot {
+          width: 6px;
+          height: 6px;
+          border-radius: 50%;
+        }
+
+        .ws-label {
+          font-size: 10px;
+          color: #6a5a4a;
+        }
+
+        &.on .ws-dot {
+          background: #4caf50;
+          box-shadow: 0 0 6px rgba(76, 175, 80, 0.6);
+        }
+
+        &.off .ws-dot {
+          background: var(--blood-red);
+          box-shadow: 0 0 6px rgba(139, 0, 0, 0.5);
+        }
       }
     }
   }
 
-  .placeholder {
-    width: 40px;
+  .nav-title {
+    flex: 1;
+    text-align: center;
+    font-family: var(--font-display);
+    font-size: 17px;
+    font-weight: 700;
+    color: var(--gold);
+    letter-spacing: 2px;
+  }
+
+  .nav-placeholder {
+    width: 36px;
+    flex-shrink: 0;
   }
 }
 
-.loading {
-  text-align: center;
-  padding: 40px;
-  color: var(--gold-dim);
-  font-size: 14px;
+// ================ 加载状态 ================
+.loading-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 60vh;
+
+  .loading-icon {
+    font-size: 48px;
+    margin-bottom: 16px;
+    animation: moonFloat 2s ease-in-out infinite;
+  }
+
+  .loading-text {
+    font-size: 14px;
+    color: #7a6a5a;
+    letter-spacing: 2px;
+  }
 }
 
-// 圆桌布局
-.round-table {
-  position: relative;
-  width: 100%;
-  max-width: 400px;
-  margin: 0 auto 40px;
-  aspect-ratio: 1;
+@keyframes moonFloat {
+  0%, 100% { transform: translateY(0); opacity: 0.6; }
+  50% { transform: translateY(-8px); opacity: 1; }
+}
 
-  .table-center {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    width: 140px;
-    height: 140px;
-    background: radial-gradient(circle, var(--parchment-light) 0%, var(--parchment) 70%, #0a0806 100%);
-    border: 3px solid var(--gold);
-    border-radius: 50%;
+// ================ 创建房间表单 ================
+.create-form {
+  margin: 20px 20px;
+  background: linear-gradient(135deg, #2a2018 0%, #1a1510 50%, #12100c 100%);
+  border: 1px solid #3d3025;
+  border-radius: 12px;
+  padding: 24px 20px 28px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+
+  .form-deco-top {
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: center;
-    box-shadow: 0 0 40px rgba(212, 175, 55, 0.2), inset 0 0 60px rgba(0, 0, 0, 0.5);
-
-    .room-name {
-      font-size: 16px;
-      font-weight: 700;
-      color: var(--gold);
-      margin-bottom: 4px;
-    }
-
-    .room-code {
-      font-family: monospace;
-      font-size: 14px;
-      color: var(--blood-red);
-      letter-spacing: 2px;
-    }
-  }
-}
-
-// 座位样式
-.seat {
-  position: absolute;
-  width: 70px;
-  text-align: center;
-
-  .seat-avatar {
-    width: 56px;
-    height: 56px;
-    margin: 0 auto 8px;
-    border-radius: 50%;
-    background: linear-gradient(135deg, var(--parchment-light) 0%, var(--parchment) 100%);
-    border: 2px solid var(--gold-dim);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 24px;
-    position: relative;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
-
-    &.host {
-      border-color: var(--blood-red);
-      box-shadow: 0 0 20px rgba(139, 0, 0, 0.3);
-
-      &::after {
-        content: '👑';
-        position: absolute;
-        top: -8px;
-        right: -4px;
-        font-size: 14px;
-      }
-    }
-
-    &.empty {
-      background: rgba(26, 21, 16, 0.5);
-      border-color: #3d3025;
-      opacity: 0.6;
-    }
-
-    .avatar-img {
-      width: 100%;
-      height: 100%;
-      border-radius: 50%;
-    }
-
-    .avatar-default {
-      font-size: 24px;
-    }
-  }
-
-  .seat-name {
-    font-size: 12px;
-    color: var(--text);
-    margin-bottom: 2px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .seat-number {
-    font-size: 11px;
-    color: var(--gold-dim);
-  }
-
-  .host-badge,
-  .ready-badge {
-    display: inline-block;
-    font-size: 10px;
-    padding: 2px 6px;
-    border-radius: 4px;
-    margin-bottom: 2px;
-  }
-
-  .host-badge {
-    color: var(--blood-red);
-    background: rgba(139, 0, 0, 0.2);
-    border: 1px solid var(--blood-dark);
-  }
-
-  .ready-badge {
-    color: var(--gold);
-    background: rgba(212, 175, 55, 0.2);
-    border: 1px solid var(--gold-dim);
-  }
-
-  // 座位位置 (12人)
-  &:nth-child(2) { top: 0; left: 50%; transform: translateX(-50%); }
-  &:nth-child(3) { top: 8%; right: 18%; }
-  &:nth-child(4) { top: 25%; right: 5%; }
-  &:nth-child(5) { top: 50%; right: 0; transform: translateY(-50%); }
-  &:nth-child(6) { bottom: 25%; right: 5%; }
-  &:nth-child(7) { bottom: 8%; right: 18%; }
-  &:nth-child(8) { bottom: 0; left: 50%; transform: translateX(-50%); }
-  &:nth-child(9) { bottom: 8%; left: 18%; }
-  &:nth-child(10) { bottom: 25%; left: 5%; }
-  &:nth-child(11) { top: 50%; left: 0; transform: translateY(-50%); }
-  &:nth-child(12) { top: 25%; left: 5%; }
-  &:nth-child(13) { top: 8%; left: 18%; }
-}
-
-// 创建房间表单
-.create-form {
-  background: linear-gradient(135deg, var(--parchment-light) 0%, var(--parchment) 50%, #15100c 100%);
-  border: 1px solid #3d3025;
-  border-radius: 2px 12px 2px 12px;
-  padding: 24px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
-
-  .form-item {
     margin-bottom: 24px;
 
-    .label {
-      display: block;
-      font-size: 13px;
-      color: var(--gold-dim);
-      margin-bottom: 12px;
-      letter-spacing: 1px;
+    .form-deco-icon {
+      font-size: 28px;
+      margin-bottom: 8px;
+    }
 
-      &::before {
-        content: '◆ ';
-        color: var(--blood-red);
+    .form-deco-text {
+      font-family: var(--font-display);
+      font-size: 13px;
+      color: #6a5a4a;
+      letter-spacing: 3px;
+    }
+  }
+
+  .form-group {
+    margin-bottom: 22px;
+
+    .form-label-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 10px;
+
+      .form-label-icon {
+        font-size: 14px;
+      }
+
+      .form-label {
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--gold-dim);
+        letter-spacing: 1px;
+      }
+
+      .form-label-hint {
+        font-size: 11px;
+        color: #5a4a3a;
+        margin-left: auto;
       }
     }
 
-    .input {
+    .form-input {
       width: 100%;
       height: 48px;
       background: rgba(10, 8, 6, 0.8);
       border: 1px solid #3d3025;
-      border-radius: 4px;
+      border-radius: 8px;
       padding: 0 16px;
       color: var(--text);
-      font-family: var(--font-serif);
       font-size: 14px;
+      transition: all 0.3s;
 
       &:focus {
-        outline: none;
         border-color: var(--gold);
         box-shadow: 0 0 0 2px rgba(212, 175, 55, 0.1);
       }
 
       &::placeholder {
         color: #5a4a3a;
-      }
-    }
-
-    .player-options {
-      display: flex;
-      gap: 12px;
-      flex-wrap: wrap;
-
-      .option {
-        flex: 1;
-        min-width: 60px;
-        height: 48px;
-        background: rgba(26, 21, 16, 0.6);
-        border: 1px solid #3d3025;
-        border-radius: 4px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        cursor: pointer;
-        transition: all 0.3s;
-
-        &.active {
-          background: rgba(139, 0, 0, 0.6);
-          border-color: var(--gold);
-          box-shadow: 0 0 10px rgba(212, 175, 55, 0.2);
-        }
-
-        .option-num {
-          font-size: 14px;
-          color: var(--text);
-          font-weight: 600;
-        }
+        font-size: 13px;
       }
     }
   }
 
-  .create-btn {
+  // 人数选择
+  .player-options {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+
+    .player-option {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 12px 16px;
+      background: rgba(10, 8, 6, 0.5);
+      border: 1px solid #3d3025;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s;
+      position: relative;
+
+      .option-num {
+        font-size: 20px;
+        font-weight: 700;
+        color: var(--text);
+        min-width: 28px;
+      }
+
+      .option-unit {
+        font-size: 13px;
+        color: #8a7a6a;
+        margin-right: 8px;
+      }
+
+      .option-desc {
+        font-size: 11px;
+        color: #5a4a3a;
+        flex: 1;
+      }
+
+      .option-check {
+        width: 22px;
+        height: 22px;
+        border-radius: 50%;
+        background: var(--blood-red);
+        color: var(--text);
+        font-size: 12px;
+        font-weight: 700;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 0 8px rgba(139, 0, 0, 0.5);
+      }
+
+      &.active {
+        background: rgba(139, 0, 0, 0.2);
+        border-color: var(--blood-red);
+        box-shadow: 0 0 12px rgba(139, 0, 0, 0.15);
+
+        .option-num {
+          color: var(--gold);
+        }
+
+        .option-desc {
+          color: #8a7a6a;
+        }
+      }
+
+      &:active {
+        transform: scale(0.98);
+      }
+    }
+  }
+
+  // 提交按钮
+  .form-submit-btn {
     width: 100%;
     height: 52px;
-    background: linear-gradient(180deg, rgba(139, 0, 0, 0.9) 0%, rgba(74, 0, 0, 0.95) 100%);
-    border: 2px solid var(--gold);
-    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    margin-top: 8px;
+    background: linear-gradient(180deg, rgba(139, 0, 0, 0.85) 0%, rgba(60, 0, 0, 0.95) 100%);
+    border: 1.5px solid var(--gold);
+    border-radius: 8px;
     color: var(--text);
     font-family: var(--font-serif);
     font-size: 16px;
     font-weight: 700;
     letter-spacing: 4px;
-    box-shadow: 0 6px 0 var(--blood-dark), 0 8px 20px rgba(0, 0, 0, 0.5);
-    transition: all 0.1s;
-    margin-top: 20px;
+    box-shadow: 0 4px 0 var(--blood-dark), 0 6px 16px rgba(0, 0, 0, 0.4);
+    transition: all 0.15s;
 
-    &::before {
-      content: '◈';
-      margin-right: 8px;
+    .btn-deco {
       color: var(--gold);
+      font-size: 12px;
     }
 
     &::after {
-      content: '◈';
-      margin-left: 8px;
-      color: var(--gold);
-      border: none !important;
+      border: none;
     }
 
     &:active {
-      transform: translateY(6px);
-      box-shadow: 0 0 0 var(--blood-dark), 0 2px 10px rgba(0, 0, 0, 0.5);
+      transform: translateY(4px);
+      box-shadow: 0 0 0 var(--blood-dark), 0 2px 8px rgba(0, 0, 0, 0.4);
     }
   }
 }
 
-// 玩家网格布局(备用)
-.players-section {
-  .section-title {
-    display: block;
-    font-size: 14px;
-    color: var(--gold-dim);
-    margin-bottom: 16px;
-    letter-spacing: 1px;
+// ================ 房间详情主体 ================
+.room-body {
+  flex: 1;
+  padding: 16px 20px 100px;
+}
 
-    &::before {
-      content: '◆ ';
-      color: var(--blood-red);
+// ---- 房间信息卡片 ----
+.room-info-card {
+  background: linear-gradient(135deg, rgba(28, 22, 16, 0.9) 0%, rgba(18, 14, 10, 0.95) 100%);
+  border: 1px solid #3a2e24;
+  border-radius: 10px;
+  padding: 14px 16px;
+  margin-bottom: 20px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.4);
+
+  .info-row {
+    display: flex;
+    align-items: center;
+    margin-bottom: 12px;
+
+    .info-cell {
+      flex: 1;
+      text-align: center;
+
+      .info-cell-label {
+        display: block;
+        font-size: 10px;
+        color: #5a4a3a;
+        letter-spacing: 1px;
+        margin-bottom: 4px;
+      }
+
+      .info-cell-value {
+        display: block;
+        font-size: 14px;
+        font-weight: 600;
+        color: var(--text);
+
+        &.ready-value {
+          color: var(--gold);
+        }
+      }
+    }
+
+    .info-cell-divider {
+      width: 1px;
+      height: 28px;
+      background: #3d3025;
+      flex-shrink: 0;
     }
   }
+
+  .info-progress {
+    .info-progress-bar {
+      height: 4px;
+      background: rgba(10, 8, 6, 0.6);
+      border-radius: 2px;
+      overflow: hidden;
+
+      .info-progress-fill {
+        height: 100%;
+        background: linear-gradient(90deg, var(--blood-dark), var(--blood-red), var(--gold-dim));
+        border-radius: 2px;
+        transition: width 0.5s ease;
+      }
+    }
+  }
+}
+
+// ---- 通用 section header ----
+.section-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 14px;
+
+  .section-icon {
+    font-size: 14px;
+  }
+
+  .section-title {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--gold);
+    letter-spacing: 1px;
+  }
+
+  .section-line {
+    flex: 1;
+    height: 1px;
+    background: linear-gradient(90deg, var(--blood-dark), transparent);
+  }
+}
+
+// ================ 玩家列表 ================
+.players-section {
+  margin-bottom: 20px;
 
   .players-grid {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
-    gap: 12px;
+    gap: 10px;
   }
 
   .player-card {
-    background: rgba(26, 21, 16, 0.6);
-    border: 1px solid #3d3025;
-    border-radius: 8px;
-    padding: 12px;
+    background: rgba(26, 21, 16, 0.7);
+    border: 1px solid #3a2e24;
+    border-radius: 10px;
+    padding: 14px 8px 10px;
     text-align: center;
     transition: all 0.3s;
+    position: relative;
+    overflow: hidden;
 
-    &.empty {
-      opacity: 0.5;
+    // 就绪发光边框
+    &.ready {
+      border-color: rgba(212, 175, 55, 0.5);
+      box-shadow: 0 0 12px rgba(212, 175, 55, 0.1);
+
+      &::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 2px;
+        background: linear-gradient(90deg, transparent, var(--gold), transparent);
+      }
     }
 
-    &.ready {
-      border-color: var(--gold);
-      box-shadow: 0 0 10px rgba(212, 175, 55, 0.2);
+    // 房主卡片
+    &.host {
+      border-color: rgba(139, 0, 0, 0.5);
+      background: rgba(139, 0, 0, 0.08);
+    }
+
+    // 空位
+    &.empty {
+      opacity: 0.4;
+      border-style: dashed;
+
+      .player-avatar {
+        background: rgba(10, 8, 6, 0.5);
+        border-color: #2a2018;
+      }
     }
 
     .player-avatar {
       width: 48px;
       height: 48px;
       border-radius: 50%;
-      background: var(--parchment);
+      background: linear-gradient(135deg, var(--parchment-light) 0%, var(--parchment) 100%);
       border: 2px solid var(--gold-dim);
       margin: 0 auto 8px;
       display: flex;
       align-items: center;
       justify-content: center;
+      position: relative;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
 
-      &.empty {
-        background: rgba(26, 21, 16, 0.3);
-        border-color: #3d3025;
+      .avatar-img {
+        width: 100%;
+        height: 100%;
+        border-radius: 50%;
+      }
+
+      .avatar-emoji {
+        font-size: 22px;
+      }
+
+      .ready-mark {
+        position: absolute;
+        bottom: -2px;
+        right: -2px;
+        width: 18px;
+        height: 18px;
+        background: #4caf50;
+        border-radius: 50%;
+        border: 2px solid rgba(26, 21, 16, 0.9);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+
+        .ready-mark-text {
+          font-size: 10px;
+          color: #fff;
+          font-weight: 700;
+        }
       }
     }
 
     .player-name {
+      display: block;
       font-size: 12px;
+      font-weight: 600;
       color: var(--text);
       margin-bottom: 4px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+
+      &.empty-name {
+        color: #5a4a3a;
+      }
     }
 
-    .seat-num {
-      font-size: 12px;
+    .player-badges {
+      min-height: 18px;
+      margin-bottom: 2px;
+
+      .badge {
+        display: inline-block;
+        font-size: 9px;
+        padding: 1px 6px;
+        border-radius: 4px;
+        letter-spacing: 1px;
+      }
+
+      .host-badge {
+        color: var(--blood-red);
+        background: rgba(139, 0, 0, 0.2);
+        border: 1px solid rgba(139, 0, 0, 0.4);
+      }
+
+      .ready-badge {
+        color: #4caf50;
+        background: rgba(76, 175, 80, 0.15);
+        border: 1px solid rgba(76, 175, 80, 0.3);
+      }
+    }
+
+    .seat-number {
+      display: block;
+      font-size: 10px;
       color: #5a4a3a;
+      letter-spacing: 1px;
     }
   }
 }
 
-// 聊天区域
+// ================ 聊天区域 ================
 .chat-section {
-  background: linear-gradient(135deg, var(--parchment-light) 0%, var(--parchment) 100%);
-  border: 1px solid #3d3025;
-  border-radius: 8px;
-  padding: 16px;
-  margin-bottom: 100px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+  margin-bottom: 20px;
 
-  .section-title {
-    display: block;
-    font-size: 13px;
-    color: var(--gold-dim);
-    margin-bottom: 12px;
-    letter-spacing: 1px;
-
-    &::before {
-      content: '◆ ';
-      color: var(--blood-red);
-    }
+  .chat-box {
+    background: linear-gradient(135deg, rgba(28, 22, 16, 0.8) 0%, rgba(18, 14, 10, 0.9) 100%);
+    border: 1px solid #3a2e24;
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.3);
   }
 
   .chat-messages {
-    height: 150px;
+    height: 180px;
+    padding: 12px 14px;
     overflow-y: auto;
-    margin-bottom: 12px;
-    padding: 8px;
-    background: rgba(10, 8, 6, 0.5);
-    border-radius: 4px;
 
     &::-webkit-scrollbar {
-      width: 4px;
+      width: 3px;
     }
 
     &::-webkit-scrollbar-thumb {
@@ -444,45 +602,66 @@
     }
 
     .chat-empty {
-      text-align: center;
-      color: #5a4a3a;
-      font-size: 13px;
-      padding: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+
+      .chat-empty-text {
+        font-size: 13px;
+        color: #5a4a3a;
+      }
     }
 
     .chat-item {
-      margin-bottom: 8px;
+      margin-bottom: 10px;
+      padding: 6px 10px;
+      background: rgba(10, 8, 6, 0.3);
+      border-radius: 6px;
+
+      &.me {
+        background: rgba(139, 0, 0, 0.12);
+        border-left: 2px solid var(--blood-red);
+      }
 
       .chat-sender {
-        font-size: 12px;
-        color: var(--blood-red);
-        margin-right: 8px;
+        display: block;
+        font-size: 11px;
+        color: var(--gold-dim);
+        margin-bottom: 2px;
+        font-weight: 600;
       }
 
       .chat-content {
+        display: block;
         font-size: 13px;
         color: var(--text);
+        line-height: 1.5;
+        word-break: break-all;
       }
     }
   }
 
-  .chat-input-area {
+  .chat-input-row {
     display: flex;
     gap: 8px;
+    padding: 10px 12px;
+    background: rgba(10, 8, 6, 0.5);
+    border-top: 1px solid rgba(61, 48, 37, 0.3);
 
     .chat-input {
       flex: 1;
-      height: 40px;
-      background: rgba(10, 8, 6, 0.8);
+      height: 38px;
+      background: rgba(10, 8, 6, 0.6);
       border: 1px solid #3d3025;
-      border-radius: 20px;
+      border-radius: 19px;
       padding: 0 16px;
       color: var(--text);
       font-size: 13px;
 
       &:focus {
-        outline: none;
         border-color: var(--gold-dim);
+        box-shadow: 0 0 0 1px rgba(212, 175, 55, 0.1);
       }
 
       &::placeholder {
@@ -490,16 +669,17 @@
       }
     }
 
-    .chat-send {
-      width: 60px;
-      height: 40px;
-      background: rgba(139, 0, 0, 0.6);
-      border: 1px solid var(--blood-dark);
-      border-radius: 20px;
+    .chat-send-btn {
+      width: 58px;
+      height: 38px;
+      background: linear-gradient(180deg, rgba(139, 0, 0, 0.8) 0%, rgba(90, 0, 0, 0.9) 100%);
+      border: 1px solid var(--blood-red);
+      border-radius: 19px;
       color: var(--text);
       font-size: 13px;
       font-weight: 600;
-      line-height: 40px;
+      line-height: 38px;
+      flex-shrink: 0;
 
       &::after {
         border: none;
@@ -512,86 +692,89 @@
   }
 }
 
-// 底部操作栏
-.action-bar {
+// ================ 底部操作栏 ================
+.bottom-bar {
   position: fixed;
   bottom: 0;
   left: 0;
   right: 0;
-  padding: 20px;
-  background: linear-gradient(180deg, transparent 0%, rgba(10, 8, 6, 0.95) 30%);
+  max-width: 480px;
+  margin: 0 auto;
+  padding: 14px 20px;
+  padding-bottom: calc(14px + env(safe-area-inset-bottom));
+  background: linear-gradient(180deg, rgba(10, 8, 6, 0) 0%, rgba(10, 8, 6, 0.95) 30%, rgba(10, 8, 6, 0.98) 100%);
   display: flex;
   gap: 12px;
   z-index: 50;
 
-  .action-btn {
+  .bar-btn {
     flex: 1;
-    height: 52px;
-    border: 2px solid;
-    border-radius: 4px;
-    font-family: var(--font-serif);
-    font-size: 15px;
+    height: 48px;
+    border-radius: 8px;
+    font-size: 14px;
     font-weight: 700;
     letter-spacing: 3px;
-    cursor: pointer;
-    transition: all 0.3s;
+    transition: all 0.2s;
+    line-height: 48px;
 
     &::after {
       border: none !important;
     }
+  }
 
-    &.leave {
-      background: rgba(45, 45, 68, 0.9);
-      border-color: #4a4a6a;
-      color: #a0a0a0;
+  .leave-btn {
+    background: rgba(40, 36, 32, 0.9);
+    border: 1px solid #4a3c32;
+    color: #8a7a6a;
 
-      &:active {
-        background: rgba(139, 0, 0, 0.5);
-        border-color: var(--blood-red);
-        color: var(--text);
-      }
+    &:active {
+      background: rgba(139, 0, 0, 0.4);
+      border-color: var(--blood-red);
+      color: var(--text);
+    }
+  }
+
+  .ready-btn {
+    background: linear-gradient(180deg, rgba(139, 0, 0, 0.85) 0%, rgba(60, 0, 0, 0.95) 100%);
+    border: 1.5px solid var(--gold);
+    color: var(--text);
+    box-shadow: 0 3px 0 var(--blood-dark);
+
+    &:active {
+      transform: translateY(3px);
+      box-shadow: none;
+    }
+  }
+
+  .cancel-btn {
+    background: rgba(40, 36, 32, 0.9);
+    border: 1px solid #4a3c32;
+    color: var(--text);
+
+    &:active {
+      background: rgba(60, 50, 40, 0.9);
+    }
+  }
+
+  .start-btn {
+    background: linear-gradient(180deg, rgba(139, 0, 0, 0.85) 0%, rgba(60, 0, 0, 0.95) 100%);
+    border: 1.5px solid var(--gold);
+    color: var(--text);
+    box-shadow: 0 3px 0 var(--blood-dark);
+
+    &:active {
+      transform: translateY(3px);
+      box-shadow: none;
     }
 
-    &.ready {
-      background: linear-gradient(180deg, rgba(139, 0, 0, 0.9) 0%, rgba(74, 0, 0, 0.95) 100%);
-      border-color: var(--gold);
-      color: var(--text);
-      box-shadow: 0 4px 0 var(--blood-dark);
-
-      &:active {
-        transform: translateY(4px);
-        box-shadow: 0 0 0 var(--blood-dark);
-      }
-    }
-
-    &.cancel {
-      background: rgba(45, 45, 68, 0.9);
-      border-color: #4a4a6a;
-      color: var(--text);
-
-      &:active {
-        background: rgba(45, 45, 68, 1);
-      }
-    }
-
-    &.start {
-      background: linear-gradient(180deg, rgba(139, 0, 0, 0.9) 0%, rgba(74, 0, 0, 0.95) 100%);
-      border-color: var(--gold);
-      color: var(--text);
-      box-shadow: 0 4px 0 var(--blood-dark);
-
-      &:active {
-        transform: translateY(4px);
-        box-shadow: 0 0 0 var(--blood-dark);
-      }
-
-      &[disabled] {
-        background: rgba(45, 45, 68, 0.5);
-        border-color: #2d2d44;
-        color: #5a4a3a;
-        cursor: not-allowed;
-        opacity: 0.6;
-      }
+    &[disabled] {
+      background: rgba(40, 36, 32, 0.6);
+      border-color: #3d3025;
+      color: #5a4a3a;
+      box-shadow: none;
+      opacity: 0.7;
+      font-size: 12px;
+      letter-spacing: 1px;
     }
   }
 }

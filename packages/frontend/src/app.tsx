@@ -1,5 +1,7 @@
 import { PropsWithChildren, useEffect } from 'react'
+import { View } from '@tarojs/components'
 import Taro from '@tarojs/taro'
+import LoginModal from './components/LoginModal'
 import './app.scss'
 
 // 全局配置
@@ -14,7 +16,12 @@ function App({ children }: PropsWithChildren<any>) {
     document.head.appendChild(fontLink)
   }, [])
 
-  return children
+  return (
+    <View>
+      {children}
+      <LoginModal />
+    </View>
+  )
 }
 
 export default App
