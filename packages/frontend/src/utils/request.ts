@@ -1,7 +1,7 @@
 import Taro from '@tarojs/taro'
 
-// API 基础地址
-const BASE_URL = 'http://localhost:8080/api'
+// API 基础地址 - H5 环境使用相对路径走 devServer 代理，避免跨域问题
+const BASE_URL = process.env.TARO_ENV === 'h5' ? '/api' : 'http://localhost:8080/api'
 
 // 请求拦截
 const request = (options: any) => {
