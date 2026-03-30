@@ -59,6 +59,7 @@ public class Game {
     public enum GamePhase {
         NONE,           // 无
         NIGHT_START,    // 夜晚开始
+        GUARD,          // 守卫行动
         WEREWOLF,       // 狼人行动
         SEER,           // 预言家行动
         WITCH,          // 女巫行动

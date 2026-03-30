@@ -1,15 +1,12 @@
 package com.werewolf.service;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.werewolf.config.ConfigLoader;
-import com.werewolf.entity.Game;
-import com.werewolf.entity.Player;
-import com.werewolf.entity.Room;
-import com.werewolf.game.GameStateMachine;
-import com.werewolf.game.PhaseScheduler;
-import com.werewolf.game.RoleAssigner;
-import com.werewolf.repository.GameRepository;
-import com.werewolf.repository.PlayerRepository;
-import com.werewolf.repository.RoomRepository;
+import com.werewolf.entity.*;
+import com.werewolf.game.*;
+import com.werewolf.game.action.ActionContext;
+import com.werewolf.game.action.ActionDispatcher;
+import com.werewolf.repository.*;
 import com.werewolf.websocket.RoomWebSocketHandler;
 import com.werewolf.websocket.WebSocketMessage;
 import lombok.RequiredArgsConstructor;
@@ -19,39 +16,123 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.*;
+import java.util.stream.Collectors;
 
 /**
- * 游戏服务 - 整合游戏逻辑组件
+ * 游戏服务 - 通过命令模式统一分发所有游戏行动
  */
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class GameService {
-    
+
     private final GameRepository gameRepository;
     private final PlayerRepository playerRepository;
     private final RoomRepository roomRepository;
-    
+    private final RoomMemberRepository roomMemberRepository;
+    private final GameLogRepository gameLogRepository;
+
     private final ConfigLoader configLoader;
     private final RoleAssigner roleAssigner;
     private final GameStateMachine stateMachine;
     private final PhaseScheduler phaseScheduler;
+    private final NightActionStore nightActionStore;
+    private final VoteManager voteManager;
+    private final ActionDispatcher actionDispatcher;
     private final RoomWebSocketHandler webSocketHandler;
-    
+    private final ObjectMapper objectMapper;
+
+    // ========================= 统一行动入口 =========================
+
     /**
-     * 开始游戏
+     * 统一行动入口 — 所有游戏行动（夜晚/投票/猎人等）通过此方法分发
+     *
+     * @param gameId   游戏ID
+     * @param userId   用户ID
+     * @param action   行动类型 (kill/check/save/poison/guard/vote/shoot/skip)
+     * @param targetId 目标玩家ID (部分行动可为null)
+     * @return 执行结果
      */
+    @Transactional
+    public Map<String, Object> executeAction(Long gameId, Long userId, String action, Long targetId) {
+        Game game = getGameStatus(gameId);
+        Player player = playerRepository.findByGameIdAndUserId(gameId, userId)
+                .orElseThrow(() -> new RuntimeException("您不在此游戏中"));
+
+        // 死亡校验 — shoot 命令允许死亡玩家（猎人）执行
+        if (!"shoot".equals(action) && player.getStatus() != Player.PlayerStatus.ALIVE) {
+            throw new RuntimeException("您已死亡，无法行动");
+        }
+
+        // 重复提交校验（skip/vote/shoot 不受夜间重复提交限制）
+        NightActionStore.RoundActions nightActions = nightActionStore.getOrCreate(gameId);
+        String phaseKey = game.getCurrentPhase().name() + "_" + player.getId();
+        boolean isNightAction = Set.of("kill", "check", "save", "poison", "guard").contains(action);
+        if (isNightAction && nightActions.isActionSubmitted(phaseKey)) {
+            throw new RuntimeException("您已提交过行动");
+        }
+
+        // 构建行动上下文
+        ActionContext context = ActionContext.builder()
+                .game(game)
+                .player(player)
+                .targetId(targetId)
+                .nightActions(nightActions)
+                .voteManager(voteManager)
+                .roleAssigner(roleAssigner)
+                .playerRepository(playerRepository)
+                .webSocketHandler(webSocketHandler)
+                .build();
+
+        // 通过行动分发器执行：validate + execute
+        Map<String, Object> result = actionDispatcher.dispatch(action, context);
+
+        // 夜间行动标记已提交
+        if (isNightAction) {
+            nightActions.markActionSubmitted(phaseKey);
+        }
+
+        // 记录日志
+        String logData = targetId != null ? "{\"targetId\":" + targetId + "}" : null;
+        saveLog(gameId, game.getCurrentRound(), game.getCurrentPhase().name(),
+                player.getId(), action.toUpperCase(), logData);
+
+        // WebSocket 确认（仅给操作者本人）
+        String roomCode = game.getRoom().getRoomCode();
+        WebSocketMessage confirmMsg = new WebSocketMessage(
+                WebSocketMessage.Type.ACTION_CONFIRM, result);
+        webSocketHandler.sendToUser(roomCode, userId, confirmMsg);
+
+        // 投票完成后自动结算
+        if ("vote".equals(action)) {
+            VoteManager.VoteSession session = voteManager.getVoteSession(gameId);
+            if (session != null && session.isAllVoted()) {
+                resolveVoting(gameId);
+            }
+        }
+
+        // 猎人开枪后检查胜负
+        if ("shoot".equals(action)) {
+            checkWinCondition(gameId);
+        }
+
+        return result;
+    }
+
+    // ========================= 游戏启动 =========================
+
     @Transactional
     public Game startGame(Long roomId, String gameModeId) {
         Room room = roomRepository.findById(roomId)
                 .orElseThrow(() -> new RuntimeException("房间不存在"));
-        
-        // 检查人数
+
+        if (room.getStatus() != Room.RoomStatus.WAITING) {
+            throw new RuntimeException("房间不在等待状态");
+        }
         if (room.getCurrentPlayers() < 6) {
             throw new RuntimeException("人数不足，至少需要6人");
         }
-        
-        // 创建游戏
+
         Game game = Game.builder()
                 .room(room)
                 .status(Game.GameStatus.PREPARING)
@@ -60,224 +141,406 @@ public class GameService {
                 .winner(Game.Winner.NONE)
                 .createdAt(LocalDateTime.now())
                 .build();
-        
         game = gameRepository.save(game);
-        
-        // 获取房间成员
-        List<Player> players = createPlayers(game, roomId);
-        
-        // 分配角色
+
+        List<Player> players = createPlayers(game, room.getId());
+
         Map<Long, Player.Role> roleAssignments = roleAssigner.assignRoles(gameModeId, players);
-        
-        // 更新玩家角色
         for (Player player : players) {
-            Player.Role role = roleAssignments.get(player.getId());
-            player.setRole(role);
+            player.setRole(roleAssignments.get(player.getId()));
             playerRepository.save(player);
         }
-        
-        // 更新游戏状态
+
         game.setStatus(Game.GameStatus.RUNNING);
         game.setCurrentRound(1);
         game.setCurrentPhase(Game.GamePhase.NIGHT_START);
         game.setStartedAt(LocalDateTime.now());
         gameRepository.save(game);
-        
-        // 更新房间状态
+
         room.setStatus(Room.RoomStatus.PLAYING);
         roomRepository.save(room);
-        
-        // 广播游戏开始
-        broadcastGameStart(room.getRoomCode(), players);
-        
-        // 启动阶段调度
+
+        nightActionStore.getOrCreate(game.getId());
+        broadcastGameStart(room.getRoomCode(), game.getId(), players);
+        saveLog(game.getId(), 0, "GAME_START", null, "START", null);
         phaseScheduler.startGame(game.getId(), gameModeId);
-        
-        log.info("游戏开始 - ID: {}, 房间: {}, 模式: {}", 
-            game.getId(), room.getRoomCode(), gameModeId);
-        
+
+        log.info("游戏开始 - ID: {}, 房间: {}, 模式: {}, 玩家数: {}",
+                game.getId(), room.getRoomCode(), gameModeId, players.size());
         return game;
     }
-    
-    /**
-     * 创建玩家
-     */
+
     private List<Player> createPlayers(Game game, Long roomId) {
-        // TODO: 从 RoomMember 创建 Player
-        // 这里简化处理
-        return new ArrayList<>();
+        List<RoomMember> members = roomMemberRepository.findByRoomId(roomId);
+        List<Player> players = new ArrayList<>();
+
+        int seatNumber = 1;
+        for (RoomMember member : members) {
+            Player player = Player.builder()
+                    .game(game)
+                    .user(member.getUser())
+                    .isAi(false)
+                    .seatNumber(seatNumber++)
+                    .role(Player.Role.UNKNOWN)
+                    .status(Player.PlayerStatus.ALIVE)
+                    .isCaptain(false)
+                    .canSpeak(true)
+                    .canVote(true)
+                    .build();
+            player = playerRepository.save(player);
+            players.add(player);
+        }
+
+        log.info("创建 {} 个玩家", players.size());
+        return players;
     }
-    
-    /**
-     * 广播游戏开始
-     */
-    private void broadcastGameStart(String roomCode, List<Player> players) {
-        WebSocketMessage message = new WebSocketMessage(
-                WebSocketMessage.Type.GAME_START,
-                "游戏开始！"
-        );
-        webSocketHandler.broadcastToRoom(roomCode, message);
-        
-        // 单独通知每个玩家自己的角色
+
+    private void broadcastGameStart(String roomCode, Long gameId, List<Player> players) {
+        List<Map<String, Object>> publicPlayerInfos = players.stream().map(p -> {
+            Map<String, Object> info = new HashMap<>();
+            info.put("playerId", p.getId());
+            info.put("userId", p.getUser().getId());
+            info.put("username", p.getUser().getUsername());
+            info.put("seatNumber", p.getSeatNumber());
+            info.put("avatarUrl", p.getUser().getAvatarUrl());
+            return info;
+        }).collect(Collectors.toList());
+
+        Map<String, Object> gameStartData = new HashMap<>();
+        gameStartData.put("gameId", gameId);
+        gameStartData.put("players", publicPlayerInfos);
+
+        webSocketHandler.broadcastToRoom(roomCode,
+                new WebSocketMessage(WebSocketMessage.Type.GAME_START, gameStartData));
+
         for (Player player : players) {
-            // TODO: 通过 WebSocket 发送给特定玩家
+            if (player.getUser() != null) {
+                Map<String, Object> roleData = new HashMap<>();
+                roleData.put("playerId", player.getId());
+                roleData.put("role", player.getRole().name());
+                roleData.put("seatNumber", player.getSeatNumber());
+
+                webSocketHandler.sendToUser(roomCode, player.getUser().getId(),
+                        new WebSocketMessage(WebSocketMessage.Type.ROLE_ASSIGN, roleData));
+            }
         }
     }
-    
-    /**
-     * 获取游戏状态
-     */
+
+    // ========================= 夜晚结算 =========================
+
+    @Transactional
+    public List<Player> resolveNight(Long gameId) {
+        Game game = getGameStatus(gameId);
+        NightActionStore.RoundActions actions = nightActionStore.getOrCreate(gameId);
+
+        List<Long> deadPlayerIds = actions.resolveNight();
+        List<Player> deadPlayers = new ArrayList<>();
+
+        for (Long playerId : deadPlayerIds) {
+            Player player = playerRepository.findById(playerId).orElse(null);
+            if (player != null && player.getStatus() == Player.PlayerStatus.ALIVE) {
+                player.setStatus(Player.PlayerStatus.DEAD);
+                player.setCanSpeak(false);
+                player.setCanVote(false);
+                playerRepository.save(player);
+                deadPlayers.add(player);
+
+                saveLog(gameId, game.getCurrentRound(), "NIGHT_DEATH",
+                        playerId, "DEATH", null);
+            }
+        }
+
+        broadcastDeathAnnounce(game, deadPlayers);
+
+        for (Player dead : deadPlayers) {
+            if (dead.getRole() == Player.Role.HUNTER) {
+                boolean poisoned = dead.getId().equals(actions.getWitchPoisonTarget());
+                if (!poisoned) {
+                    notifyHunterCanShoot(game, dead);
+                }
+            }
+        }
+
+        log.info("夜晚结算完成 - 游戏: {}, 死亡: {} 人", gameId, deadPlayers.size());
+        return deadPlayers;
+    }
+
+    private void broadcastDeathAnnounce(Game game, List<Player> deadPlayers) {
+        String roomCode = game.getRoom().getRoomCode();
+
+        List<Map<String, Object>> deathInfos = deadPlayers.stream().map(p -> {
+            Map<String, Object> info = new HashMap<>();
+            info.put("playerId", p.getId());
+            info.put("seatNumber", p.getSeatNumber());
+            info.put("username", p.getUser() != null ? p.getUser().getUsername() : p.getAiName());
+            return info;
+        }).collect(Collectors.toList());
+
+        Map<String, Object> data = new HashMap<>();
+        data.put("deaths", deathInfos);
+        data.put("round", game.getCurrentRound());
+        data.put("message", deadPlayers.isEmpty() ? "昨晚是平安夜" :
+                deadPlayers.stream()
+                        .map(p -> p.getSeatNumber() + "号")
+                        .collect(Collectors.joining("、")) + "玩家死亡");
+
+        webSocketHandler.broadcastToRoom(roomCode,
+                new WebSocketMessage(WebSocketMessage.Type.DEATH_ANNOUNCE, data));
+    }
+
+    private void notifyHunterCanShoot(Game game, Player hunter) {
+        if (hunter.getUser() != null) {
+            Map<String, Object> data = new HashMap<>();
+            data.put("message", "你已死亡，可以选择开枪带走一个人");
+            data.put("canShoot", true);
+
+            webSocketHandler.sendToUser(game.getRoom().getRoomCode(), hunter.getUser().getId(),
+                    new WebSocketMessage(WebSocketMessage.Type.HUNTER_SHOOT, data));
+        }
+    }
+
+    // ========================= 投票处决 =========================
+
+    @Transactional
+    public void startVoting(Long gameId) {
+        Game game = getGameStatus(gameId);
+        List<Player> alivePlayers = playerRepository.findByGameIdAndStatus(gameId, Player.PlayerStatus.ALIVE);
+
+        Set<Long> voterIds = alivePlayers.stream()
+                .filter(Player::getCanVote)
+                .map(Player::getId)
+                .collect(Collectors.toSet());
+
+        voteManager.startVote(gameId, voterIds);
+
+        String roomCode = game.getRoom().getRoomCode();
+        List<Map<String, Object>> candidates = alivePlayers.stream().map(p -> {
+            Map<String, Object> info = new HashMap<>();
+            info.put("playerId", p.getId());
+            info.put("seatNumber", p.getSeatNumber());
+            info.put("username", p.getUser() != null ? p.getUser().getUsername() : p.getAiName());
+            return info;
+        }).collect(Collectors.toList());
+
+        Map<String, Object> data = new HashMap<>();
+        data.put("candidates", candidates);
+        data.put("message", "投票阶段开始，请投票");
+
+        webSocketHandler.broadcastToRoom(roomCode,
+                new WebSocketMessage(WebSocketMessage.Type.VOTE_START, data));
+    }
+
+    @Transactional
+    public void resolveVoting(Long gameId) {
+        Game game = getGameStatus(gameId);
+        VoteManager.VoteSession session = voteManager.getVoteSession(gameId);
+        if (session == null) {
+            log.warn("投票会话不存在 - 游戏: {}", gameId);
+            return;
+        }
+
+        VoteManager.VoteResult result = session.resolve();
+        String roomCode = game.getRoom().getRoomCode();
+
+        Map<String, Object> data = new HashMap<>();
+        data.put("voteDetails", result.getVoteDetails());
+        data.put("isTie", result.isTie());
+
+        if (result.isTie()) {
+            data.put("message", "平票，无人被处决");
+            data.put("eliminatedPlayerId", null);
+        } else if (result.getEliminatedPlayerId() != null) {
+            Player eliminated = playerRepository.findById(result.getEliminatedPlayerId()).orElse(null);
+            if (eliminated != null) {
+                eliminated.setStatus(Player.PlayerStatus.DEAD);
+                eliminated.setCanSpeak(false);
+                eliminated.setCanVote(false);
+                playerRepository.save(eliminated);
+
+                data.put("eliminatedPlayerId", eliminated.getId());
+                data.put("eliminatedSeat", eliminated.getSeatNumber());
+                data.put("message", eliminated.getSeatNumber() + "号玩家被投票处决");
+
+                saveLog(gameId, game.getCurrentRound(), "EXECUTION",
+                        eliminated.getId(), "EXECUTED", null);
+
+                if (eliminated.getRole() == Player.Role.HUNTER) {
+                    notifyHunterCanShoot(game, eliminated);
+                }
+            }
+        } else {
+            data.put("message", "无人被处决");
+            data.put("eliminatedPlayerId", null);
+        }
+
+        webSocketHandler.broadcastToRoom(roomCode,
+                new WebSocketMessage(WebSocketMessage.Type.VOTE_RESULT, data));
+
+        voteManager.clearVote(gameId);
+        log.info("投票结算 - 游戏: {}, 平票: {}, 处决: {}",
+                gameId, result.isTie(), result.getEliminatedPlayerId());
+
+        checkWinCondition(gameId);
+    }
+
+    // ========================= 阶段管理 =========================
+
+    @Transactional
+    public void updatePhase(Long gameId, Game.GamePhase phase) {
+        Game game = getGameStatus(gameId);
+        game.setCurrentPhase(phase);
+        gameRepository.save(game);
+
+        String roomCode = game.getRoom().getRoomCode();
+        Map<String, Object> data = new HashMap<>();
+        data.put("gameId", gameId);
+        data.put("phase", phase.name());
+        data.put("round", game.getCurrentRound());
+
+        webSocketHandler.broadcastToRoom(roomCode,
+                new WebSocketMessage(WebSocketMessage.Type.PHASE_CHANGE, data));
+    }
+
+    @Transactional
+    public void enterNewNight(Long gameId) {
+        Game game = getGameStatus(gameId);
+        game.setCurrentRound(game.getCurrentRound() + 1);
+        game.setCurrentPhase(Game.GamePhase.NIGHT_START);
+        gameRepository.save(game);
+
+        nightActionStore.resetRound(gameId);
+        log.info("进入第 {} 夜 - 游戏: {}", game.getCurrentRound(), gameId);
+    }
+
+    public void broadcastToGame(Long gameId, String type, Object data) {
+        Game game = gameRepository.findById(gameId).orElse(null);
+        if (game == null) return;
+
+        webSocketHandler.broadcastToRoom(game.getRoom().getRoomCode(),
+                new WebSocketMessage(type, data));
+    }
+
+    // ========================= 查询 =========================
+
     public Game getGameStatus(Long gameId) {
         return gameRepository.findById(gameId)
                 .orElseThrow(() -> new RuntimeException("游戏不存在"));
     }
-    
-    /**
-     * 处理夜晚行动
-     */
+
+    public Optional<Game> getGameByRoomId(Long roomId) {
+        return gameRepository.findByRoomId(roomId);
+    }
+
+    public List<Player> getPlayers(Long gameId) {
+        return playerRepository.findByGameId(gameId);
+    }
+
+    public List<Player> getAlivePlayers(Long gameId) {
+        return playerRepository.findByGameIdAndStatus(gameId, Player.PlayerStatus.ALIVE);
+    }
+
+    public List<GameLog> getGameLogs(Long gameId) {
+        return gameLogRepository.findByGameIdOrderByCreatedAtAsc(gameId);
+    }
+
+    // ========================= 胜负判定 =========================
+
     @Transactional
-    public void handleNightAction(Long gameId, Long playerId, String action, Long targetId) {
-        Game game = getGameStatus(gameId);
-        Player player = playerRepository.findById(playerId)
-                .orElseThrow(() -> new RuntimeException("玩家不存在"));
-        
-        // 验证阶段
-        if (!isValidNightPhase(game.getCurrentPhase(), player.getRole())) {
-            throw new RuntimeException("现在不是你的行动阶段");
-        }
-        
-        // 处理行动
-        switch (action) {
-            case "kill":
-                handleWerewolfKill(game, player, targetId);
-                break;
-            case "check":
-                handleSeerCheck(game, player, targetId);
-                break;
-            case "save":
-                handleWitchSave(game, player, targetId);
-                break;
-            case "poison":
-                handleWitchPoison(game, player, targetId);
-                break;
-            case "guard":
-                handleGuard(game, player, targetId);
-                break;
-            default:
-                throw new RuntimeException("未知的行动: " + action);
-        }
-    }
-    
-    /**
-     * 验证夜晚阶段
-     */
-    private boolean isValidNightPhase(Game.GamePhase phase, Player.Role role) {
-        return switch (role) {
-            case WEREWOLF -> phase == Game.GamePhase.WEREWOLF;
-            case SEER -> phase == Game.GamePhase.SEER;
-            case WITCH -> phase == Game.GamePhase.WITCH;
-            case GUARD -> phase == Game.GamePhase.NONE; // TODO: 添加守卫阶段
-            default -> false;
-        };
-    }
-    
-    /**
-     * 处理狼人击杀
-     */
-    private void handleWerewolfKill(Game game, Player player, Long targetId) {
-        log.info("狼人 {} 选择击杀 {}", player.getId(), targetId);
-        // TODO: 记录击杀目标
-    }
-    
-    /**
-     * 处理预言家查验
-     */
-    private void handleSeerCheck(Game game, Player player, Long targetId) {
-        log.info("预言家 {} 查验 {}", player.getId(), targetId);
-        // TODO: 返回查验结果
-    }
-    
-    /**
-     * 处理女巫救人
-     */
-    private void handleWitchSave(Game game, Player player, Long targetId) {
-        log.info("女巫 {} 使用解药救 {}", player.getId(), targetId);
-        // TODO: 记录救人
-    }
-    
-    /**
-     * 处理女巫毒人
-     */
-    private void handleWitchPoison(Game game, Player player, Long targetId) {
-        log.info("女巫 {} 使用毒药毒 {}", player.getId(), targetId);
-        // TODO: 记录毒人
-    }
-    
-    /**
-     * 处理守卫守护
-     */
-    private void handleGuard(Game game, Player player, Long targetId) {
-        log.info("守卫 {} 守护 {}", player.getId(), targetId);
-        // TODO: 记录守护
-    }
-    
-    /**
-     * 结束游戏
-     */
-    @Transactional
-    public void endGame(Long gameId, Game.Winner winner) {
-        Game game = getGameStatus(gameId);
-        
-        game.setStatus(Game.GameStatus.FINISHED);
-        game.setWinner(winner);
-        game.setEndedAt(LocalDateTime.now());
-        gameRepository.save(game);
-        
-        // 更新房间状态
-        Room room = game.getRoom();
-        room.setStatus(Room.RoomStatus.FINISHED);
-        roomRepository.save(room);
-        
-        // 广播游戏结束
-        WebSocketMessage message = new WebSocketMessage(
-                WebSocketMessage.Type.GAME_OVER,
-                winner + "阵营获胜！"
-        );
-        webSocketHandler.broadcastToRoom(room.getRoomCode(), message);
-        
-        // 停止调度
-        phaseScheduler.stopGame(gameId);
-        
-        log.info("游戏结束 - ID: {}, 获胜方: {}", gameId, winner);
-    }
-    
-    /**
-     * 检查胜负条件
-     */
     public void checkWinCondition(Long gameId) {
-        Game game = getGameStatus(gameId);
         List<Player> players = playerRepository.findByGameId(gameId);
-        
+
         long werewolfCount = players.stream()
                 .filter(p -> p.getStatus() == Player.PlayerStatus.ALIVE)
                 .filter(p -> roleAssigner.isWerewolfCamp(p.getRole()))
                 .count();
-        
-        long villagerCount = players.stream()
+
+        long aliveVillagerSide = players.stream()
                 .filter(p -> p.getStatus() == Player.PlayerStatus.ALIVE)
-                .filter(p -> roleAssigner.isVillagerCamp(p.getRole()))
+                .filter(p -> !roleAssigner.isWerewolfCamp(p.getRole()))
                 .count();
-        
+
         long godCount = players.stream()
                 .filter(p -> p.getStatus() == Player.PlayerStatus.ALIVE)
                 .filter(p -> roleAssigner.isGodRole(p.getRole()))
                 .count();
-        
-        // 判断胜负
+
+        long civilianCount = aliveVillagerSide - godCount;
+
         if (werewolfCount == 0) {
             endGame(gameId, Game.Winner.VILLAGER);
-        } else if (godCount == 0 || (villagerCount - godCount) == 0) {
+        } else if (godCount == 0 || civilianCount <= 0) {
+            endGame(gameId, Game.Winner.WEREWOLF);
+        } else if (werewolfCount >= aliveVillagerSide) {
             endGame(gameId, Game.Winner.WEREWOLF);
         }
+    }
+
+    @Transactional
+    public void endGame(Long gameId, Game.Winner winner) {
+        Game game = getGameStatus(gameId);
+        if (game.getStatus() == Game.GameStatus.FINISHED) return;
+
+        game.setStatus(Game.GameStatus.FINISHED);
+        game.setWinner(winner);
+        game.setEndedAt(LocalDateTime.now());
+        gameRepository.save(game);
+
+        Room room = game.getRoom();
+        room.setStatus(Room.RoomStatus.FINISHED);
+        roomRepository.save(room);
+
+        String roomCode = room.getRoomCode();
+        List<Player> allPlayers = playerRepository.findByGameId(gameId);
+
+        List<Map<String, Object>> playerRoles = allPlayers.stream().map(p -> {
+            Map<String, Object> info = new HashMap<>();
+            info.put("playerId", p.getId());
+            info.put("seatNumber", p.getSeatNumber());
+            info.put("username", p.getUser() != null ? p.getUser().getUsername() : p.getAiName());
+            info.put("role", p.getRole().name());
+            info.put("status", p.getStatus().name());
+            return info;
+        }).collect(Collectors.toList());
+
+        Map<String, Object> data = new HashMap<>();
+        data.put("winner", winner.name());
+        data.put("message", getWinnerMessage(winner));
+        data.put("players", playerRoles);
+
+        webSocketHandler.broadcastToRoom(roomCode,
+                new WebSocketMessage(WebSocketMessage.Type.GAME_OVER, data));
+
+        phaseScheduler.stopGame(gameId);
+        nightActionStore.clear(gameId);
+        voteManager.clearVote(gameId);
+
+        saveLog(gameId, game.getCurrentRound(), "GAME_END", null, "END",
+                "{\"winner\":\"" + winner.name() + "\"}");
+
+        log.info("游戏结束 - ID: {}, 获胜方: {}", gameId, winner);
+    }
+
+    private String getWinnerMessage(Game.Winner winner) {
+        return switch (winner) {
+            case VILLAGER -> "好人阵营获胜！";
+            case WEREWOLF -> "狼人阵营获胜！";
+            case THIRD_PARTY -> "第三方阵营获胜！";
+            case NONE -> "平局";
+        };
+    }
+
+    // ========================= 日志 =========================
+
+    private void saveLog(Long gameId, int round, String phase, Long playerId,
+                         String actionType, String actionData) {
+        GameLog gameLog = GameLog.builder()
+                .gameId(gameId)
+                .round(round)
+                .phase(phase)
+                .playerId(playerId)
+                .actionType(actionType)
+                .actionData(actionData)
+                .build();
+        gameLogRepository.save(gameLog);
     }
 }

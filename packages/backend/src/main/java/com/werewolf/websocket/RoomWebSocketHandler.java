@@ -203,6 +203,30 @@ public class RoomWebSocketHandler extends TextWebSocketHandler {
         }
     }
     
+    /**
+     * 单播消息给指定用户
+     */
+    public void sendToUser(String roomCode, Long userId, WebSocketMessage message) {
+        Map<Long, WebSocketSession> sessions = roomSessions.get(roomCode);
+        if (sessions == null) return;
+
+        WebSocketSession session = sessions.get(userId);
+        if (session != null && session.isOpen()) {
+            try {
+                session.sendMessage(new TextMessage(objectMapper.writeValueAsString(message)));
+            } catch (IOException e) {
+                log.error("单播消息失败 - 用户: {}, 错误: {}", userId, e.getMessage());
+            }
+        }
+    }
+
+    /**
+     * 获取用户所在房间号
+     */
+    public String getRoomCodeByUserId(Long userId) {
+        return userRoomMap.get(userId);
+    }
+
     // 发送错误消息
     private void sendError(WebSocketSession session, String error) throws IOException {
         WebSocketMessage message = new WebSocketMessage(

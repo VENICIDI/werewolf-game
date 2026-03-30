@@ -64,6 +64,14 @@ public class WebSocketMessage {
         public static final String PHASE_CHANGE = "PHASE_CHANGE";
         public static final String PLAYER_ACTION = "PLAYER_ACTION";
         public static final String GAME_OVER = "GAME_OVER";
+        public static final String ROLE_ASSIGN = "ROLE_ASSIGN";
+        public static final String NIGHT_RESULT = "NIGHT_RESULT";
+        public static final String DEATH_ANNOUNCE = "DEATH_ANNOUNCE";
+        public static final String VOTE_START = "VOTE_START";
+        public static final String VOTE_RESULT = "VOTE_RESULT";
+        public static final String SEER_RESULT = "SEER_RESULT";
+        public static final String HUNTER_SHOOT = "HUNTER_SHOOT";
+        public static final String ACTION_CONFIRM = "ACTION_CONFIRM";
         
         // 心跳
         public static final String HEARTBEAT = "HEARTBEAT";
