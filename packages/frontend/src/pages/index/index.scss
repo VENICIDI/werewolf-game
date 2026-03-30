@@ -4,6 +4,47 @@
   padding: 20px 16px 40px;
   position: relative;
   z-index: 1;
+
+  // 顶部血色光晕
+  &::before {
+    content: '';
+    position: absolute;
+    top: -80px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 300px;
+    height: 300px;
+    background: radial-gradient(
+      ellipse at center,
+      rgba(139, 0, 0, 0.15) 0%,
+      rgba(139, 0, 0, 0.08) 30%,
+      rgba(74, 0, 0, 0.04) 60%,
+      transparent 100%
+    );
+    border-radius: 50%;
+    pointer-events: none;
+    animation: bloodPulse 6s ease-in-out infinite;
+    z-index: -1;
+  }
+
+  // 底部符文暗纹
+  &::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 260px;
+    background:
+      // 神秘符文圆弧线
+      radial-gradient(ellipse 220px 220px at 50% 100%, transparent 55%, rgba(74, 0, 0, 0.08) 56%, transparent 57%),
+      radial-gradient(ellipse 180px 180px at 50% 100%, transparent 55%, rgba(212, 175, 55, 0.04) 56%, transparent 57%),
+      radial-gradient(ellipse 140px 140px at 50% 100%, transparent 55%, rgba(74, 0, 0, 0.06) 56%, transparent 57%),
+      // 底部渐变氛围
+      linear-gradient(180deg, transparent 0%, rgba(74, 0, 0, 0.06) 60%, rgba(74, 0, 0, 0.12) 100%);
+    pointer-events: none;
+    z-index: -1;
+  }
 }
 
 // ========== 主标题区 ==========
@@ -334,6 +375,27 @@
 // ========== 今夜战报 ==========
 .tonight-section {
   margin-bottom: 24px;
+  position: relative;
+
+  // 左侧竖向装饰线
+  &::before {
+    content: '';
+    position: absolute;
+    left: -8px;
+    top: 8px;
+    bottom: 8px;
+    width: 2px;
+    background: linear-gradient(
+      180deg,
+      transparent 0%,
+      rgba(139, 0, 0, 0.3) 30%,
+      rgba(212, 175, 55, 0.15) 50%,
+      rgba(139, 0, 0, 0.3) 70%,
+      transparent 100%
+    );
+    border-radius: 1px;
+    pointer-events: none;
+  }
 }
 
 .tonight-header {
@@ -389,6 +451,27 @@
 // ========== 角色图鉴 ==========
 .roles-section {
   margin-bottom: 24px;
+  position: relative;
+
+  // 右侧竖向装饰线（与今夜战报左侧呼应）
+  &::before {
+    content: '';
+    position: absolute;
+    right: -8px;
+    top: 8px;
+    bottom: 8px;
+    width: 2px;
+    background: linear-gradient(
+      180deg,
+      transparent 0%,
+      rgba(212, 175, 55, 0.15) 30%,
+      rgba(139, 0, 0, 0.2) 50%,
+      rgba(212, 175, 55, 0.15) 70%,
+      transparent 100%
+    );
+    border-radius: 1px;
+    pointer-events: none;
+  }
 }
 
 .roles-header {

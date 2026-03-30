@@ -7,6 +7,44 @@
   padding: 24px 20px 32px;
   position: relative;
   z-index: 1;
+
+  // 左上角金色光斑
+  &::before {
+    content: '';
+    position: absolute;
+    top: -40px;
+    left: -60px;
+    width: 200px;
+    height: 200px;
+    background: radial-gradient(
+      circle at center,
+      rgba(212, 175, 55, 0.06) 0%,
+      rgba(212, 175, 55, 0.03) 40%,
+      transparent 70%
+    );
+    border-radius: 50%;
+    pointer-events: none;
+    z-index: -1;
+  }
+
+  // 右下角血色光斑 + 装饰竖线
+  &::after {
+    content: '';
+    position: absolute;
+    bottom: -60px;
+    right: -40px;
+    width: 240px;
+    height: 240px;
+    background: radial-gradient(
+      circle at center,
+      rgba(139, 0, 0, 0.1) 0%,
+      rgba(139, 0, 0, 0.05) 40%,
+      transparent 70%
+    );
+    border-radius: 50%;
+    pointer-events: none;
+    z-index: -1;
+  }
 }
 
 // ---- 页面头部 ----
@@ -276,6 +314,44 @@
   background: linear-gradient(135deg, rgba(26, 21, 16, 0.4) 0%, rgba(20, 15, 10, 0.6) 100%);
   border: 1px dashed #3d3025;
   border-radius: 12px;
+  position: relative;
+  overflow: hidden;
+
+  // 背景微光环
+  &::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 200px;
+    height: 200px;
+    background: radial-gradient(
+      circle at center,
+      rgba(139, 0, 0, 0.06) 0%,
+      rgba(74, 0, 0, 0.03) 50%,
+      transparent 100%
+    );
+    border-radius: 50%;
+    pointer-events: none;
+  }
+
+  // 四角装饰小点
+  &::after {
+    content: '';
+    position: absolute;
+    top: 12px;
+    left: 12px;
+    width: 4px;
+    height: 4px;
+    background: rgba(212, 175, 55, 0.2);
+    border-radius: 50%;
+    box-shadow:
+      calc(100% - 28px) 0 0 0 rgba(212, 175, 55, 0.2),
+      0 calc(100% - 28px) 0 0 rgba(212, 175, 55, 0.2),
+      calc(100% - 28px) calc(100% - 28px) 0 0 rgba(212, 175, 55, 0.2);
+    pointer-events: none;
+  }
 
   .empty-icon {
     font-size: 48px;
