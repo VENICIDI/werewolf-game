@@ -1,9 +1,38 @@
 // 全局样式 - 血色月夜主题
+// 微信小程序 WXSS 不支持通用选择器 *，需与 H5 分支分开写
+/* #ifdef h5 */
 * {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
 }
+/* #endif */
+/* #ifdef weapp */
+// scroll-view 在 webview 渲染模式下不支持 padding，连 padding:0 也会告警，故单独写、不写 padding
+page,
+view,
+text,
+image,
+button,
+input,
+textarea,
+swiper,
+swiper-item,
+block,
+navigator,
+form,
+label,
+picker,
+picker-view {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+scroll-view {
+  margin: 0;
+  box-sizing: border-box;
+}
+/* #endif */
 
 // 主题色系统
 :root {
