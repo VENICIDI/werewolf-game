@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import Taro, { getCurrentInstance } from '@tarojs/taro'
 import { View, Text, Button, Input, ScrollView } from '@tarojs/components'
 import { getRoomDetail, createRoom, leaveRoom, setReady } from '../../api/room'
@@ -38,6 +38,7 @@ interface ChatMessage {
 
 export default function Room() {
   const [room, setRoom] = useState<RoomData | null>(null)
+  const roomRef = useRef<RoomData | null>(null)
   const [loading, setLoading] = useState(false)
   const [isCreating, setIsCreating] = useState(false)
   const [isReady, setIsReady] = useState(false)
@@ -55,6 +56,7 @@ export default function Room() {
   const action = router?.params?.action
 
   useEffect(() => {
+    console.log('[Room] useEffect 触发, action:', action, 'roomCode:', roomCode, 'isLoggedIn:', isLoggedIn())
     if (!isLoggedIn()) {
       Taro.showToast({ title: '请先登录', icon: 'none' })
       setTimeout(() => {
@@ -71,7 +73,7 @@ export default function Room() {
       
       // 超时保护：10秒未加载完成则自动返回
       const timeout = setTimeout(() => {
-        if (!room) {
+        if (!roomRef.current) {
           Taro.showToast({ title: '加载超时，请重试', icon: 'none' })
           setTimeout(() => Taro.navigateBack(), 1500)
         }
@@ -81,6 +83,11 @@ export default function Room() {
         clearTimeout(timeout)
         wsManager.disconnect()
       }
+    } else {
+      // 兜底：参数缺失，返回
+      console.warn('[Room] 缺少 action 或 roomCode 参数，返回上一页')
+      Taro.showToast({ title: '参数错误', icon: 'none' })
+      setTimeout(() => Taro.navigateBack(), 1000)
     }
   }, [])
 
@@ -159,6 +166,7 @@ export default function Room() {
       const res: any = await getRoomDetail(code)
       console.log('[Room] fetchRoomDetail 成功:', JSON.stringify(res))
       setRoom(res)
+      roomRef.current = res
       const userInfo = getUserInfo()
       const me = res.players?.find((p: Player) => p.userId === userInfo?.id)
       if (me?.isReady) setIsReady(true)
@@ -174,6 +182,7 @@ export default function Room() {
   }
 
   const handleCreateRoom = async () => {
+    console.log('[Room] handleCreateRoom 点击')
     if (!roomName.trim()) {
       Taro.showToast({ title: '请输入房间名称', icon: 'none' })
       return
@@ -181,15 +190,20 @@ export default function Room() {
 
     try {
       Taro.showLoading({ title: '创建中...' })
+      console.log('[Room] 调用 createRoom API...')
       const res: any = await createRoom({
         roomName,
         maxPlayers,
         password: password || undefined
       })
+      console.log('[Room] createRoom 返回:', JSON.stringify(res))
       Taro.hideLoading()
       Taro.showToast({ title: '创建成功', icon: 'success' })
+      const targetUrl = `/pages/room/index?code=${res.roomCode}`
+      console.log('[Room] 准备跳转到:', targetUrl)
       setTimeout(() => {
-        Taro.redirectTo({ url: `/pages/room/index?code=${res.roomCode}` })
+        console.log('[Room] 执行 redirectTo')
+        Taro.redirectTo({ url: targetUrl })
       }, 500)
     } catch (error: any) {
       Taro.hideLoading()

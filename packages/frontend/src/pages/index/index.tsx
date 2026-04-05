@@ -54,7 +54,7 @@ export default function Index() {
       Taro.showToast({ title: '请先登录', icon: 'none' })
       return
     }
-    Taro.navigateTo({ url: '/pages/room/index' })
+    Taro.navigateTo({ url: '/pages/room/index?action=create' })
   }
 
   // 根据积分返回称号

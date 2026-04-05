@@ -8,6 +8,8 @@ const BASE_URL = process.env.TARO_ENV === 'h5' ? '/api' : 'http://localhost:8080
 const request = (options: any) => {
   // 获取 Token
   const token = Taro.getStorageSync('token')
+  const fullUrl = `${BASE_URL}${options.url}`
+  console.log(`[Request] ${options.method || 'GET'} ${fullUrl}`)
   
   return new Promise((resolve, reject) => {
     Taro.request({

@@ -13,8 +13,8 @@ export enum WebSocketState {
 type MessageHandler = (message: any) => void
 
 class WebSocketManager {
-  private ws: WebSocket | null = null
-  private url: string = ''
+  private socketTask: Taro.SocketTask | null = null
+  private state: WebSocketState = WebSocketState.CLOSED
   private reconnectAttempts: number = 0
   private maxReconnectAttempts: number = 5
   private reconnectInterval: number = 3000
@@ -25,7 +25,7 @@ class WebSocketManager {
   private onCloseCallback: (() => void) | null = null
   private onErrorCallback: ((error: any) => void) | null = null
 
-  // 连接 WebSocket
+  // 连接 WebSocket（兼容微信小程序和 H5）
   connect(roomCode: string): Promise<void> {
     return new Promise((resolve, reject) => {
       const token = getToken()
@@ -34,38 +34,59 @@ class WebSocketManager {
         return
       }
 
-      // 构建 WebSocket URL
       const wsUrl = `ws://localhost:8080/ws/room/${roomCode}?token=${token}`
-      this.url = wsUrl
+      console.log('[WS] 连接:', wsUrl)
+      this.state = WebSocketState.CONNECTING
 
       try {
-        this.ws = new WebSocket(wsUrl)
+        Taro.connectSocket({
+          url: wsUrl,
+          success: () => {
+            console.log('[WS] connectSocket 调用成功')
+          },
+          fail: (err) => {
+            console.error('[WS] connectSocket 调用失败:', err)
+            this.state = WebSocketState.CLOSED
+            reject(err)
+          }
+        }).then((task: Taro.SocketTask) => {
+          this.socketTask = task
 
-        this.ws.onopen = () => {
-          console.log('WebSocket 连接成功')
-          this.reconnectAttempts = 0
-          this.startHeartbeat()
-          if (this.onOpenCallback) this.onOpenCallback()
-          resolve()
-        }
+          task.onOpen(() => {
+            console.log('[WS] 连接已建立')
+            this.state = WebSocketState.OPEN
+            this.reconnectAttempts = 0
+            this.startHeartbeat()
+            if (this.onOpenCallback) this.onOpenCallback()
+            resolve()
+          })
 
-        this.ws.onmessage = (event) => {
-          this.handleMessage(event.data)
-        }
+          task.onMessage((res) => {
+            this.handleMessage(res.data as string)
+          })
 
-        this.ws.onclose = () => {
-          console.log('WebSocket 连接关闭')
-          this.stopHeartbeat()
-          if (this.onCloseCallback) this.onCloseCallback()
-          this.attemptReconnect(roomCode)
-        }
+          task.onClose(() => {
+            console.log('[WS] 连接关闭')
+            this.state = WebSocketState.CLOSED
+            this.stopHeartbeat()
+            if (this.onCloseCallback) this.onCloseCallback()
+            this.attemptReconnect(roomCode)
+          })
 
-        this.ws.onerror = (error) => {
-          console.error('WebSocket 错误:', error)
-          if (this.onErrorCallback) this.onErrorCallback(error)
-          reject(error)
-        }
+          task.onError((error) => {
+            console.error('[WS] 连接错误:', error)
+            this.state = WebSocketState.CLOSED
+            if (this.onErrorCallback) this.onErrorCallback(error)
+            reject(error)
+          })
+        }).catch((err) => {
+          console.error('[WS] SocketTask 创建失败:', err)
+          this.state = WebSocketState.CLOSED
+          reject(err)
+        })
       } catch (error) {
+        console.error('[WS] 连接异常:', error)
+        this.state = WebSocketState.CLOSED
         reject(error)
       }
     })
@@ -74,23 +95,30 @@ class WebSocketManager {
   // 断开连接
   disconnect(): void {
     this.stopHeartbeat()
-    if (this.ws) {
-      this.ws.close()
-      this.ws = null
+    this.reconnectAttempts = this.maxReconnectAttempts // 阻止重连
+    if (this.socketTask) {
+      this.socketTask.close({})
+      this.socketTask = null
     }
+    this.state = WebSocketState.CLOSED
   }
 
   // 发送消息
   send(type: string, data: any): void {
-    if (this.ws && this.ws.readyState === WebSocketState.OPEN) {
+    if (this.socketTask && this.state === WebSocketState.OPEN) {
       const message = {
         type,
         data,
         timestamp: new Date().toISOString()
       }
-      this.ws.send(JSON.stringify(message))
+      this.socketTask.send({
+        data: JSON.stringify(message),
+        fail: (err) => {
+          console.error('[WS] 发送失败:', err)
+        }
+      })
     } else {
-      console.warn('WebSocket 未连接')
+      console.warn('[WS] 未连接，无法发送')
     }
   }
 
@@ -145,12 +173,12 @@ class WebSocketManager {
 
   // 获取连接状态
   getState(): WebSocketState {
-    return this.ws ? this.ws.readyState : WebSocketState.CLOSED
+    return this.state
   }
 
   // 是否已连接
   isConnected(): boolean {
-    return this.ws !== null && this.ws.readyState === WebSocketState.OPEN
+    return this.state === WebSocketState.OPEN
   }
 
   // 处理收到的消息
@@ -159,19 +187,17 @@ class WebSocketManager {
       const message = JSON.parse(data)
       const type = message.type
 
-      // 触发对应类型的处理器
       const handlers = this.messageHandlers.get(type)
       if (handlers) {
         handlers.forEach(handler => handler(message))
       }
 
-      // 触发通用处理器
       const generalHandlers = this.messageHandlers.get('*')
       if (generalHandlers) {
         generalHandlers.forEach(handler => handler(message))
       }
     } catch (error) {
-      console.error('解析消息失败:', error)
+      console.error('[WS] 解析消息失败:', error)
     }
   }
 
@@ -194,16 +220,13 @@ class WebSocketManager {
   private attemptReconnect(roomCode: string): void {
     if (this.reconnectAttempts < this.maxReconnectAttempts) {
       this.reconnectAttempts++
-      console.log(`尝试重连... (${this.reconnectAttempts}/${this.maxReconnectAttempts})`)
+      console.log(`[WS] 尝试重连... (${this.reconnectAttempts}/${this.maxReconnectAttempts})`)
       
       setTimeout(() => {
-        this.connect(roomCode).catch(() => {
-          // 重连失败，继续尝试
-        })
+        this.connect(roomCode).catch(() => {})
       }, this.reconnectInterval)
     } else {
-      console.error('重连次数已达上限')
-      Taro.showToast({ title: '连接已断开', icon: 'none' })
+      console.error('[WS] 重连次数已达上限')
     }
   }
 }
