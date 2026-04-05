@@ -14,6 +14,7 @@ const request = (options: any) => {
       url: `${BASE_URL}${options.url}`,
       method: options.method || 'GET',
       data: options.data,
+      timeout: 10000,
       header: {
         'Content-Type': 'application/json',
         ...(token && { 'Authorization': `Bearer ${token}` }),

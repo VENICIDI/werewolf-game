@@ -68,10 +68,19 @@ export default function Room() {
     } else if (roomCode) {
       fetchRoomDetail(roomCode)
       connectWebSocket(roomCode)
-    }
-
-    return () => {
-      wsManager.disconnect()
+      
+      // 超时保护：10秒未加载完成则自动返回
+      const timeout = setTimeout(() => {
+        if (!room) {
+          Taro.showToast({ title: '加载超时，请重试', icon: 'none' })
+          setTimeout(() => Taro.navigateBack(), 1500)
+        }
+      }, 10000)
+      
+      return () => {
+        clearTimeout(timeout)
+        wsManager.disconnect()
+      }
     }
   }, [])
 
@@ -145,16 +154,19 @@ export default function Room() {
 
   const fetchRoomDetail = async (code: string) => {
     setLoading(true)
+    console.log('[Room] fetchRoomDetail 开始, code:', code)
     try {
       const res: any = await getRoomDetail(code)
+      console.log('[Room] fetchRoomDetail 成功:', JSON.stringify(res))
       setRoom(res)
       const userInfo = getUserInfo()
       const me = res.players?.find((p: Player) => p.userId === userInfo?.id)
       if (me?.isReady) setIsReady(true)
     } catch (error: any) {
+      console.error('[Room] fetchRoomDetail 失败:', error)
       Taro.showToast({ title: error.message || '获取房间信息失败', icon: 'none' })
       setTimeout(() => {
-        Taro.navigateBack()
+        Taro.switchTab({ url: '/pages/room-list/index' })
       }, 1500)
     } finally {
       setLoading(false)

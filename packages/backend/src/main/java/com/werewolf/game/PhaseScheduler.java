@@ -1,5 +1,6 @@
 package com.werewolf.game;
 
+import com.werewolf.ai.AIPlayerBridge;
 import com.werewolf.config.ConfigLoader;
 import com.werewolf.config.GameConfig;
 import com.werewolf.entity.Game;
@@ -33,6 +34,9 @@ public class PhaseScheduler {
 
     // GameService 延迟获取
     private GameService gameService;
+    
+    // AIPlayerBridge 延迟获取
+    private AIPlayerBridge aiPlayerBridge;
 
     public PhaseScheduler(ConfigLoader configLoader, ApplicationContext applicationContext) {
         this.configLoader = configLoader;
@@ -44,6 +48,13 @@ public class PhaseScheduler {
             gameService = applicationContext.getBean(GameService.class);
         }
         return gameService;
+    }
+    
+    private AIPlayerBridge getAIPlayerBridge() {
+        if (aiPlayerBridge == null) {
+            aiPlayerBridge = applicationContext.getBean(AIPlayerBridge.class);
+        }
+        return aiPlayerBridge;
     }
 
     /**
