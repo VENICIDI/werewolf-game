@@ -160,6 +160,11 @@ public class PhaseScheduler {
             data.put("duration", phase.getDuration());
             getGameService().broadcastToGame(gameId, "PHASE_CHANGE", data);
         }
+        
+        // ✨ AI 集成点: 触发 AI 玩家决策
+        if (gamePhase != null && needsPlayerAction(gamePhase)) {
+            getAIPlayerBridge().scheduleAIActions(gameId, gamePhase);
+        }
 
         // 特殊处理
         switch (phase.getPhase()) {
@@ -170,6 +175,17 @@ public class PhaseScheduler {
                 // 死亡公告在 resolveNight 中已处理
                 break;
         }
+    }
+    
+    /**
+     * 判断阶段是否需要玩家行动
+     */
+    private boolean needsPlayerAction(Game.GamePhase phase) {
+        return phase == Game.GamePhase.GUARD 
+            || phase == Game.GamePhase.WEREWOLF 
+            || phase == Game.GamePhase.SEER 
+            || phase == Game.GamePhase.WITCH
+            || phase == Game.GamePhase.VOTING;
     }
 
     /**

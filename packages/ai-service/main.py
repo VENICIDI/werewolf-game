@@ -12,8 +12,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 
 from routers import game, knowledge, health
+from routers import agent_router
 from services.rag_service import RAGService
 from services.llm_service import LLMService
+from agents.agent_manager import agent_manager
 
 # Load environment variables
 load_dotenv()
@@ -46,6 +48,10 @@ async def lifespan(app: FastAPI):
     # Initialize LLM service
     logger.info("Initializing LLM service...")
     llm_service = LLMService()
+    
+    # Initialize AgentManager with services
+    logger.info("Initializing Agent Manager...")
+    agent_manager.set_services(llm_service, rag_service)
     
     logger.info("Werewolf AI Service started successfully!")
     

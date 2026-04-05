@@ -118,6 +118,91 @@ public class GameService {
 
         return result;
     }
+    
+    /**
+     * AI 玩家专用行动入口 - 直接使用 playerId 而非 userId
+     * 
+     * @param gameId   游戏ID
+     * @param playerId 玩家ID
+     * @param action   行动类型
+     * @param targetId 目标玩家ID
+     * @return 执行结果
+     */
+    @Transactional
+    public Map<String, Object> executeAIAction(Long gameId, Long playerId, String action, Long targetId) {
+        Game game = getGameStatus(gameId);
+        Player player = playerRepository.findById(playerId)
+                .orElseThrow(() -> new RuntimeException("玩家不存在"));
+        
+        // 验证是 AI 玩家
+        if (!Boolean.TRUE.equals(player.getIsAi())) {
+            throw new RuntimeException("该方法仅供 AI 玩家使用");
+        }
+        
+        // 验证属于当前游戏
+        if (!player.getGame().getId().equals(gameId)) {
+            throw new RuntimeException("玩家不属于此游戏");
+        }
+        
+        // 死亡校验
+        if (!"shoot".equals(action) && player.getStatus() != Player.PlayerStatus.ALIVE) {
+            log.warn("AI 玩家 {} 已死亡，跳过行动", playerId);
+            return Map.of("message", "玩家已死亡");
+        }
+
+        // 重复提交校验
+        NightActionStore.RoundActions nightActions = nightActionStore.getOrCreate(gameId);
+        String phaseKey = game.getCurrentPhase().name() + "_" + player.getId();
+        boolean isNightAction = Set.of("kill", "check", "save", "poison", "guard").contains(action);
+        if (isNightAction && nightActions.isActionSubmitted(phaseKey)) {
+            log.warn("AI 玩家 {} 已提交过行动，跳过", playerId);
+            return Map.of("message", "已提交过行动");
+        }
+
+        // 构建行动上下文
+        ActionContext context = ActionContext.builder()
+                .game(game)
+                .player(player)
+                .targetId(targetId)
+                .nightActions(nightActions)
+                .voteManager(voteManager)
+                .roleAssigner(roleAssigner)
+                .playerRepository(playerRepository)
+                .webSocketHandler(webSocketHandler)
+                .build();
+
+        // 执行行动
+        Map<String, Object> result = actionDispatcher.dispatch(action, context);
+
+        // 夜间行动标记已提交
+        if (isNightAction) {
+            nightActions.markActionSubmitted(phaseKey);
+        }
+
+        // 记录日志
+        String logData = targetId != null ? "{\"targetId\":" + targetId + "}" : null;
+        saveLog(gameId, game.getCurrentRound(), game.getCurrentPhase().name(),
+                player.getId(), action.toUpperCase(), logData);
+
+        // ⚠️ AI 不发送 WebSocket 确认（因为没有 userId）
+        log.info("AI 玩家 {} ({}号) 执行行动: {}, 目标: {}", 
+                player.getAiName(), player.getSeatNumber(), action, targetId);
+
+        // 投票完成后自动结算
+        if ("vote".equals(action)) {
+            VoteManager.VoteSession session = voteManager.getVoteSession(gameId);
+            if (session != null && session.isAllVoted()) {
+                resolveVoting(gameId);
+            }
+        }
+
+        // 猎人开枪后检查胜负
+        if ("shoot".equals(action)) {
+            checkWinCondition(gameId);
+        }
+
+        return result;
+    }
 
     // ========================= 游戏启动 =========================
 
