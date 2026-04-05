@@ -51,17 +51,16 @@ class AgentManager:
         self._initialized = True
         print("✅ AgentManager 初始化完成（单例模式）")
     
-    def set_services(self, llm_service: LLMService, rag_service: RAGService):
-        """
-        设置依赖服务（在 FastAPI startup 时调用）
-        
-        Args:
-            llm_service: LLM 服务
-            rag_service: RAG 服务
-        """
+    def set_services(self, llm_service: Optional[LLMService], rag_service: Optional[RAGService]):
+        """设置依赖服务（在 FastAPI startup 时调用）"""
         self._llm_service = llm_service
         self._rag_service = rag_service
-        print("✅ AgentManager 服务依赖注入完成")
+        status = []
+        if llm_service:
+            status.append("LLM")
+        if rag_service:
+            status.append("RAG")
+        print(f"✅ AgentManager 服务注入: {', '.join(status) if status else '无（降级模式）'}")
     
     async def create_agent(
         self,
@@ -96,11 +95,6 @@ class AgentManager:
             if key in self._agents:
                 raise ValueError(
                     f"Agent 已存在: game_id={game_id}, player_id={player_id}"
-                )
-            
-            if not self._llm_service or not self._rag_service:
-                raise ValueError(
-                    "LLM/RAG 服务未初始化，请先调用 set_services()"
                 )
             
             agent = WerewolfAgent(

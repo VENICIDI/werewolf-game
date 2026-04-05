@@ -28,6 +28,10 @@ async def create_agent(request: CreateAgentRequest):
         - player_id: 玩家 ID
         - role: 角色（WEREWOLF/SEER/WITCH/HUNTER/GUARD/VILLAGER）
         - persona: 人格（aggressive/analytical/cautious/charming）
+        - teammates: 狼人队友列表（可选）
+        - seat_number: 座位号
+        - player_ids: 所有玩家 ID 列表（用于初始化记忆）
+        - seat_map: 座位映射
     """
     try:
         agent = await agent_manager.create_agent(
@@ -54,13 +58,7 @@ async def create_agent(request: CreateAgentRequest):
 
 @router.post("/destroy")
 async def destroy_agent(request: DestroyAgentRequest):
-    """
-    销毁 Agent 实例
-    
-    Body:
-        - game_id: 游戏 ID
-        - player_id: 玩家 ID
-    """
+    """销毁 Agent 实例"""
     try:
         success = await agent_manager.destroy_agent(
             game_id=request.game_id,
@@ -70,10 +68,7 @@ async def destroy_agent(request: DestroyAgentRequest):
         if not success:
             raise HTTPException(status_code=404, detail="Agent 不存在")
         
-        return {
-            "success": True,
-            "message": "Agent 销毁成功"
-        }
+        return {"success": True, "message": "Agent 销毁成功"}
     except HTTPException:
         raise
     except Exception as e:
@@ -90,6 +85,8 @@ async def send_event(request: AgentEventRequest):
         - player_id: 玩家 ID
         - event_type: 事件类型
         - event_data: 事件数据
+        - round: 当前回合
+        - phase: 当前阶段
     """
     try:
         agent = await agent_manager.get_agent(
@@ -100,19 +97,19 @@ async def send_event(request: AgentEventRequest):
         if not agent:
             raise HTTPException(status_code=404, detail="Agent 不存在")
         
-        # 构建事件对象
+        # 构建事件对象（包含所有必填字段）
         event = GameEvent(
+            game_id=request.game_id,
+            player_id=request.player_id,
             event_type=request.event_type,
-            event_data=request.event_data
+            event_data=request.event_data,
+            round=request.round,
+            phase=request.phase,
         )
         
-        # 推送给 Agent
         await agent.receive_event(event)
         
-        return {
-            "success": True,
-            "message": "事件推送成功"
-        }
+        return {"success": True, "message": "事件推送成功"}
     except HTTPException:
         raise
     except Exception as e:
@@ -123,11 +120,6 @@ async def send_event(request: AgentEventRequest):
 async def night_action(request: NightActionRequest):
     """
     获取夜间行动决策
-    
-    Body:
-        - game_id: 游戏 ID
-        - player_id: 玩家 ID
-        - game_state: 游戏状态
     
     Returns:
         - action: 行动类型 (kill/check/save/poison/guard/skip)
@@ -144,8 +136,9 @@ async def night_action(request: NightActionRequest):
         if not agent:
             raise HTTPException(status_code=404, detail="Agent 不存在")
         
-        # 调用决策
-        decision = await agent.decide_night_action(request.game_state)
+        # dict -> GameState 转换
+        game_state = GameState(**request.game_state)
+        decision = await agent.decide_night_action(game_state)
         
         return {
             "success": True,
@@ -167,12 +160,6 @@ async def speak(request: SpeechRequest):
     """
     生成白天发言
     
-    Body:
-        - game_id: 游戏 ID
-        - player_id: 玩家 ID
-        - game_state: 游戏状态
-        - context: 发言场景 (discussion/defense/claim_role)
-    
     Returns:
         - content: 发言内容
         - emotion: 情感
@@ -188,10 +175,11 @@ async def speak(request: SpeechRequest):
         if not agent:
             raise HTTPException(status_code=404, detail="Agent 不存在")
         
-        # 生成发言
+        # dict -> GameState 转换，使用正确的字段名 speak_context
+        game_state = GameState(**request.game_state)
         decision = await agent.generate_speech(
-            game_state=request.game_state,
-            context=request.context
+            game_state=game_state,
+            context=request.speak_context
         )
         
         return {
@@ -214,11 +202,6 @@ async def vote(request: VoteRequest):
     """
     获取投票决策
     
-    Body:
-        - game_id: 游戏 ID
-        - player_id: 玩家 ID
-        - game_state: 游戏状态
-    
     Returns:
         - target_id: 投票目标 ID (0=弃票)
         - reason: 投票理由
@@ -232,8 +215,9 @@ async def vote(request: VoteRequest):
         if not agent:
             raise HTTPException(status_code=404, detail="Agent 不存在")
         
-        # 投票决策
-        decision = await agent.decide_vote(request.game_state)
+        # dict -> GameState 转换
+        game_state = GameState(**request.game_state)
+        decision = await agent.decide_vote(game_state)
         
         return {
             "success": True,
@@ -250,33 +234,19 @@ async def vote(request: VoteRequest):
 
 @router.get("/list")
 async def list_agents(game_id: str = None):
-    """
-    列出 Agent 实例
-    
-    Query:
-        - game_id: 游戏 ID（可选，传入则只返回该游戏的 Agent）
-    """
+    """列出 Agent 实例"""
     try:
         agents = await agent_manager.list_agents(game_id=game_id)
-        return {
-            "success": True,
-            "data": agents,
-            "count": len(agents)
-        }
+        return {"success": True, "data": agents, "count": len(agents)}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"查询失败: {str(e)}")
 
 
 @router.get("/stats")
 async def get_stats():
-    """
-    获取 Agent 统计信息
-    """
+    """获取 Agent 统计信息"""
     try:
         stats = agent_manager.get_stats()
-        return {
-            "success": True,
-            "data": stats
-        }
+        return {"success": True, "data": stats}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"获取统计失败: {str(e)}")

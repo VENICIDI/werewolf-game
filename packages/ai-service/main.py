@@ -42,12 +42,21 @@ async def lifespan(app: FastAPI):
     
     # Initialize RAG service
     logger.info("Initializing RAG service...")
-    rag_service = RAGService()
-    await rag_service.initialize()
+    try:
+        rag_service = RAGService()
+        logger.info("RAG service initialized successfully")
+    except Exception as e:
+        logger.warning(f"RAG service init failed (will work without RAG): {e}")
+        rag_service = None
     
     # Initialize LLM service
     logger.info("Initializing LLM service...")
-    llm_service = LLMService()
+    try:
+        llm_service = LLMService()
+        logger.info("LLM service initialized successfully")
+    except Exception as e:
+        logger.warning(f"LLM service init failed (agents will use template speech): {e}")
+        llm_service = None
     
     # Initialize AgentManager with services
     logger.info("Initializing Agent Manager...")
@@ -80,6 +89,7 @@ app.add_middleware(
 
 # Include routers
 app.include_router(health.router, prefix="/api", tags=["health"])
+app.include_router(agent_router.router)  # 自带 prefix="/api/agents"
 app.include_router(knowledge.router, prefix="/api/knowledge", tags=["knowledge"])
 app.include_router(game.router, prefix="/api/game", tags=["game"])
 

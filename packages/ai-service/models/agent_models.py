@@ -2,11 +2,11 @@
 Agent 相关数据模型
 """
 from enum import Enum
-from typing import Optional
-from typing import Optional
+from typing import Optional, Any, Dict
 from pydantic import BaseModel, Field
 
 from .game_models import Role
+from .event_models import EventType
 
 
 class Persona(str, Enum):
@@ -42,6 +42,16 @@ class DestroyAgentRequest(BaseModel):
     player_id: int
 
 
+class AgentEventRequest(BaseModel):
+    """事件通知请求"""
+    game_id: str
+    player_id: int
+    event_type: EventType
+    event_data: Dict[str, Any] = Field(default_factory=dict)
+    round: int = 0
+    phase: str = ""
+
+
 class AgentInfo(BaseModel):
     """Agent 信息"""
     game_id: str
@@ -64,7 +74,7 @@ class SpeechRequest(BaseModel):
     game_id: str
     player_id: int
     game_state: dict
-    speak_context: str = Field(description="discussion/defense/claim_role")
+    speak_context: str = Field(default="discussion", description="discussion/defense/claim_role")
 
 
 class VoteRequest(BaseModel):
