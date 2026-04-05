@@ -78,7 +78,7 @@ export default function Index() {
           <Text className='divider-icon'>✦</Text>
           <View className='divider-line' />
         </View>
-        <Text className='hero-slogan'>夜幕降临，谁是狼人？</Text>
+        <Text className='hero-slogan'>血月之下，谁是暗夜的猎手？</Text>
       </View>
 
       {/* 玩家身份卡 / 登录邀请 */}
@@ -130,22 +130,22 @@ export default function Index() {
           <Text className='action-btn-icon'>⚔️</Text>
           <View className='action-btn-text'>
             <Text className='action-btn-title'>快速加入</Text>
-            <Text className='action-btn-desc'>寻找正在等待的房间</Text>
+            <Text className='action-btn-desc'>寻找正在等待的猎场</Text>
           </View>
         </Button>
         <Button className='action-btn secondary' onClick={createRoom}>
           <Text className='action-btn-icon'>🏰</Text>
           <View className='action-btn-text'>
             <Text className='action-btn-title'>创建房间</Text>
-            <Text className='action-btn-desc'>召集好友开始对局</Text>
+            <Text className='action-btn-desc'>召集猎人开始狩猎</Text>
           </View>
         </Button>
       </View>
 
-      {/* 今夜战报 */}
+      {/* 血夜战报 */}
       <View className='tonight-section'>
         <View className='tonight-header'>
-          <Text className='tonight-title'>◆ 今夜战报</Text>
+          <Text className='tonight-title'>◆ 血夜战报</Text>
         </View>
         <View className='tonight-stats'>
           <View className='tonight-item'>

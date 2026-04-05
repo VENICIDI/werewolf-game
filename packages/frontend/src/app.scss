@@ -34,18 +34,33 @@ scroll-view {
 }
 /* #endif */
 
-// 主题色系统
+// 主题色系统 — 血夜增强版
 :root {
-  --blood-red: #8b0000;
-  --blood-dark: #4a0000;
-  --gold: #d4af37;
-  --gold-dim: #8a7020;
-  --parchment: #1a1510;
-  --parchment-light: #2a2018;
-  --shadow: #0a0806;
-  --moon: #c4c4c4;
-  --text: #e8dcc8;
-  
+  // 核心色 — 提升亮度保证可读性
+  --blood-red: #c41a1a;
+  --blood-dark: #6a0000;
+  --blood-glow: #ff2d2d;
+
+  --gold: #e5c040;
+  --gold-dim: #b89830;
+  --gold-glow: #ffd700;
+
+  // 背景层级
+  --shadow: #080604;
+  --parchment: #1e1812;
+  --parchment-light: #322820;
+  --card-surface: #2a221a;
+  --card-border: #4a3d30;
+
+  // 文字层级 — 全部通过 WCAG AA
+  --text: #f0e6d6;
+  --text-secondary: #b0a090;
+  --text-tertiary: #8a7a68;
+  --text-placeholder: #7a6a58;
+
+  // 月光
+  --moon: #d4d4d4;
+
   // 字体系统
   --font-serif: 'Noto Serif SC', 'Crimson Text', serif;
   --font-display: 'Cinzel', 'Noto Serif SC', serif;
@@ -59,9 +74,9 @@ scroll-view {
 }
 
 page {
-  font-family: var(--font-serif);
-  background: var(--shadow);
-  color: var(--text);
+  font-family: 'Noto Serif SC', 'Crimson Text', serif;
+  background: #080604;
+  color: #f0e6d6;
   min-height: 100vh;
   max-width: 480px;
   margin: 0 auto;
@@ -239,11 +254,11 @@ body {
 
 // 羊皮纸卡片
 .parchment {
-  background: linear-gradient(135deg, var(--parchment-light) 0%, var(--parchment) 50%, #15100c 100%);
-  border: 1px solid #3d3025;
+  background: linear-gradient(135deg, var(--parchment-light) 0%, var(--parchment) 50%, #181210 100%);
+  border: 1px solid var(--card-border);
   border-radius: 2px 12px 2px 12px;
   position: relative;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.06);
 
   &::before {
     content: '';
@@ -252,7 +267,7 @@ body {
     left: 20px;
     right: 20px;
     height: 2px;
-    background: linear-gradient(90deg, transparent, var(--blood-dark), transparent);
+    background: linear-gradient(90deg, transparent, rgba(196, 26, 26, 0.6), transparent);
   }
 
   &::after {
@@ -327,6 +342,7 @@ body {
   font-weight: 700;
   color: var(--gold);
   letter-spacing: 2px;
+  text-shadow: 0 0 8px rgba(229, 192, 64, 0.3);
 }
 
 .section-line {

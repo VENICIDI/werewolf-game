@@ -130,7 +130,7 @@
 
         .ws-label {
           font-size: 10px;
-          color: #6a5a4a;
+          color: var(--text-secondary);
         }
 
         &.on .ws-dot {
@@ -607,7 +607,7 @@
     .seat-number {
       display: block;
       font-size: 10px;
-      color: #5a4a3a;
+      color: var(--text-tertiary);
       letter-spacing: 1px;
     }
   }

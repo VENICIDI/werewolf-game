@@ -1,4 +1,6 @@
 // 首页 - 狼人杀游戏大厅
+// 颜色硬编码以确保小程序兼容性
+
 .index-page {
   min-height: 100vh;
   padding: 20px 16px 40px;
@@ -16,9 +18,9 @@
     height: 300px;
     background: radial-gradient(
       ellipse at center,
-      rgba(139, 0, 0, 0.15) 0%,
-      rgba(139, 0, 0, 0.08) 30%,
-      rgba(74, 0, 0, 0.04) 60%,
+      rgba(196, 26, 26, 0.2) 0%,
+      rgba(196, 26, 26, 0.1) 30%,
+      rgba(106, 0, 0, 0.05) 60%,
       transparent 100%
     );
     border-radius: 50%;
@@ -36,12 +38,10 @@
     right: 0;
     height: 260px;
     background:
-      // 神秘符文圆弧线
-      radial-gradient(ellipse 220px 220px at 50% 100%, transparent 55%, rgba(74, 0, 0, 0.08) 56%, transparent 57%),
-      radial-gradient(ellipse 180px 180px at 50% 100%, transparent 55%, rgba(212, 175, 55, 0.04) 56%, transparent 57%),
-      radial-gradient(ellipse 140px 140px at 50% 100%, transparent 55%, rgba(74, 0, 0, 0.06) 56%, transparent 57%),
-      // 底部渐变氛围
-      linear-gradient(180deg, transparent 0%, rgba(74, 0, 0, 0.06) 60%, rgba(74, 0, 0, 0.12) 100%);
+      radial-gradient(ellipse 220px 220px at 50% 100%, transparent 55%, rgba(106, 0, 0, 0.1) 56%, transparent 57%),
+      radial-gradient(ellipse 180px 180px at 50% 100%, transparent 55%, rgba(229, 192, 64, 0.05) 56%, transparent 57%),
+      radial-gradient(ellipse 140px 140px at 50% 100%, transparent 55%, rgba(106, 0, 0, 0.08) 56%, transparent 57%),
+      linear-gradient(180deg, transparent 0%, rgba(106, 0, 0, 0.08) 60%, rgba(106, 0, 0, 0.15) 100%);
     pointer-events: none;
     z-index: -1;
   }
@@ -57,7 +57,7 @@
 .hero-wolf {
   font-size: 60px;
   margin-bottom: 8px;
-  filter: drop-shadow(0 4px 12px rgba(139, 0, 0, 0.5));
+  filter: drop-shadow(0 4px 12px rgba(196, 26, 26, 0.5));
   animation: wolfFloat 3s ease-in-out infinite;
 }
 
@@ -68,19 +68,17 @@
 
 .hero-title {
   display: block;
-  font-family: var(--font-display);
   font-size: 36px;
   font-weight: 900;
-  color: var(--blood-red);
-  text-shadow: 0 0 30px rgba(139, 0, 0, 0.4), 0 2px 4px rgba(0, 0, 0, 0.8);
+  color: #e83030;
+  text-shadow: 0 0 40px rgba(196, 26, 26, 0.6), 0 0 15px rgba(196, 26, 26, 0.4), 0 2px 4px rgba(0, 0, 0, 0.8);
   letter-spacing: 10px;
 }
 
 .hero-en {
   display: block;
-  font-family: var(--font-display);
   font-size: 12px;
-  color: var(--gold-dim);
+  color: #c8a838;
   letter-spacing: 4px;
   margin-top: 4px;
 }
@@ -95,11 +93,11 @@
   .divider-line {
     flex: 1;
     height: 1px;
-    background: linear-gradient(90deg, transparent, var(--blood-dark), transparent);
+    background: linear-gradient(90deg, transparent, #6a0000, transparent);
   }
 
   .divider-icon {
-    color: var(--gold);
+    color: #e5c040;
     font-size: 12px;
   }
 }
@@ -107,22 +105,21 @@
 .hero-slogan {
   display: block;
   font-size: 15px;
-  color: var(--text);
+  color: #d8ccb8;
   letter-spacing: 3px;
-  opacity: 0.7;
 }
 
 // ========== 玩家身份卡(已登录) ==========
 .player-card {
-  background: linear-gradient(135deg, var(--parchment-light) 0%, var(--parchment) 50%, #15100c 100%);
-  border: 1px solid #3d3025;
+  background: linear-gradient(135deg, #3a3028 0%, #2a2018 50%, #201810 100%);
+  border: 1px solid #5a4d40;
   border-radius: 2px 12px 2px 12px;
   padding: 16px;
   margin-bottom: 20px;
   display: flex;
   align-items: center;
   gap: 12px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.08);
   position: relative;
 
   &::before {
@@ -132,7 +129,7 @@
     left: 20px;
     right: 20px;
     height: 2px;
-    background: linear-gradient(90deg, transparent, var(--blood-dark), transparent);
+    background: linear-gradient(90deg, transparent, rgba(196, 26, 26, 0.6), transparent);
   }
 }
 
@@ -140,9 +137,9 @@
   width: 52px;
   height: 52px;
   border-radius: 50%;
-  background: radial-gradient(circle at 30% 30%, var(--gold) 0%, var(--gold-dim) 50%, var(--blood-dark) 100%);
-  border: 2px solid var(--gold);
-  box-shadow: 0 0 16px rgba(212, 175, 55, 0.3);
+  background: radial-gradient(circle at 30% 30%, #e5c040 0%, #b89830 50%, #6a0000 100%);
+  border: 2px solid #e5c040;
+  box-shadow: 0 0 16px rgba(229, 192, 64, 0.3);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -153,7 +150,7 @@
     content: '';
     position: absolute;
     inset: -5px;
-    border: 1px dashed var(--gold-dim);
+    border: 1px dashed #b89830;
     border-radius: 50%;
     opacity: 0.4;
     animation: rotate 20s linear infinite;
@@ -173,19 +170,19 @@
   display: block;
   font-size: 16px;
   font-weight: 700;
-  color: var(--text);
+  color: #f0e6d6;
   margin-bottom: 2px;
 }
 
 .player-rank {
   display: block;
   font-size: 12px;
-  color: var(--gold);
+  color: #e5c040;
   margin-bottom: 8px;
 
   &::before {
     content: '◆ ';
-    color: var(--blood-red);
+    color: #c41a1a;
     font-size: 10px;
   }
 }
@@ -206,41 +203,40 @@
 .stat-value {
   font-size: 16px;
   font-weight: 700;
-  color: var(--text);
-  font-family: var(--font-display);
+  color: #f0e6d6;
 }
 
 .stat-label {
   font-size: 10px;
-  color: #6a5a4a;
+  color: #b0a090;
   margin-top: 2px;
 }
 
 .stat-divider {
   width: 1px;
   height: 24px;
-  background: #3d3025;
+  background: #4a3d30;
 }
 
 .logout-btn {
   font-size: 12px;
-  color: #6a5a4a;
+  color: #b0a090;
   padding: 6px 12px;
-  border: 1px solid #2d2520;
+  border: 1px solid #4a3d30;
   border-radius: 4px;
   flex-shrink: 0;
   align-self: flex-start;
 
   &:active {
-    color: var(--blood-red);
-    border-color: var(--blood-dark);
+    color: #c41a1a;
+    border-color: #6a0000;
   }
 }
 
 // ========== 登录邀请卡(未登录) ==========
 .invite-card {
-  background: linear-gradient(135deg, var(--parchment-light) 0%, var(--parchment) 100%);
-  border: 1px solid #3d3025;
+  background: linear-gradient(135deg, #3a3028 0%, #2a2018 100%);
+  border: 1px solid #5a4d40;
   border-radius: 2px 12px 2px 12px;
   padding: 20px 16px;
   margin-bottom: 20px;
@@ -257,12 +253,12 @@
     left: 20px;
     right: 20px;
     height: 2px;
-    background: linear-gradient(90deg, transparent, var(--blood-dark), transparent);
+    background: linear-gradient(90deg, transparent, rgba(196, 26, 26, 0.6), transparent);
   }
 
   &:active {
-    border-color: var(--blood-dark);
-    box-shadow: 0 4px 16px rgba(139, 0, 0, 0.3);
+    border-color: #c41a1a;
+    box-shadow: 0 4px 16px rgba(196, 26, 26, 0.3);
   }
 }
 
@@ -274,7 +270,7 @@
 
 .invite-icon {
   font-size: 36px;
-  filter: drop-shadow(0 2px 8px rgba(196, 196, 196, 0.3));
+  filter: drop-shadow(0 2px 8px rgba(229, 192, 64, 0.4));
 }
 
 .invite-text {
@@ -285,19 +281,19 @@
 .invite-title {
   font-size: 15px;
   font-weight: 700;
-  color: var(--text);
+  color: #f0e6d6;
   margin-bottom: 4px;
 }
 
 .invite-desc {
   font-size: 12px;
-  color: var(--gold-dim);
+  color: #c8a838;
   letter-spacing: 1px;
 }
 
 .invite-arrow {
   font-size: 24px;
-  color: var(--gold-dim);
+  color: #c8a838;
   font-weight: 300;
 }
 
@@ -313,8 +309,8 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 14px 12px;
-  border-radius: 4px;
+  padding: 16px 14px;
+  border-radius: 8px;
   position: relative;
   transition: all 0.15s;
   text-align: left;
@@ -328,22 +324,22 @@
   }
 
   &.primary {
-    background: linear-gradient(180deg, rgba(139, 0, 0, 0.9) 0%, rgba(74, 0, 0, 0.95) 100%);
-    border: 2px solid var(--gold);
-    box-shadow: 0 4px 0 var(--blood-dark), 0 6px 16px rgba(0, 0, 0, 0.5);
+    background: linear-gradient(180deg, #a01515 0%, #6a0000 100%);
+    border: 2px solid #e5c040;
+    box-shadow: 0 4px 0 #4a0000, 0 6px 16px rgba(0, 0, 0, 0.5);
 
     &:active {
-      box-shadow: 0 0 0 var(--blood-dark), 0 2px 8px rgba(0, 0, 0, 0.5);
+      box-shadow: 0 0 0 #4a0000, 0 2px 8px rgba(0, 0, 0, 0.5);
     }
   }
 
   &.secondary {
-    background: linear-gradient(180deg, rgba(45, 45, 68, 0.9) 0%, rgba(26, 26, 46, 0.95) 100%);
-    border: 2px solid #4a4a6a;
-    box-shadow: 0 4px 0 #1a1a2e, 0 6px 16px rgba(0, 0, 0, 0.5);
+    background: linear-gradient(180deg, #3a2a1e 0%, #241a12 100%);
+    border: 2px solid #6a5840;
+    box-shadow: 0 4px 0 #1a1208, 0 6px 16px rgba(0, 0, 0, 0.5);
 
     &:active {
-      box-shadow: 0 0 0 #1a1a2e, 0 2px 8px rgba(0, 0, 0, 0.5);
+      box-shadow: 0 0 0 #1a1208, 0 2px 8px rgba(0, 0, 0, 0.5);
     }
   }
 }
@@ -361,18 +357,17 @@
 .action-btn-title {
   font-size: 15px;
   font-weight: 700;
-  color: var(--text);
+  color: #f0e6d6;
   letter-spacing: 2px;
-  font-family: var(--font-serif);
 }
 
 .action-btn-desc {
   font-size: 10px;
-  color: rgba(232, 220, 200, 0.5);
+  color: #b0a090;
   margin-top: 2px;
 }
 
-// ========== 今夜战报 ==========
+// ========== 血夜战报 ==========
 .tonight-section {
   margin-bottom: 24px;
   position: relative;
@@ -388,9 +383,9 @@
     background: linear-gradient(
       180deg,
       transparent 0%,
-      rgba(139, 0, 0, 0.3) 30%,
-      rgba(212, 175, 55, 0.15) 50%,
-      rgba(139, 0, 0, 0.3) 70%,
+      rgba(196, 26, 26, 0.4) 30%,
+      rgba(229, 192, 64, 0.2) 50%,
+      rgba(196, 26, 26, 0.4) 70%,
       transparent 100%
     );
     border-radius: 1px;
@@ -403,16 +398,15 @@
 }
 
 .tonight-title {
-  font-family: var(--font-display);
   font-size: 14px;
   font-weight: 700;
-  color: var(--gold);
+  color: #e5c040;
   letter-spacing: 2px;
 }
 
 .tonight-stats {
-  background: linear-gradient(135deg, rgba(26, 21, 16, 0.8) 0%, rgba(15, 12, 8, 0.9) 100%);
-  border: 1px solid #2d2520;
+  background: linear-gradient(135deg, #322820 0%, #1a1510 100%);
+  border: 1px solid #4a3d30;
   border-radius: 8px;
   padding: 16px;
   display: flex;
@@ -427,23 +421,22 @@
 
 .tonight-num {
   display: block;
-  font-family: var(--font-display);
   font-size: 22px;
   font-weight: 700;
-  color: var(--blood-red);
-  text-shadow: 0 0 12px rgba(139, 0, 0, 0.3);
+  color: #ff4040;
+  text-shadow: 0 0 16px rgba(255, 64, 64, 0.4);
 }
 
 .tonight-label {
   display: block;
   font-size: 11px;
-  color: #6a5a4a;
+  color: #b0a090;
   margin-top: 4px;
   letter-spacing: 1px;
 }
 
 .tonight-sep {
-  color: #2d2520;
+  color: #4a3d30;
   font-size: 20px;
   line-height: 1;
 }
@@ -453,7 +446,7 @@
   margin-bottom: 24px;
   position: relative;
 
-  // 右侧竖向装饰线（与今夜战报左侧呼应）
+  // 右侧竖向装饰线
   &::before {
     content: '';
     position: absolute;
@@ -464,9 +457,9 @@
     background: linear-gradient(
       180deg,
       transparent 0%,
-      rgba(212, 175, 55, 0.15) 30%,
-      rgba(139, 0, 0, 0.2) 50%,
-      rgba(212, 175, 55, 0.15) 70%,
+      rgba(229, 192, 64, 0.2) 30%,
+      rgba(196, 26, 26, 0.3) 50%,
+      rgba(229, 192, 64, 0.2) 70%,
       transparent 100%
     );
     border-radius: 1px;
@@ -479,10 +472,9 @@
 }
 
 .roles-title {
-  font-family: var(--font-display);
   font-size: 14px;
   font-weight: 700;
-  color: var(--gold);
+  color: #e5c040;
   letter-spacing: 2px;
 }
 
@@ -498,8 +490,8 @@
   width: 100px;
   padding: 16px 8px;
   margin-right: 10px;
-  background: linear-gradient(180deg, rgba(26, 21, 16, 0.7) 0%, rgba(15, 12, 8, 0.9) 100%);
-  border: 1px solid #2d2520;
+  background: linear-gradient(180deg, #322820 0%, #1a1510 100%);
+  border: 1px solid #4a3d30;
   border-radius: 8px;
   white-space: normal;
   text-align: center;
@@ -511,8 +503,8 @@
   }
 
   &:active {
-    border-color: var(--gold-dim);
-    box-shadow: 0 0 16px rgba(212, 175, 55, 0.1);
+    border-color: #b89830;
+    box-shadow: 0 0 16px rgba(229, 192, 64, 0.15);
   }
 }
 
@@ -526,7 +518,7 @@
   display: block;
   font-size: 13px;
   font-weight: 700;
-  color: var(--text);
+  color: #f0e6d6;
   margin-bottom: 2px;
   letter-spacing: 1px;
 }
@@ -534,14 +526,14 @@
 .role-camp {
   display: block;
   font-size: 10px;
-  color: var(--gold-dim);
+  color: #c8a838;
   margin-bottom: 6px;
 }
 
 .role-desc {
   display: block;
   font-size: 10px;
-  color: #6a5a4a;
+  color: #9a8a78;
   line-height: 1.4;
 }
 
@@ -553,6 +545,6 @@
 
 .footer-text {
   font-size: 12px;
-  color: #3d3025;
+  color: #8a7a68;
   letter-spacing: 3px;
 }

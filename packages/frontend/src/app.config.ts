@@ -10,14 +10,14 @@ export default defineAppConfig({
   ],
   window: {
     backgroundTextStyle: 'light',
-    navigationBarBackgroundColor: '#1a1a2e',
+    navigationBarBackgroundColor: '#080604',
     navigationBarTitleText: '狼人杀',
     navigationBarTextStyle: 'white'
   },
   tabBar: {
-    color: '#999',
-    selectedColor: '#e94560',
-    backgroundColor: '#1a1a2e',
+    color: '#8a7a68',
+    selectedColor: '#c41a1a',
+    backgroundColor: '#080604',
     borderStyle: 'black',
     list: [
       {

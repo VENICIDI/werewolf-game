@@ -354,7 +354,7 @@ export default function Room() {
       <View className='room-container'>
         <View className='loading-state'>
           <Text className='loading-icon'>🌙</Text>
-          <Text className='loading-text'>进入房间中...</Text>
+          <Text className='loading-text'>穿越暗夜迷雾...</Text>
         </View>
       </View>
     )
@@ -510,7 +510,7 @@ export default function Room() {
       {/* 底部操作栏 */}
       <View className='bottom-bar'>
         <Button className='bar-btn leave-btn' onClick={handleLeaveRoom}>
-          离开房间
+          退出猎场
         </Button>
         {isHost ? (
           <Button
@@ -520,14 +520,14 @@ export default function Room() {
           >
             {room.currentPlayers < 6
               ? `还需 ${6 - room.currentPlayers} 人`
-              : '开始游戏'}
+              : '血月升起'}
           </Button>
         ) : (
           <Button
             className={`bar-btn ${isReady ? 'cancel-btn' : 'ready-btn'}`}
             onClick={handleReady}
           >
-            {isReady ? '取消准备' : '准备就绪'}
+            {isReady ? '收刃入鞘' : '执刃待命'}
           </Button>
         )}
       </View>

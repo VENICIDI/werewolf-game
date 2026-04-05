@@ -14,12 +14,12 @@ export default function GameEntry() {
   }, [])
 
   return (
-    <View style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100vh', backgroundColor: '#0f0f1e', color: '#fff' }}>
-      <Text style={{ fontSize: '48px', marginBottom: '20px' }}>🐺</Text>
-      <Text style={{ fontSize: '24px', fontWeight: 'bold', marginBottom: '10px' }}>游戏大厅</Text>
-      <Text style={{ fontSize: '14px', color: '#aaa', marginBottom: '30px' }}>请从房间中开始游戏</Text>
+    <View style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100vh', background: 'var(--shadow, #080604)', color: 'var(--text, #f0e6d6)' }}>
+      <Text style={{ fontSize: '48px', marginBottom: '20px', filter: 'drop-shadow(0 4px 12px rgba(196,26,26,0.5))' }}>🐺</Text>
+      <Text style={{ fontSize: '24px', fontWeight: 'bold', marginBottom: '10px', color: 'var(--gold, #e5c040)', letterSpacing: '4px' }}>游戏大厅</Text>
+      <Text style={{ fontSize: '14px', color: 'var(--text-secondary, #b0a090)', marginBottom: '30px' }}>请从房间中开始游戏</Text>
       <Button
-        style={{ backgroundColor: '#e94560', color: '#fff', borderRadius: '8px', border: 'none', padding: '10px 40px' }}
+        style={{ background: 'linear-gradient(180deg, rgba(196,26,26,0.85), rgba(106,0,0,0.95))', color: 'var(--text, #f0e6d6)', borderRadius: '8px', border: '1.5px solid var(--gold, #e5c040)', padding: '10px 40px', fontWeight: '700', letterSpacing: '3px' }}
         onClick={() => Taro.switchTab({ url: '/pages/room-list/index' })}
       >
         前往房间列表

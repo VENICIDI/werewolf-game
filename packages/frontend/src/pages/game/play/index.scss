@@ -1,22 +1,48 @@
+// 游戏对战页 - 血夜主题
 .game-play-container {
   min-height: 100vh;
   padding: 20px;
   padding-bottom: 100px;
   position: relative;
+  z-index: 1;
 
   &.night {
-    background: linear-gradient(180deg, #1a1a2e 0%, #0f0f1e 100%);
+    background: linear-gradient(180deg, #0c0808 0%, var(--shadow) 100%);
+
+    &::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: radial-gradient(ellipse at 70% 10%, rgba(106, 0, 0, 0.12) 0%, transparent 60%);
+      pointer-events: none;
+      z-index: -1;
+    }
   }
 
   &.day {
-    background: linear-gradient(180deg, #2d3748 0%, #1a202c 100%);
+    background: linear-gradient(180deg, #1a1510 0%, var(--shadow) 100%);
+
+    &::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: radial-gradient(ellipse at 30% 10%, rgba(184, 152, 48, 0.06) 0%, transparent 60%);
+      pointer-events: none;
+      z-index: -1;
+    }
   }
 }
 
 .loading {
   text-align: center;
   padding: 100px;
-  color: #a0a0a0;
+  color: var(--text-secondary);
   font-size: 16px;
 }
 
@@ -27,14 +53,16 @@
   align-items: center;
   margin-bottom: 20px;
   padding: 12px 16px;
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(30, 24, 18, 0.8);
+  border: 1px solid var(--card-border);
   border-radius: 12px;
+  backdrop-filter: blur(8px);
 
   .round-info {
     .round-text {
       display: block;
       font-size: 12px;
-      color: #a0a0a0;
+      color: var(--text-secondary);
       margin-bottom: 4px;
     }
 
@@ -42,7 +70,7 @@
       display: block;
       font-size: 16px;
       font-weight: 600;
-      color: #fff;
+      color: var(--text);
     }
   }
 
@@ -50,7 +78,8 @@
     display: flex;
     align-items: center;
     gap: 4px;
-    background: rgba(233, 69, 96, 0.2);
+    background: rgba(196, 26, 26, 0.2);
+    border: 1px solid rgba(196, 26, 26, 0.3);
     padding: 8px 16px;
     border-radius: 20px;
 
@@ -61,18 +90,23 @@
     .timer-text {
       font-size: 16px;
       font-weight: 600;
-      color: #e94560;
+      color: var(--blood-glow);
     }
   }
 
   .role-btn {
     width: 40px;
     height: 40px;
-    background: rgba(255, 255, 255, 0.1);
+    background: rgba(30, 24, 18, 0.8);
+    border: 1px solid var(--card-border);
     border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
+
+    &:active {
+      background: rgba(196, 26, 26, 0.2);
+    }
 
     .role-icon {
       font-size: 20px;
@@ -85,27 +119,43 @@
   text-align: center;
   padding: 30px 20px;
   margin-bottom: 20px;
-  background: rgba(255, 255, 255, 0.05);
-  border-radius: 16px;
+  background: linear-gradient(135deg, var(--card-surface) 0%, rgba(15, 12, 8, 0.9) 100%);
+  border: 1px solid var(--card-border);
+  border-radius: 12px;
+  position: relative;
+
+  &::before {
+    content: '';
+    position: absolute;
+    top: -1px;
+    left: 20px;
+    right: 20px;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--blood-red), transparent);
+  }
 
   .phase-icon {
     display: block;
     font-size: 48px;
     margin-bottom: 12px;
+    filter: drop-shadow(0 4px 12px rgba(196, 26, 26, 0.4));
   }
 
   .phase-title {
     display: block;
+    font-family: var(--font-display);
     font-size: 24px;
     font-weight: bold;
-    color: #fff;
+    color: var(--gold);
     margin-bottom: 8px;
+    letter-spacing: 3px;
+    text-shadow: 0 0 12px rgba(229, 192, 64, 0.3);
   }
 
   .phase-subtitle {
     display: block;
     font-size: 14px;
-    color: #a0a0a0;
+    color: var(--text-secondary);
   }
 }
 
@@ -116,8 +166,15 @@
   .section-title {
     display: block;
     font-size: 14px;
-    color: #a0a0a0;
+    color: var(--gold);
     margin-bottom: 12px;
+    letter-spacing: 1px;
+
+    &::before {
+      content: '◆ ';
+      color: var(--blood-red);
+      font-size: 10px;
+    }
   }
 
   .players-grid {
@@ -126,32 +183,47 @@
     gap: 10px;
 
     .player-card {
-      background: rgba(255, 255, 255, 0.05);
-      border-radius: 12px;
+      background: rgba(30, 24, 18, 0.7);
+      border: 1px solid var(--card-border);
+      border-radius: 10px;
       padding: 12px;
       text-align: center;
-      border: 2px solid transparent;
       transition: all 0.3s ease;
+      position: relative;
 
       &.selected {
-        border-color: #e94560;
-        background: rgba(233, 69, 96, 0.1);
+        border-color: var(--blood-red);
+        background: rgba(196, 26, 26, 0.1);
+        box-shadow: 0 0 16px rgba(196, 26, 26, 0.2);
+
+        &::before {
+          content: '';
+          position: absolute;
+          top: 0;
+          left: 0;
+          right: 0;
+          height: 2px;
+          background: linear-gradient(90deg, transparent, var(--blood-red), transparent);
+        }
       }
 
       &.DEAD {
-        opacity: 0.5;
+        opacity: 0.4;
+        filter: grayscale(0.5);
       }
 
       .player-avatar {
         width: 40px;
         height: 40px;
         border-radius: 50%;
-        background: #0f3460;
+        background: linear-gradient(135deg, var(--parchment-light) 0%, var(--parchment) 100%);
+        border: 2px solid var(--gold-dim);
         margin: 0 auto 8px;
         display: flex;
         align-items: center;
         justify-content: center;
         overflow: hidden;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
 
         .avatar-img {
           width: 100%;
@@ -166,7 +238,7 @@
       .player-name {
         display: block;
         font-size: 12px;
-        color: #fff;
+        color: var(--text);
         margin-bottom: 4px;
         overflow: hidden;
         text-overflow: ellipsis;
@@ -176,26 +248,28 @@
       .host-badge {
         display: inline-block;
         font-size: 10px;
-        color: #e94560;
-        background: rgba(233, 69, 96, 0.2);
+        color: var(--blood-red);
+        background: rgba(196, 26, 26, 0.15);
+        border: 1px solid rgba(196, 26, 26, 0.3);
         padding: 2px 6px;
-        border-radius: 6px;
+        border-radius: 4px;
         margin-bottom: 4px;
       }
 
       .seat-num {
         display: block;
         font-size: 11px;
-        color: #666;
+        color: var(--text-tertiary);
       }
 
       .dead-badge {
         display: inline-block;
         font-size: 10px;
-        color: #666;
+        color: var(--text-tertiary);
         background: rgba(100, 100, 100, 0.2);
+        border: 1px solid rgba(100, 100, 100, 0.3);
         padding: 2px 6px;
-        border-radius: 6px;
+        border-radius: 4px;
         margin-top: 4px;
       }
     }
@@ -204,8 +278,9 @@
 
 // 行动区域
 .action-section {
-  background: rgba(255, 255, 255, 0.05);
-  border-radius: 16px;
+  background: linear-gradient(135deg, var(--card-surface) 0%, rgba(15, 12, 8, 0.9) 100%);
+  border: 1px solid var(--card-border);
+  border-radius: 12px;
   padding: 20px;
   margin-bottom: 20px;
   text-align: center;
@@ -213,35 +288,45 @@
   .action-hint {
     display: block;
     font-size: 14px;
-    color: #a0a0a0;
+    color: var(--text-secondary);
     margin-bottom: 16px;
   }
 
   .action-btn {
     width: 100%;
     height: 48px;
-    background: linear-gradient(135deg, #e94560 0%, #c73e54 100%);
-    border: none;
-    border-radius: 12px;
-    color: #fff;
+    background: linear-gradient(180deg, rgba(196, 26, 26, 0.85) 0%, rgba(106, 0, 0, 0.95) 100%);
+    border: 1.5px solid var(--gold);
+    border-radius: 8px;
+    color: var(--text);
     font-size: 16px;
     font-weight: 600;
+    letter-spacing: 3px;
+    box-shadow: 0 3px 0 var(--blood-dark);
 
     &::after {
       border: none;
     }
 
+    &:active {
+      transform: translateY(3px);
+      box-shadow: none;
+    }
+
     &[disabled] {
-      background: #333;
-      color: #666;
+      background: rgba(40, 36, 32, 0.6);
+      border-color: var(--card-border);
+      color: var(--text-tertiary);
+      box-shadow: none;
     }
   }
 }
 
 // 聊天区域
 .chat-section {
-  background: rgba(255, 255, 255, 0.05);
-  border-radius: 16px;
+  background: linear-gradient(135deg, var(--card-surface) 0%, rgba(15, 12, 8, 0.9) 100%);
+  border: 1px solid var(--card-border);
+  border-radius: 12px;
   padding: 16px;
   height: 150px;
 
@@ -249,18 +334,30 @@
     height: 100%;
     overflow-y: auto;
 
+    &::-webkit-scrollbar {
+      width: 3px;
+    }
+
+    &::-webkit-scrollbar-thumb {
+      background: var(--blood-dark);
+      border-radius: 2px;
+    }
+
     .chat-item {
       margin-bottom: 8px;
+      padding: 4px 8px;
+      border-radius: 4px;
 
       .chat-sender {
         font-size: 12px;
-        color: #e94560;
+        color: var(--gold);
         margin-right: 8px;
+        font-weight: 600;
       }
 
       .chat-content {
         font-size: 14px;
-        color: #fff;
+        color: var(--text);
       }
     }
   }
@@ -273,7 +370,7 @@
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.8);
+  background: rgba(5, 3, 2, 0.9);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -282,38 +379,48 @@
   .modal-content {
     width: 80%;
     max-width: 300px;
-    background: #1a1a2e;
-    border-radius: 16px;
+    background: linear-gradient(135deg, var(--parchment-light) 0%, var(--parchment) 100%);
+    border: 1px solid var(--card-border);
+    border-radius: 4px 16px 4px 16px;
     padding: 24px;
-    border: 1px solid #2d2d44;
     text-align: center;
+    box-shadow: 0 16px 48px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(229, 192, 64, 0.1);
 
     .modal-title {
       display: block;
+      font-family: var(--font-display);
       font-size: 18px;
       font-weight: 600;
-      color: #fff;
+      color: var(--gold);
       margin-bottom: 16px;
+      letter-spacing: 2px;
     }
 
     .modal-role {
       display: block;
       font-size: 24px;
-      color: #e94560;
+      color: var(--blood-red);
       margin-bottom: 24px;
+      text-shadow: 0 0 12px rgba(196, 26, 26, 0.4);
     }
 
     .modal-close {
       width: 100%;
       height: 44px;
-      background: #0f3460;
-      border: none;
-      border-radius: 12px;
-      color: #fff;
+      background: linear-gradient(180deg, rgba(196, 26, 26, 0.85) 0%, rgba(106, 0, 0, 0.95) 100%);
+      border: 1.5px solid var(--gold);
+      border-radius: 8px;
+      color: var(--text);
       font-size: 14px;
+      font-weight: 600;
+      letter-spacing: 2px;
 
       &::after {
         border: none;
+      }
+
+      &:active {
+        background: var(--blood-red);
       }
     }
   }
