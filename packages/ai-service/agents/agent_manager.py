@@ -68,7 +68,11 @@ class AgentManager:
         game_id: str,
         player_id: int,
         role: Role,
-        persona: Persona
+        persona: Persona,
+        teammates: Optional[List[int]] = None,
+        seat_number: int = 0,
+        player_ids: Optional[List[int]] = None,
+        seat_map: Optional[Dict] = None,
     ) -> WerewolfAgent:
         """
         创建 Agent 实例
@@ -78,39 +82,42 @@ class AgentManager:
             player_id: 玩家 ID
             role: 角色
             persona: 人格档案
+            teammates: 狼人队友列表（仅狼人）
+            seat_number: 座位号
+            player_ids: 所有玩家 ID（用于初始化记忆）
+            seat_map: 座位映射
             
         Returns:
             创建的 Agent 实例
-            
-        Raises:
-            ValueError: Agent 已存在或服务未初始化
         """
         async with self._lock:
             key = (game_id, player_id)
             
-            # 检查是否已存在
             if key in self._agents:
                 raise ValueError(
                     f"Agent 已存在: game_id={game_id}, player_id={player_id}"
                 )
             
-            # 检查服务是否已注入
             if not self._llm_service or not self._rag_service:
                 raise ValueError(
                     "LLM/RAG 服务未初始化，请先调用 set_services()"
                 )
             
-            # 创建 Agent
             agent = WerewolfAgent(
                 game_id=game_id,
                 player_id=player_id,
                 role=role,
                 persona=persona,
                 llm_service=self._llm_service,
-                rag_service=self._rag_service
+                rag_service=self._rag_service,
+                teammates=teammates,
+                seat_number=seat_number,
             )
             
-            # 存入池中
+            # 初始化游戏记忆
+            if player_ids:
+                agent.init_game(player_ids, seat_map)
+            
             self._agents[key] = agent
             
             print(f"✅ 创建 Agent: {key}, 当前总数: {len(self._agents)}")

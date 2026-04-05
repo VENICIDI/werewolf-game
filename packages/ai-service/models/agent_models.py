@@ -3,6 +3,7 @@ Agent 相关数据模型
 """
 from enum import Enum
 from typing import Optional
+from typing import Optional
 from pydantic import BaseModel, Field
 
 from .game_models import Role
@@ -29,6 +30,10 @@ class CreateAgentRequest(BaseModel):
     player_id: int
     role: Role
     persona: Persona = Persona.ANALYTICAL
+    teammates: Optional[list] = None  # 狼人队友列表
+    seat_number: int = 0
+    player_ids: Optional[list] = None  # 所有玩家 ID（用于初始化记忆）
+    seat_map: Optional[dict] = None  # 座位映射 {player_id: seat_number}
 
 
 class DestroyAgentRequest(BaseModel):

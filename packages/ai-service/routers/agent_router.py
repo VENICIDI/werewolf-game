@@ -34,7 +34,11 @@ async def create_agent(request: CreateAgentRequest):
             game_id=request.game_id,
             player_id=request.player_id,
             role=request.role,
-            persona=request.persona
+            persona=request.persona,
+            teammates=request.teammates,
+            seat_number=request.seat_number,
+            player_ids=request.player_ids,
+            seat_map=request.seat_map,
         )
         
         return {

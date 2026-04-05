@@ -72,7 +72,8 @@ class GameState(BaseModel):
 
 class NightActionDecision(BaseModel):
     """夜间行动决策结果"""
-    target_id: int = Field(description="目标玩家ID, 0表示不行动")
+    action: str = Field(default="skip", description="行动类型: kill/check/save/poison/guard/skip/witch_action")
+    target_id: int = Field(default=0, description="目标玩家ID, 0表示不行动")
     reason: str = Field(description="行动理由")
     confidence: float = Field(ge=0, le=1, description="信心度 0-1")
 
@@ -83,10 +84,11 @@ class SpeechDecision(BaseModel):
     emotion: str = Field(description="情绪: calm/suspicious/angry/confident/nervous")
     targets_mentioned: List[int] = Field(default_factory=list, description="提到的玩家ID列表")
     claim_role: Optional[Role] = Field(default=None, description="是否跳身份")
+    strategy: Optional[str] = Field(default=None, description="发言策略说明")
 
 
 class VoteDecision(BaseModel):
     """投票决策结果"""
     target_id: int = Field(description="投票目标ID, 0表示弃票")
     reason: str = Field(description="投票理由")
-    confidence: float = Field(ge=0, le=1, description="信心度")
+    confidence: float = Field(ge=0, le=1, default=0.5, description="信心度")
