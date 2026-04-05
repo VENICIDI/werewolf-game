@@ -3,9 +3,13 @@ RAG 服务 - 基于 LangChain 的知识检索增强
 
 使用组件:
 - Chroma: 向量数据库
-- OpenAIEmbeddings: 文本嵌入
+- HuggingFaceEmbeddings: 本地文本嵌入 (BAAI/bge-small-zh-v1.5)
 - RecursiveCharacterTextSplitter: 文档切片
 - DirectoryLoader: 文档加载
+
+Embedding 策略:
+- 默认使用本地 HuggingFace 模型 (免费，中文效果好)
+- 可通过环境变量切换为 OpenAI Embedding API
 """
 import os
 import logging
@@ -13,7 +17,6 @@ from typing import List, Optional, Dict
 from pathlib import Path
 
 from langchain_community.vectorstores import Chroma
-from langchain_openai import OpenAIEmbeddings
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_community.document_loaders import DirectoryLoader, TextLoader
 from langchain_core.documents import Document
@@ -30,49 +33,99 @@ class RAGService:
     - 加载知识库文档并向量化
     - 提供语义检索能力
     - 支持按角色过滤
+    
+    Embedding 模型:
+    - 默认: BAAI/bge-small-zh-v1.5 (本地，免费，中文优化)
+    - 可选: OpenAI text-embedding-3-small (需 API Key)
     """
     
     def __init__(self):
         self.persist_dir = os.getenv("CHROMA_PERSIST_DIR", "./chroma_db")
         self.collection_name = f"{os.getenv('CHROMA_COLLECTION_PREFIX', 'werewolf')}_knowledge"
+        self.knowledge_dir = os.getenv("KNOWLEDGE_DIR", "./knowledge")
         
         # 初始化 Embedding
         self.embeddings = self._init_embeddings()
         
         # 初始化或加载向量数据库
         self.vectorstore: Optional[Chroma] = None
+        self._initialized = False
         self._load_or_create_vectorstore()
     
     def _init_embeddings(self):
-        """初始化 Embedding 模型"""
-        embedding_model = os.getenv("EMBEDDING_MODEL", "text-embedding-3-small")
-        api_key = os.getenv("OPENAI_API_KEY")
+        """
+        初始化 Embedding 模型
         
-        if not api_key or api_key.startswith("sk-your-"):
-            logger.warning("OPENAI_API_KEY not configured, using default embeddings")
-            # 本地开发可用 HuggingFaceEmbeddings
-            return None
+        优先级:
+        1. 环境变量指定 USE_LOCAL_EMBEDDING=true → HuggingFace 本地模型
+        2. 环境变量有 EMBEDDING_API_KEY → OpenAI Embedding API
+        3. 默认 → HuggingFace 本地模型 (bge-small-zh-v1.5)
+        """
+        use_local = os.getenv("USE_LOCAL_EMBEDDING", "true").lower() == "true"
+        embedding_api_key = os.getenv("EMBEDDING_API_KEY", "")
         
-        return OpenAIEmbeddings(
-            model=embedding_model,
-            api_key=api_key
+        if not use_local and embedding_api_key:
+            return self._init_openai_embeddings(embedding_api_key)
+        else:
+            return self._init_local_embeddings()
+    
+    def _init_local_embeddings(self):
+        """初始化本地 HuggingFace Embedding (BAAI/bge-small-zh-v1.5)"""
+        try:
+            from langchain_community.embeddings import HuggingFaceEmbeddings
+            
+            model_name = os.getenv("LOCAL_EMBEDDING_MODEL", "BAAI/bge-small-zh-v1.5")
+            
+            embeddings = HuggingFaceEmbeddings(
+                model_name=model_name,
+                model_kwargs={"device": "cpu"},
+                encode_kwargs={"normalize_embeddings": True}
+            )
+            
+            logger.info(f"Local HuggingFace Embedding initialized: {model_name}")
+            return embeddings
+            
+        except ImportError:
+            logger.error(
+                "sentence-transformers not installed. "
+                "Run: pip install sentence-transformers"
+            )
+            raise
+        except Exception as e:
+            logger.error(f"Failed to init local embedding: {e}")
+            raise
+    
+    def _init_openai_embeddings(self, api_key: str):
+        """初始化 OpenAI Embedding API"""
+        from langchain_openai import OpenAIEmbeddings
+        
+        model = os.getenv("EMBEDDING_MODEL", "text-embedding-3-small")
+        base_url = os.getenv("EMBEDDING_BASE_URL", "https://api.openai.com/v1")
+        
+        embeddings = OpenAIEmbeddings(
+            model=model,
+            api_key=api_key,
+            base_url=base_url,
         )
+        
+        logger.info(f"OpenAI Embedding initialized: model={model}, base_url={base_url}")
+        return embeddings
     
     def _load_or_create_vectorstore(self):
         """加载或创建向量数据库"""
         persist_path = Path(self.persist_dir)
         
         if persist_path.exists() and any(persist_path.iterdir()):
-            # 加载已有的向量库
             logger.info(f"Loading existing vectorstore from {self.persist_dir}")
             self.vectorstore = Chroma(
                 collection_name=self.collection_name,
                 embedding_function=self.embeddings,
                 persist_directory=self.persist_dir
             )
+            self._initialized = True
         else:
-            # 创建新的空向量库
             logger.info(f"Creating new vectorstore at {self.persist_dir}")
+            persist_path.mkdir(parents=True, exist_ok=True)
             self.vectorstore = Chroma(
                 collection_name=self.collection_name,
                 embedding_function=self.embeddings,
@@ -213,16 +266,81 @@ class RAGService:
         return await retriever.aget_relevant_documents(query_text)
     
     def format_docs(self, docs: List[Document]) -> str:
+        """格式化文档为文本"""
+        return "\n\n".join(
+            f"[来源: {doc.metadata.get('source', 'unknown')}]\n{doc.page_content}" 
+            for doc in docs
+        )
+    
+    def is_available(self) -> bool:
+        """检查 RAG 服务是否可用"""
+        try:
+            return self.vectorstore is not None and self.embeddings is not None
+        except Exception:
+            return False
+    
+    def get_stats(self) -> Dict:
+        """获取知识库统计信息"""
+        if not self.vectorstore:
+            return {"status": "not_initialized", "total_chunks": 0, "sources": []}
+        
+        try:
+            collection = self.vectorstore._collection
+            count = collection.count()
+            
+            # 获取所有来源文件
+            sources = set()
+            if count > 0:
+                result = collection.get(include=["metadatas"])
+                for meta in result.get("metadatas", []):
+                    if meta and "source" in meta:
+                        sources.add(Path(meta["source"]).name)
+            
+            return {
+                "status": "ready" if count > 0 else "empty",
+                "total_chunks": count,
+                "document_count": len(sources),
+                "sources": sorted(list(sources)),
+                "persist_dir": self.persist_dir,
+                "embedding_model": os.getenv("LOCAL_EMBEDDING_MODEL", "BAAI/bge-small-zh-v1.5"),
+                "initialized": self._initialized,
+            }
+        except Exception as e:
+            logger.error(f"Failed to get stats: {e}")
+            return {"status": "error", "error": str(e)}
+    
+    def rebuild(self, docs_dir: Optional[str] = None) -> Dict:
         """
-        格式化文档为文本
+        重建知识库（清空后重新加载）
         
         Args:
-            docs: 文档列表
+            docs_dir: 文档目录，默认使用 self.knowledge_dir
             
         Returns:
-            str: 格式化后的文本
+            Dict: 构建结果统计
         """
-        return "\n\n".join(f"[来源: {doc.metadata.get('source', 'unknown')}]\n{doc.page_content}" for doc in docs)
+        docs_dir = docs_dir or self.knowledge_dir
+        
+        # 清空已有数据
+        if self.vectorstore:
+            try:
+                collection = self.vectorstore._collection
+                if collection.count() > 0:
+                    ids = collection.get()["ids"]
+                    collection.delete(ids=ids)
+                    logger.info(f"Cleared {len(ids)} existing chunks")
+            except Exception as e:
+                logger.warning(f"Failed to clear vectorstore: {e}")
+        
+        # 重新加载
+        doc_count = self.load_documents(docs_dir)
+        self._initialized = True
+        
+        stats = self.get_stats()
+        stats["action"] = "rebuild"
+        stats["documents_loaded"] = doc_count
+        
+        return stats
 
 
 # 全局单例
