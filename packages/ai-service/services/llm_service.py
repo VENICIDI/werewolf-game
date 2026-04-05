@@ -39,20 +39,24 @@ class LLMService:
         logger.info(f"LLM Service initialized: {'Ollama (local)' if self.use_local else 'OpenAI'}")
     
     def _init_openai(self):
-        """初始化 OpenAI"""
+        """初始化 OpenAI 兼容 API（支持 OpenAI / Kimi / DeepSeek 等）"""
         api_key = os.getenv("OPENAI_API_KEY")
         if not api_key or api_key.startswith("sk-your-"):
             raise ValueError("OPENAI_API_KEY not configured in .env")
         
         model = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
         temperature = float(os.getenv("OPENAI_TEMPERATURE", "0.7"))
+        base_url = os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1")
         
         self.llm = ChatOpenAI(
             model=model,
             temperature=temperature,
             api_key=api_key,
+            base_url=base_url,
             max_retries=3,
         )
+        
+        logger.info(f"OpenAI-compatible LLM configured: model={model}, base_url={base_url}")
     
     def _init_ollama(self):
         """初始化 Ollama (本地模型)"""
