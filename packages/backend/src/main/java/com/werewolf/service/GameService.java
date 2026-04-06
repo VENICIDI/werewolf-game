@@ -261,10 +261,12 @@ public class GameService {
 
         int seatNumber = 1;
         for (RoomMember member : members) {
+            boolean isAi = member.getUser().getUsername().startsWith("[AI]");
             Player player = Player.builder()
                     .game(game)
                     .user(member.getUser())
-                    .isAi(false)
+                    .isAi(isAi)
+                    .aiName(isAi ? member.getUser().getUsername() : null)
                     .seatNumber(seatNumber++)
                     .role(Player.Role.UNKNOWN)
                     .status(Player.PlayerStatus.ALIVE)
@@ -276,7 +278,8 @@ public class GameService {
             players.add(player);
         }
 
-        log.info("创建 {} 个玩家", players.size());
+        log.info("创建 {} 个玩家 (其中 AI: {})", players.size(),
+                players.stream().filter(p -> Boolean.TRUE.equals(p.getIsAi())).count());
         return players;
     }
 
@@ -284,10 +287,11 @@ public class GameService {
         List<Map<String, Object>> publicPlayerInfos = players.stream().map(p -> {
             Map<String, Object> info = new HashMap<>();
             info.put("playerId", p.getId());
-            info.put("userId", p.getUser().getId());
-            info.put("username", p.getUser().getUsername());
+            info.put("userId", p.getUser() != null ? p.getUser().getId() : null);
+            info.put("username", p.getUser() != null ? p.getUser().getUsername() : p.getAiName());
             info.put("seatNumber", p.getSeatNumber());
-            info.put("avatarUrl", p.getUser().getAvatarUrl());
+            info.put("avatarUrl", p.getUser() != null ? p.getUser().getAvatarUrl() : null);
+            info.put("isAi", Boolean.TRUE.equals(p.getIsAi()));
             return info;
         }).collect(Collectors.toList());
 

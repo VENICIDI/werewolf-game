@@ -1,8 +1,8 @@
 import { get, post } from '../utils/request'
 
 // 开始游戏
-export const startGame = (roomId: number, gameMode: string = 'standard_9') => {
-  return post('/games/start', { roomId, gameMode })
+export const startGame = (roomId: number, gameModeId: string = 'standard_9') => {
+  return post(`/games/room/${roomId}/start`, { gameModeId })
 }
 
 // 获取游戏状态

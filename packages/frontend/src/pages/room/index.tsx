@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback, useRef } from 'react'
 import Taro, { getCurrentInstance } from '@tarojs/taro'
 import { View, Text, Button, Input, ScrollView } from '@tarojs/components'
 import { getRoomDetail, createRoom, leaveRoom, setReady, addAiPlayer, removeAiPlayer } from '../../api/room'
+import { startGame } from '../../api/game'
 import { getUserInfo } from '../../api/auth'
 import { checkLogin } from '../../utils/auth-guard'
 import { isLoggedIn } from '../../api/auth'
@@ -100,6 +101,7 @@ export default function Room() {
       wsManager.on('PLAYER_READY', handlePlayerReady)
       wsManager.on('PLAYER_CHAT', handlePlayerChat)
       wsManager.on('HEARTBEAT_ACK', handleHeartbeatAck)
+      wsManager.on('GAME_START', handleGameStart)
 
       wsManager.setOnOpen(() => {
         setWsConnected(true)
@@ -159,6 +161,16 @@ export default function Room() {
   }, [])
 
   const handleHeartbeatAck = useCallback(() => {}, [])
+
+  const handleGameStart = useCallback((message: any) => {
+    const gameId = message.data?.gameId
+    console.log('[Room] 收到 GAME_START, gameId:', gameId)
+    if (gameId && roomCode) {
+      Taro.setStorageSync('currentRoomCode', roomCode)
+      Taro.setStorageSync('currentGameId', gameId)
+      Taro.redirectTo({ url: `/pages/game/play/index?gameId=${gameId}&roomCode=${roomCode}` })
+    }
+  }, [roomCode])
 
   const fetchRoomDetail = async (code: string) => {
     setLoading(true)
