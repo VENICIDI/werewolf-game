@@ -19,6 +19,14 @@ public class RoomService {
     
     private final RoomRepository roomRepository;
     private final RoomMemberRepository roomMemberRepository;
+    private final com.werewolf.repository.UserRepository userRepository;
+    
+    // AI 玩家名字池
+    private static final String[] AI_NAMES = {
+        "暗影猎手", "月光行者", "银狼", "血爪", "夜枭",
+        "迷雾先知", "铁卫", "毒蛇", "孤狼", "守夜人",
+        "幽灵", "黑鸦"
+    };
     
     private String generateRoomCode() {
         String chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -197,6 +205,103 @@ public class RoomService {
     @Transactional
     public void endGame(Room room) {
         room.setStatus(Room.RoomStatus.FINISHED);
+        roomRepository.save(room);
+    }
+    
+    /**
+     * 添加 AI 玩家到房间
+     */
+    @Transactional
+    public User addAiPlayer(Room room) {
+        if (room.getStatus() != Room.RoomStatus.WAITING) {
+            throw new RuntimeException("房间已开始游戏，无法添加人机");
+        }
+        if (room.getCurrentPlayers() >= room.getMaxPlayers()) {
+            throw new RuntimeException("房间已满，无法添加人机");
+        }
+        
+        // 获取已在房间中的 AI 数量，用于取名
+        List<RoomMember> members = roomMemberRepository.findByRoomId(room.getId());
+        int aiCount = 0;
+        for (RoomMember m : members) {
+            if (m.getUser().getUsername().startsWith("[AI]")) {
+                aiCount++;
+            }
+        }
+        
+        // 生成 AI 名字
+        String aiName = AI_NAMES[aiCount % AI_NAMES.length];
+        final String firstUsername = "[AI] " + aiName;
+        
+        // 查找或创建 AI 虚拟用户
+        User aiUser = userRepository.findByUsername(firstUsername)
+                .orElseGet(() -> {
+                    User newAi = User.builder()
+                            .username(firstUsername)
+                            .password("AI_PLAYER_NO_LOGIN")
+                            .email("ai_" + System.currentTimeMillis() + "@werewolf.bot")
+                            .loginType(User.LoginType.APP)
+                            .build();
+                    return userRepository.save(newAi);
+                });
+        
+        // 检查 AI 是否已在房间
+        if (roomMemberRepository.existsByRoomIdAndUserId(room.getId(), aiUser.getId())) {
+            // 换个名字重试
+            final String retryUsername = "[AI] " + AI_NAMES[(aiCount + 1) % AI_NAMES.length] + (aiCount + 1);
+            final int finalAiCount = aiCount;
+            aiUser = userRepository.findByUsername(retryUsername)
+                    .orElseGet(() -> {
+                        User newAi = User.builder()
+                                .username(retryUsername)
+                                .password("AI_PLAYER_NO_LOGIN")
+                                .email("ai_" + System.currentTimeMillis() + "_" + finalAiCount + "@werewolf.bot")
+                                .loginType(User.LoginType.APP)
+                                .build();
+                        return userRepository.save(newAi);
+                    });
+        }
+        
+        // 添加到房间
+        room.setCurrentPlayers(room.getCurrentPlayers() + 1);
+        roomRepository.save(room);
+        
+        RoomMember member = RoomMember.builder()
+                .room(room)
+                .user(aiUser)
+                .isHost(false)
+                .isReady(true)  // AI 自动准备
+                .build();
+        roomMemberRepository.save(member);
+        
+        return aiUser;
+    }
+    
+    /**
+     * 移除房间中的一个 AI 玩家
+     */
+    @Transactional
+    public void removeAiPlayer(Room room) {
+        if (room.getStatus() != Room.RoomStatus.WAITING) {
+            throw new RuntimeException("房间已开始游戏，无法移除人机");
+        }
+        
+        List<RoomMember> members = roomMemberRepository.findByRoomId(room.getId());
+        RoomMember aiMember = null;
+        // 从后往前找，移除最后加入的 AI
+        for (int i = members.size() - 1; i >= 0; i--) {
+            if (members.get(i).getUser().getUsername().startsWith("[AI]")) {
+                aiMember = members.get(i);
+                break;
+            }
+        }
+        
+        if (aiMember == null) {
+            throw new RuntimeException("房间中没有人机玩家");
+        }
+        
+        roomMemberRepository.delete(aiMember);
+        room.setCurrentPlayers(Math.max(0, room.getCurrentPlayers() - 1));
         roomRepository.save(room);
     }
 }

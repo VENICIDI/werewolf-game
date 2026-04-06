@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
 import Taro, { getCurrentInstance } from '@tarojs/taro'
 import { View, Text, Button, Input, ScrollView } from '@tarojs/components'
-import { getRoomDetail, createRoom, leaveRoom, setReady } from '../../api/room'
+import { getRoomDetail, createRoom, leaveRoom, setReady, addAiPlayer, removeAiPlayer } from '../../api/room'
 import { getUserInfo } from '../../api/auth'
 import { checkLogin } from '../../utils/auth-guard'
 import { isLoggedIn } from '../../api/auth'
@@ -14,6 +14,7 @@ interface Player {
   avatarUrl: string
   isHost: boolean
   isReady?: boolean
+  isAi?: boolean
 }
 
 interface RoomData {
@@ -255,6 +256,31 @@ export default function Room() {
     Taro.showToast({ title: '游戏开始功能开发中...', icon: 'none' })
   }
 
+  const handleAddAi = async () => {
+    if (!room) return
+    try {
+      Taro.showLoading({ title: '召唤中...' })
+      await addAiPlayer(room.roomCode)
+      Taro.hideLoading()
+      Taro.showToast({ title: '人机猎手已加入', icon: 'success' })
+      fetchRoomDetail(room.roomCode)
+    } catch (error: any) {
+      Taro.hideLoading()
+      Taro.showToast({ title: error.message || '添加人机失败', icon: 'none' })
+    }
+  }
+
+  const handleRemoveAi = async () => {
+    if (!room) return
+    try {
+      await removeAiPlayer(room.roomCode)
+      Taro.showToast({ title: '已移除一个人机', icon: 'success' })
+      fetchRoomDetail(room.roomCode)
+    } catch (error: any) {
+      Taro.showToast({ title: error.message || '移除人机失败', icon: 'none' })
+    }
+  }
+
   const getRoleDesc = (num: number) => {
     switch (num) {
       case 6: return '4村民 + 2狼人'
@@ -422,6 +448,21 @@ export default function Room() {
             <View className='section-line'></View>
           </View>
 
+          {/* 人机操作区（仅房主可见） */}
+          {isHost && room.currentPlayers < room.maxPlayers && (
+            <View className='ai-actions'>
+              <Button className='ai-add-btn' onClick={handleAddAi}>
+                <Text className='ai-btn-icon'>🤖</Text>
+                <Text className='ai-btn-text'>添加人机</Text>
+              </Button>
+              {room.players?.some(p => p.isAi) && (
+                <Button className='ai-remove-btn' onClick={handleRemoveAi}>
+                  <Text className='ai-btn-text'>移除人机</Text>
+                </Button>
+              )}
+            </View>
+          )}
+
           <View className='players-grid'>
             {room.players?.map((player, index) => (
               <View
@@ -433,7 +474,7 @@ export default function Room() {
                     <image src={player.avatarUrl} className='avatar-img' />
                   ) : (
                     <Text className='avatar-emoji'>
-                      {player.isHost ? '👑' : '🐺'}
+                      {player.isAi ? '🤖' : player.isHost ? '👑' : '🐺'}
                     </Text>
                   )}
                   {player.isReady && (
@@ -445,7 +486,8 @@ export default function Room() {
                 <Text className='player-name'>{player.username}</Text>
                 <View className='player-badges'>
                   {player.isHost && <Text className='badge host-badge'>房主</Text>}
-                  {player.isReady && !player.isHost && <Text className='badge ready-badge'>已准备</Text>}
+                  {player.isAi && <Text className='badge ai-badge'>人机</Text>}
+                  {player.isReady && !player.isHost && !player.isAi && <Text className='badge ready-badge'>已准备</Text>}
                 </View>
                 <Text className='seat-number'>{index + 1}号位</Text>
               </View>

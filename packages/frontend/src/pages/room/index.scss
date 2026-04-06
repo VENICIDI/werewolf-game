@@ -471,6 +471,60 @@
 .players-section {
   margin-bottom: 20px;
 
+  // AI 操作按钮区
+  .ai-actions {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 14px;
+
+    .ai-add-btn,
+    .ai-remove-btn {
+      flex: 1;
+      height: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 1px;
+      transition: all 0.2s;
+
+      &::after {
+        border: none;
+      }
+    }
+
+    .ai-add-btn {
+      background: linear-gradient(180deg, #2a3a2a 0%, #1a2a1a 100%);
+      border: 1.5px solid #4a6a4a;
+      color: #a0d0a0;
+
+      .ai-btn-icon {
+        font-size: 16px;
+      }
+
+      &:active {
+        background: #2a4a2a;
+        transform: scale(0.97);
+      }
+    }
+
+    .ai-remove-btn {
+      background: rgba(40, 36, 32, 0.8);
+      border: 1px solid #4a3d30;
+      color: #b0a090;
+      flex: 0 0 auto;
+      padding: 0 16px;
+
+      &:active {
+        background: rgba(196, 26, 26, 0.2);
+        color: #c41a1a;
+      }
+    }
+  }
+
   .players-grid {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
@@ -601,6 +655,12 @@
         color: #4caf50;
         background: rgba(76, 175, 80, 0.15);
         border: 1px solid rgba(76, 175, 80, 0.3);
+      }
+
+      .ai-badge {
+        color: #60a0e0;
+        background: rgba(96, 160, 224, 0.15);
+        border: 1px solid rgba(96, 160, 224, 0.3);
       }
     }
 

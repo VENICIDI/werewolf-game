@@ -176,6 +176,64 @@ public class RoomController {
     }
     
     /**
+     * 添加 AI 玩家
+     */
+    @PostMapping("/{roomCode}/add-ai")
+    public ResponseEntity<ApiResponse<?>> addAiPlayer(
+            @PathVariable String roomCode,
+            @RequestAttribute("userId") Long userId) {
+        
+        try {
+            Room room = roomService.findByRoomCode(roomCode)
+                    .orElseThrow(() -> new RuntimeException("房间不存在"));
+            
+            // 仅房主可添加 AI
+            if (!room.getHost().getId().equals(userId)) {
+                return ResponseEntity.badRequest()
+                        .body(ApiResponse.badRequest("仅房主可以添加人机"));
+            }
+            
+            User aiUser = roomService.addAiPlayer(room);
+            
+            return ResponseEntity.ok(ApiResponse.success("已添加人机: " + aiUser.getUsername(), 
+                    convertToResponseWithMembers(room)));
+            
+        } catch (Exception e) {
+            return ResponseEntity.badRequest()
+                    .body(ApiResponse.badRequest(e.getMessage()));
+        }
+    }
+    
+    /**
+     * 移除 AI 玩家
+     */
+    @PostMapping("/{roomCode}/remove-ai")
+    public ResponseEntity<ApiResponse<?>> removeAiPlayer(
+            @PathVariable String roomCode,
+            @RequestAttribute("userId") Long userId) {
+        
+        try {
+            Room room = roomService.findByRoomCode(roomCode)
+                    .orElseThrow(() -> new RuntimeException("房间不存在"));
+            
+            // 仅房主可移除 AI
+            if (!room.getHost().getId().equals(userId)) {
+                return ResponseEntity.badRequest()
+                        .body(ApiResponse.badRequest("仅房主可以移除人机"));
+            }
+            
+            roomService.removeAiPlayer(room);
+            
+            return ResponseEntity.ok(ApiResponse.success("已移除一个人机", 
+                    convertToResponseWithMembers(room)));
+            
+        } catch (Exception e) {
+            return ResponseEntity.badRequest()
+                    .body(ApiResponse.badRequest(e.getMessage()));
+        }
+    }
+    
+    /**
      * 转换为响应对象 (简化版)
      */
     private RoomResponse convertToResponse(Room room) {
@@ -205,6 +263,8 @@ public class RoomController {
                         .username(m.getUser().getUsername())
                         .avatarUrl(m.getUser().getAvatarUrl())
                         .isHost(m.getIsHost())
+                        .isAi(m.getUser().getUsername().startsWith("[AI]"))
+                        .isReady(m.getIsReady())
                         .build())
                 .collect(Collectors.toList());
         

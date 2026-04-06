@@ -35,5 +35,7 @@ public class RoomResponse {
         private String username;
         private String avatarUrl;
         private Boolean isHost;
+        private Boolean isAi;
+        private Boolean isReady;
     }
 }

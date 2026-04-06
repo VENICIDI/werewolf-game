@@ -33,3 +33,13 @@ export const leaveRoom = (roomCode: string) => {
 export const setReady = (roomCode: string, ready: boolean) => {
   return post(`/rooms/${roomCode}/ready?ready=${ready}`, {})
 }
+
+// 添加 AI 玩家
+export const addAiPlayer = (roomCode: string) => {
+  return post(`/rooms/${roomCode}/add-ai`, {})
+}
+
+// 移除 AI 玩家
+export const removeAiPlayer = (roomCode: string) => {
+  return post(`/rooms/${roomCode}/remove-ai`, {})
+}
