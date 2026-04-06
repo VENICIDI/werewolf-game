@@ -264,8 +264,24 @@ export default function Room() {
     setChatInput('')
   }
 
-  const handleStartGame = () => {
-    Taro.showToast({ title: '游戏开始功能开发中...', icon: 'none' })
+  const handleStartGame = async () => {
+    if (!room) return
+    let gameModeId = 'standard_9'
+    if (room.maxPlayers === 6) gameModeId = 'standard_6'
+    else if (room.maxPlayers === 12) gameModeId = 'standard_12'
+
+    try {
+      Taro.showLoading({ title: '血月升起中...' })
+      const res: any = await startGame(room.id, gameModeId)
+      Taro.hideLoading()
+      console.log('[Room] 游戏开始:', JSON.stringify(res))
+      Taro.setStorageSync('currentRoomCode', room.roomCode)
+      Taro.setStorageSync('currentGameId', res.gameId)
+      Taro.redirectTo({ url: `/pages/game/play/index?gameId=${res.gameId}&roomCode=${room.roomCode}` })
+    } catch (error: any) {
+      Taro.hideLoading()
+      Taro.showToast({ title: error.message || '开始游戏失败', icon: 'none' })
+    }
   }
 
   const handleAddAi = async () => {
