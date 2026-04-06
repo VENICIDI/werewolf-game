@@ -6,6 +6,8 @@ export default defineAppConfig({
     'pages/room-list/index',
     'pages/room/index',
     'pages/game/index',
+    'pages/game/play/index',
+    'pages/game/role-reveal/index',
     'pages/profile/index'
   ],
   window: {
