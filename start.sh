@@ -22,6 +22,7 @@ PROJECT_ROOT="$SCRIPT_DIR"
 BACKEND_DIR="$PROJECT_ROOT/packages/backend"
 FRONTEND_DIR="$PROJECT_ROOT/packages/frontend"
 AI_SERVICE_DIR="$PROJECT_ROOT/packages/ai-service"
+AI_SPEECH_DIR="$PROJECT_ROOT/packages/ai-speech"
 PID_DIR="$PROJECT_ROOT/.pids"
 LOG_DIR="$PROJECT_ROOT/logs"
 INFRA_CONF="$PROJECT_ROOT/.infra_mode"
@@ -37,6 +38,7 @@ fi
 BACKEND_PORT=8080
 FRONTEND_PORT=10086
 AI_SERVICE_PORT=8000
+AI_SPEECH_PORT=8001
 MYSQL_PORT=3306
 REDIS_PORT=6379
 
@@ -544,6 +546,67 @@ stop_ai_service() {
     echo ""
 }
 
+# -------------------- AI Speech 服务 --------------------
+
+start_ai_speech() {
+    log_step "启动 AI Speech 服务 (语音识别/合成)..."
+    ensure_dirs
+
+    if check_port $AI_SPEECH_PORT; then
+        log_warn "AI Speech 服务已在运行中 (端口: $AI_SPEECH_PORT)"
+        return 0
+    fi
+
+    cd "$AI_SPEECH_DIR"
+
+    # 检查 .env 文件
+    if [ ! -f ".env" ]; then
+        if [ -f ".env.example" ]; then
+            log_warn ".env 文件不存在，从 .env.example 复制..."
+            cp .env.example .env
+        fi
+    fi
+
+    # 检查 Python
+    local python_cmd
+    if command -v python3 >/dev/null 2>&1; then
+        python_cmd="python3"
+    elif command -v python >/dev/null 2>&1; then
+        python_cmd="python"
+    else
+        log_error "Python 未安装"
+        return 1
+    fi
+
+    if [ ! -d "venv" ]; then
+        log_info "创建 Python 虚拟环境..."
+        $python_cmd -m venv venv
+    fi
+
+    source venv/bin/activate
+
+    if [ -f "requirements.txt" ]; then
+        log_info "检查 Python 依赖..."
+        pip install -r requirements.txt -q 2>/dev/null || true
+    fi
+
+    nohup $python_cmd main.py > "$LOG_DIR/ai-speech.log" 2>&1 &
+    local pid=$!
+    echo "$pid" > "$PID_DIR/ai-speech.pid"
+
+    log_info "AI Speech 服务启动中... (PID: $pid)"
+    log_warn "首次启动需下载 Whisper 模型 (~480MB)，请耐心等待"
+    wait_for_port $AI_SPEECH_PORT "AI Speech 服务" 120
+    echo ""
+}
+
+stop_ai_speech() {
+    log_step "停止 AI Speech 服务..."
+    stop_by_pid_file "$PID_DIR/ai-speech.pid" "AI Speech 服务"
+    kill_by_port $AI_SPEECH_PORT "AI Speech 服务"
+    echo ""
+}
+
 # -------------------- 构建命令 --------------------
 
 build_backend() {
@@ -608,6 +671,7 @@ stop_all() {
     log_step "停止所有服务..."
     echo ""
 
+    stop_ai_speech
     stop_ai_service
     stop_frontend
     stop_backend
@@ -694,6 +758,15 @@ show_status() {
         echo -e "  AI 服务 (8000)    ${RED}○ 已停止${NC}"
     fi
 
+    # AI Speech Service
+    if [ -f "$PID_DIR/ai-speech.pid" ] && kill -0 "$(cat "$PID_DIR/ai-speech.pid" 2>/dev/null)" 2>/dev/null; then
+        echo -e "  语音服务 (8001)   ${GREEN}● 运行中${NC}"
+    elif check_port $AI_SPEECH_PORT; then
+        echo -e "  语音服务 (8001)   ${YELLOW}● 端口占用${NC}"
+    else
+        echo -e "  语音服务 (8001)   ${RED}○ 已停止${NC}"
+    fi
+
     echo "────────────────────────────────────────"
     echo ""
 }
@@ -711,6 +784,9 @@ show_logs() {
             ;;
         ai|ai-service)
             log_file="$LOG_DIR/ai-service.log"
+            ;;
+        speech|ai-speech)
+            log_file="$LOG_DIR/ai-speech.log"
             ;;
         *)
             log_error "未知服务: $service"
@@ -750,6 +826,8 @@ show_help() {
     echo "  frontend:stop   停止前端服务"
     echo "  ai              启动 AI 服务 (FastAPI :8000)"
     echo "  ai:stop         停止 AI 服务"
+    echo "  speech          启动语音服务 (STT+TTS :8001)"
+    echo "  speech:stop     停止语音服务"
     echo ""
     echo -e "${CYAN}构建:${NC}"
     echo "  build           构建所有 (后端 + 前端)"
@@ -757,7 +835,7 @@ show_help() {
     echo "  build:frontend  构建前端"
     echo ""
     echo -e "${CYAN}其他:${NC}"
-    echo "  logs <service>  查看服务日志 (backend / frontend / ai)"
+    echo "  logs <service>  查看服务日志 (backend / frontend / ai / speech)"
     echo "  check           检查运行环境"
     echo "  help            显示帮助信息"
     echo ""
@@ -816,6 +894,13 @@ main() {
             ;;
         ai:stop)
             stop_ai_service
+            ;;
+        speech)
+            ensure_dirs
+            start_ai_speech
+            ;;
+        speech:stop)
+            stop_ai_speech
             ;;
         build)
             build_backend
