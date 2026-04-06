@@ -266,9 +266,12 @@ export default function Room() {
 
   const handleStartGame = async () => {
     if (!room) return
+    // 根据实际人数选择游戏模式
+    const playerCount = room.currentPlayers
     let gameModeId = 'standard_9'
-    if (room.maxPlayers === 6) gameModeId = 'standard_6'
-    else if (room.maxPlayers === 12) gameModeId = 'standard_12'
+    if (playerCount <= 6) gameModeId = 'standard_6'
+    else if (playerCount <= 9) gameModeId = 'standard_9'
+    else gameModeId = 'standard_12'
 
     try {
       Taro.showLoading({ title: '血月升起中...' })

@@ -2,6 +2,91 @@
   "version": "1.0",
   "description": "狼人杀游戏流程配置",
   "gameModes": {
+    "standard_6": {
+      "name": "新手6人局",
+      "playerCount": 6,
+      "roleDistribution": {
+        "werewolf": 2,
+        "villager": 2,
+        "seer": 1,
+        "witch": 1
+      },
+      "flow": {
+        "night": [
+          {
+            "phase": "night_start",
+            "duration": 3000,
+            "broadcast": "天黑了，所有人请闭眼"
+          },
+          {
+            "phase": "werewolf_action",
+            "duration": 30000,
+            "roles": ["werewolf"],
+            "broadcast": "狼人请睁眼，请选择要击杀的目标",
+            "endBroadcast": "狼人请闭眼"
+          },
+          {
+            "phase": "seer_action",
+            "duration": 20000,
+            "roles": ["seer"],
+            "broadcast": "预言家请睁眼，请选择要查验的目标",
+            "endBroadcast": "预言家请闭眼"
+          },
+          {
+            "phase": "witch_action",
+            "duration": 30000,
+            "roles": ["witch"],
+            "broadcast": "女巫请睁眼，今晚死的是TA，你要使用解药吗？你要使用毒药吗？",
+            "endBroadcast": "女巫请闭眼",
+            "showDeathInfo": true
+          }
+        ],
+        "day": [
+          {
+            "phase": "day_start",
+            "duration": 3000,
+            "broadcast": "天亮了"
+          },
+          {
+            "phase": "announce_death",
+            "duration": 10000,
+            "action": "announceDeath",
+            "allowLastWords": true,
+            "lastWordsTime": 60000
+          },
+          {
+            "phase": "discussion",
+            "duration": 120000,
+            "action": "discussion",
+            "speakOrder": "seat",
+            "speakTime": 60000,
+            "allowMultipleRounds": false
+          },
+          {
+            "phase": "voting",
+            "duration": 30000,
+            "action": "vote",
+            "canAbstain": true,
+            "voteType": "single"
+          },
+          {
+            "phase": "execution",
+            "duration": 10000,
+            "action": "execute",
+            "allowLastWords": true,
+            "lastWordsTime": 60000
+          }
+        ]
+      },
+      "rules": {
+        "firstNightNoKill": true,
+        "witchCanSaveSelf": true,
+        "witchCanSaveFirstNight": true,
+        "seerKnowsIdentity": true,
+        "tieVote": "noExecution",
+        "consecutiveNoKill": false
+      }
+    },
     "standard_9": {
       "name": "标准9人局",
       "playerCount": 9,
