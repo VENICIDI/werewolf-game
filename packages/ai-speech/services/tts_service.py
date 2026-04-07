@@ -1,11 +1,11 @@
 """
 TTS 服务 - 文字转语音
 
-使用 HuggingFace 上的 facebook/mms-tts-zho 模型 (VITS 架构)
-- 模型大小: ~75MB
-- 完全离线运行，无需联网
-- 支持中文合成
-- 首次运行自动从 HuggingFace 下载模型并缓存到本地
+使用 edge-tts (微软 Edge 免费 TTS)
+- 无需下载模型，免费使用
+- 高质量中文语音合成
+- 多种中文语音可选
+- 需要网络连接
 """
 
 import os
@@ -13,66 +13,82 @@ import io
 import logging
 import uuid
 import time
+import asyncio
 from typing import Optional
 
-import torch
-import numpy as np
-import scipy.io.wavfile as wav_io
-from transformers import VitsModel, AutoTokenizer
+import edge_tts
 
 logger = logging.getLogger(__name__)
 
-# HuggingFace 模型 ID
-DEFAULT_MODEL_ID = "facebook/mms-tts-zho"
+# 默认中文语音 (微软 Edge TTS)
+# 可选: zh-CN-XiaoxiaoNeural (女声), zh-CN-YunxiNeural (男声),
+#       zh-CN-XiaoyiNeural (女声), zh-CN-YunjianNeural (男声)
+DEFAULT_VOICE = "zh-CN-XiaoxiaoNeural"
+DEFAULT_SAMPLE_RATE = 24000
 
 
 class TTSService:
     """
     文字转语音服务
 
-    基于 facebook/mms-tts-zho (VITS 架构)
-    HuggingFace: https://huggingface.co/facebook/mms-tts-zho
+    基于 edge-tts (微软 Edge 免费 TTS)
+    支持多种高质量中文语音
     """
 
     def __init__(self):
-        self.model = None
-        self.tokenizer = None
-        self.model_id = os.getenv("TTS_MODEL_ID", DEFAULT_MODEL_ID)
-        self.cache_dir = os.getenv("TTS_CACHE_DIR", "./models")
-        self.device = os.getenv("TTS_DEVICE", "cpu")
+        self.model_id = os.getenv("TTS_VOICE", DEFAULT_VOICE)
         self.output_dir = os.getenv("TTS_OUTPUT_DIR", "./audio_output")
         self.speaking_rate = float(os.getenv("TTS_SPEAKING_RATE", "1.0"))
+        self._available = False
 
-        os.makedirs(self.cache_dir, exist_ok=True)
         os.makedirs(self.output_dir, exist_ok=True)
 
     def load_model(self):
         """
-        加载 VITS TTS 模型
+        初始化 TTS 服务
 
-        模型会从 HuggingFace 自动下载并缓存:
-          https://huggingface.co/facebook/mms-tts-zho
-        缓存后完全离线运行。
+        edge-tts 无需下载模型，此方法仅做可用性验证。
         """
-        logger.info(f"Loading TTS model: {self.model_id} (device: {self.device})")
+        logger.info(f"Initializing edge-tts service (voice: {self.model_id})")
         start = time.time()
 
-        self.tokenizer = AutoTokenizer.from_pretrained(
-            self.model_id,
-            cache_dir=self.cache_dir,
-        )
-        self.model = VitsModel.from_pretrained(
-            self.model_id,
-            cache_dir=self.cache_dir,
-        )
-        self.model = self.model.to(self.device)
-        self.model.eval()
+        # 验证 edge-tts 可用性（简单测试）
+        try:
+            loop = asyncio.get_event_loop()
+            if loop.is_running():
+                self._available = True
+            else:
+                loop.run_until_complete(self._test_availability())
+        except RuntimeError:
+            # 没有事件循环时创建一个
+            asyncio.run(self._test_availability())
 
         elapsed = time.time() - start
-        logger.info(f"TTS model loaded in {elapsed:.1f}s")
+        if self._available:
+            logger.info(f"edge-tts service ready in {elapsed:.1f}s (voice: {self.model_id})")
+        else:
+            logger.warning("edge-tts service init failed")
+
+    async def _test_availability(self):
+        """测试 edge-tts 可用性"""
+        try:
+            communicate = edge_tts.Communicate("测试", self.model_id)
+            async for _ in communicate.stream():
+                break
+            self._available = True
+        except Exception as e:
+            logger.error(f"edge-tts availability test failed: {e}")
+            self._available = False
 
     def is_available(self) -> bool:
-        return self.model is not None and self.tokenizer is not None
+        return self._available
+
+    def _get_rate_str(self, rate: float) -> str:
+        """将语速倍率转为 edge-tts 格式 (如 +20%, -10%)"""
+        if rate == 1.0:
+            return "+0%"
+        percentage = int((rate - 1.0) * 100)
+        return f"{percentage:+d}%"
 
     def synthesize(
         self,
@@ -81,7 +97,7 @@ class TTSService:
         output_path: Optional[str] = None,
     ) -> dict:
         """
-        将文字合成为语音文件 (WAV)
+        将文字合成为语音文件 (MP3)
 
         Args:
             text: 要合成的中文文字
@@ -90,60 +106,65 @@ class TTSService:
 
         Returns:
             {
-                "audio_path": "/path/to/output.wav",
+                "audio_path": "/path/to/output.mp3",
                 "text": "原始文字",
-                "sample_rate": 16000,
+                "sample_rate": 24000,
                 "duration_seconds": 2.5,
                 "synthesis_time": 0.8,
                 "file_size": 80000
             }
         """
         if not self.is_available():
-            raise RuntimeError("TTS model not loaded")
+            raise RuntimeError("TTS service not available")
 
         rate = speaking_rate or self.speaking_rate
+        rate_str = self._get_rate_str(rate)
 
-        logger.info(f"TTS synthesize: text='{text[:30]}...', rate={rate}")
+        logger.info(f"TTS synthesize: text='{text[:30]}...', rate={rate_str}")
         start = time.time()
-
-        # Tokenize
-        inputs = self.tokenizer(text, return_tensors="pt").to(self.device)
-
-        # 生成音频
-        with torch.no_grad():
-            output = self.model(**inputs, speaking_rate=rate)
-
-        waveform = output.waveform[0].cpu().numpy()
-        sample_rate = self.model.config.sampling_rate
 
         # 生成输出路径
         if not output_path:
-            filename = f"{uuid.uuid4().hex[:12]}.wav"
+            filename = f"{uuid.uuid4().hex[:12]}.mp3"
             output_path = os.path.join(self.output_dir, filename)
 
-        # 写入 WAV 文件
-        # VITS 输出是 float32 [-1, 1]，转换为 int16 写 WAV
-        waveform_int16 = np.int16(waveform * 32767)
-        wav_io.write(output_path, sample_rate, waveform_int16)
+        # 使用 edge-tts 合成
+        try:
+            loop = asyncio.get_event_loop()
+            if loop.is_running():
+                import concurrent.futures
+                with concurrent.futures.ThreadPoolExecutor() as pool:
+                    future = pool.submit(asyncio.run, self._synthesize_async(text, rate_str, output_path))
+                    future.result()
+            else:
+                loop.run_until_complete(self._synthesize_async(text, rate_str, output_path))
+        except RuntimeError:
+            asyncio.run(self._synthesize_async(text, rate_str, output_path))
 
         elapsed = time.time() - start
         file_size = os.path.getsize(output_path)
-        duration_seconds = len(waveform) / sample_rate
+        # 粗略估算时长 (MP3 ~16kbps for speech)
+        duration_seconds = file_size / 4000.0
 
         logger.info(
             f"TTS done in {elapsed:.1f}s, "
-            f"audio duration: {duration_seconds:.1f}s, "
+            f"~{duration_seconds:.1f}s audio, "
             f"file: {output_path} ({file_size} bytes)"
         )
 
         return {
             "audio_path": output_path,
             "text": text,
-            "sample_rate": sample_rate,
+            "sample_rate": DEFAULT_SAMPLE_RATE,
             "duration_seconds": round(duration_seconds, 2),
             "synthesis_time": round(elapsed, 2),
             "file_size": file_size,
         }
+
+    async def _synthesize_async(self, text: str, rate: str, output_path: str):
+        """异步合成语音"""
+        communicate = edge_tts.Communicate(text, self.model_id, rate=rate)
+        await communicate.save(output_path)
 
     def synthesize_bytes(
         self,
@@ -151,31 +172,39 @@ class TTSService:
         speaking_rate: Optional[float] = None,
     ) -> tuple:
         """
-        将文字合成为音频字节流 (WAV 格式, 不写入文件)
+        将文字合成为音频字节流 (MP3 格式, 不写入文件)
 
         Returns:
-            (wav_bytes, sample_rate)
+            (mp3_bytes, sample_rate)
         """
         if not self.is_available():
-            raise RuntimeError("TTS model not loaded")
+            raise RuntimeError("TTS service not available")
 
         rate = speaking_rate or self.speaking_rate
+        rate_str = self._get_rate_str(rate)
 
-        inputs = self.tokenizer(text, return_tensors="pt").to(self.device)
+        try:
+            loop = asyncio.get_event_loop()
+            if loop.is_running():
+                import concurrent.futures
+                with concurrent.futures.ThreadPoolExecutor() as pool:
+                    future = pool.submit(asyncio.run, self._synthesize_bytes_async(text, rate_str))
+                    result = future.result()
+            else:
+                result = loop.run_until_complete(self._synthesize_bytes_async(text, rate_str))
+        except RuntimeError:
+            result = asyncio.run(self._synthesize_bytes_async(text, rate_str))
 
-        with torch.no_grad():
-            output = self.model(**inputs, speaking_rate=rate)
+        return result, DEFAULT_SAMPLE_RATE
 
-        waveform = output.waveform[0].cpu().numpy()
-        sample_rate = self.model.config.sampling_rate
-
-        # 转为 WAV 字节流
-        waveform_int16 = np.int16(waveform * 32767)
+    async def _synthesize_bytes_async(self, text: str, rate: str) -> bytes:
+        """异步合成为字节流"""
+        communicate = edge_tts.Communicate(text, self.model_id, rate=rate)
         buf = io.BytesIO()
-        wav_io.write(buf, sample_rate, waveform_int16)
-        buf.seek(0)
-
-        return buf.read(), sample_rate
+        async for chunk in communicate.stream():
+            if chunk["type"] == "audio":
+                buf.write(chunk["data"])
+        return buf.getvalue()
 
     def cleanup(self):
         """清理临时音频文件"""

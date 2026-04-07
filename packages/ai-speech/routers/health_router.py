@@ -27,7 +27,7 @@ async def health_check(request: Request):
             },
             "tts": {
                 "status": "ok" if tts_ok else "unavailable",
-                "model": tts_service.model_id if tts_service else "N/A",
+                "voice": tts_service.model_id if tts_service else "N/A",
             },
         }
     }

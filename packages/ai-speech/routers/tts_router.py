@@ -1,7 +1,7 @@
 """
 TTS 路由 - 文字转语音 API
 
-POST /api/tts/synthesize       文字合成语音，返回 WAV 音频文件
+POST /api/tts/synthesize       文字合成语音，返回音频文件
 POST /api/tts/synthesize/json  文字合成语音，返回 base64 音频
 GET  /api/tts/info             获取 TTS 服务信息
 """
@@ -35,10 +35,10 @@ class TTSRequest(BaseModel):
 @router.post("/synthesize")
 async def synthesize_to_file(request: Request, body: TTSRequest):
     """
-    文字转语音 - 返回 WAV 音频文件
+    文字转语音 - 返回音频文件
 
-    将中文文字合成为语音，返回 WAV 音频文件下载。
-    使用本地 VITS 模型 (facebook/mms-tts-zho)，完全离线运行。
+    将中文文字合成为语音，返回音频文件下载。
+    使用 edge-tts (微软免费高质量中文 TTS)。
 
     参数:
     - text: 要合成的中文文字 (1-500字)
@@ -46,7 +46,7 @@ async def synthesize_to_file(request: Request, body: TTSRequest):
     """
     tts_service = request.app.state.tts_service
     if tts_service is None or not tts_service.is_available():
-        raise HTTPException(status_code=503, detail="TTS 服务不可用，模型未加载")
+        raise HTTPException(status_code=503, detail="TTS 服务不可用")
 
     try:
         result = tts_service.synthesize(
@@ -60,7 +60,7 @@ async def synthesize_to_file(request: Request, body: TTSRequest):
 
         return FileResponse(
             path=audio_path,
-            media_type="audio/wav",
+            media_type="audio/mpeg",
             filename=os.path.basename(audio_path),
             headers={
                 "X-TTS-Duration": str(result["duration_seconds"]),
@@ -81,19 +81,19 @@ async def synthesize_to_json(request: Request, body: TTSRequest):
     """
     文字转语音 - 返回 JSON (含 base64 音频)
 
-    将中文文字合成为语音，返回 base64 编码的 WAV 音频数据。
+    将中文文字合成为语音，返回 base64 编码的音频数据。
     适合前端直接播放。
 
     Returns:
-        - audio_base64: base64 编码的 WAV 音频
-        - content_type: audio/wav
+        - audio_base64: base64 编码的 MP3 音频
+        - content_type: audio/mpeg
         - text: 原始文字
         - sample_rate: 采样率
         - size: 音频数据大小(字节)
     """
     tts_service = request.app.state.tts_service
     if tts_service is None or not tts_service.is_available():
-        raise HTTPException(status_code=503, detail="TTS 服务不可用，模型未加载")
+        raise HTTPException(status_code=503, detail="TTS 服务不可用")
 
     try:
         audio_bytes, sample_rate = tts_service.synthesize_bytes(
@@ -107,7 +107,7 @@ async def synthesize_to_json(request: Request, body: TTSRequest):
             "success": True,
             "data": {
                 "audio_base64": audio_base64,
-                "content_type": "audio/wav",
+                "content_type": "audio/mpeg",
                 "text": body.text,
                 "sample_rate": sample_rate,
                 "size": len(audio_bytes),
@@ -126,12 +126,11 @@ async def tts_info(request: Request):
     available = tts_service is not None and tts_service.is_available()
 
     return {
-        "service": "VITS TTS (facebook/mms-tts-zho)",
+        "service": "edge-tts (Microsoft Edge TTS)",
         "available": available,
-        "model": tts_service.model_id if tts_service else "N/A",
-        "device": tts_service.device if tts_service else "N/A",
-        "offline": True,
-        "output_format": "wav",
+        "voice": tts_service.model_id if tts_service else "N/A",
+        "offline": False,
+        "output_format": "mp3",
         "max_text_length": 500,
         "speaking_rate_range": "0.5 ~ 2.0",
     }
