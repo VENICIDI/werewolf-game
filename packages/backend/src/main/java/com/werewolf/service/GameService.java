@@ -526,6 +526,10 @@ public class GameService {
         return playerRepository.findByGameId(gameId);
     }
 
+    public NightActionStore.RoundActions getNightActions(Long gameId) {
+        return nightActionStore.getOrCreate(gameId);
+    }
+
     public List<Player> getAlivePlayers(Long gameId) {
         return playerRepository.findByGameIdAndStatus(gameId, Player.PlayerStatus.ALIVE);
     }

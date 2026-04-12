@@ -3,6 +3,7 @@ package com.werewolf.ai;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.werewolf.entity.Game;
 import com.werewolf.entity.Player;
+import com.werewolf.game.NightActionStore;
 import com.werewolf.repository.PlayerRepository;
 import com.werewolf.service.GameService;
 import com.werewolf.websocket.RoomWebSocketHandler;
@@ -149,8 +150,11 @@ public class AIPlayerBridge {
             if (phase == Game.GamePhase.DISCUSSION) {
                 // 讨论阶段：AI 玩家依次发言，模拟自然发言间隔
                 scheduleAISpeeches(gameId, aiPlayers);
+            } else if (phase == Game.GamePhase.WEREWOLF) {
+                // 狼人阶段：AI 狼人等待真人狼行动后跟随
+                scheduleAIWerewolfActions(gameId, aiPlayers);
             } else {
-                // 夜间/投票阶段：并行执行
+                // 其他夜间/投票阶段：并行执行
                 for (Player aiPlayer : aiPlayers) {
                     CompletableFuture.runAsync(() -> {
                         try {
@@ -166,6 +170,85 @@ public class AIPlayerBridge {
         } catch (Exception e) {
             log.error("调度 AI 决策失败 - 游戏: {}, 阶段: {}", gameId, phase, e);
         }
+    }
+
+    /**
+     * 狼人阶段：AI 狼人行动
+     * - 全是 AI 狼：随机选一个非狼存活玩家击杀
+     * - 有真人狼：等待真人选目标后跟随
+     */
+    private void scheduleAIWerewolfActions(Long gameId, List<Player> aiWolves) {
+        List<Player> allAlive = playerRepository.findByGameIdAndStatus(gameId, Player.PlayerStatus.ALIVE);
+        
+        // 非狼存活玩家（可选目标）
+        List<Player> targets = allAlive.stream()
+                .filter(p -> p.getRole() != Player.Role.WEREWOLF)
+                .toList();
+        
+        if (targets.isEmpty()) return;
+
+        boolean hasHumanWolf = allAlive.stream()
+                .filter(p -> p.getRole() == Player.Role.WEREWOLF)
+                .anyMatch(p -> !Boolean.TRUE.equals(p.getIsAi()));
+
+        if (!hasHumanWolf) {
+            // 全是 AI 狼 → 随机选一个目标，所有狼统一击杀
+            Player randomTarget = targets.get(ThreadLocalRandom.current().nextInt(targets.size()));
+            for (Player aiWolf : aiWolves) {
+                try {
+                    gameService.executeAIAction(gameId, aiWolf.getId(), "kill", randomTarget.getId());
+                    log.info("AI 狼人 {} ({}号) 随机击杀: {}号", 
+                        aiWolf.getId(), aiWolf.getSeatNumber(), randomTarget.getSeatNumber());
+                } catch (Exception e) {
+                    log.error("AI 狼人 {} 击杀异常", aiWolf.getId(), e);
+                }
+            }
+            return;
+        }
+
+        // 有真人狼 → 等待真人行动后跟随
+        CompletableFuture.runAsync(() -> {
+            try {
+                NightActionStore.RoundActions actions = gameService.getNightActions(gameId);
+                
+                int waited = 0;
+                while (waited < 25000) {
+                    // 检查真人狼是否已提交
+                    for (Player wolf : allAlive) {
+                        if (wolf.getRole() == Player.Role.WEREWOLF && !Boolean.TRUE.equals(wolf.getIsAi())) {
+                            Long humanTarget = actions.getWerewolfVotes().get(wolf.getId());
+                            if (humanTarget != null) {
+                                // 跟随真人目标
+                                for (Player aiWolf : aiWolves) {
+                                    gameService.executeAIAction(gameId, aiWolf.getId(), "kill", humanTarget);
+                                    log.info("AI 狼人 {} ({}号) 跟随真人目标: {}", 
+                                        aiWolf.getId(), aiWolf.getSeatNumber(), humanTarget);
+                                }
+                                return;
+                            }
+                        }
+                    }
+                    TimeUnit.MILLISECONDS.sleep(500);
+                    waited += 500;
+                }
+
+                // 超时 → 随机选目标
+                Player randomTarget = targets.get(ThreadLocalRandom.current().nextInt(targets.size()));
+                for (Player aiWolf : aiWolves) {
+                    try {
+                        gameService.executeAIAction(gameId, aiWolf.getId(), "kill", randomTarget.getId());
+                        log.info("AI 狼人 {} ({}号) 超时随机击杀: {}号", 
+                            aiWolf.getId(), aiWolf.getSeatNumber(), randomTarget.getSeatNumber());
+                    } catch (Exception e) {
+                        log.error("AI 狼人 {} 超时击杀异常", aiWolf.getId(), e);
+                    }
+                }
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            } catch (Exception e) {
+                log.error("AI 狼人跟随逻辑异常 - 游戏: {}", gameId, e);
+            }
+        });
     }
 
     /**

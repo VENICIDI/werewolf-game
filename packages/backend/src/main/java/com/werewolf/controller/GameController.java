@@ -145,6 +145,16 @@ public class GameController {
                 data.put("myPlayerId", myPlayer.getId());
                 data.put("myRole", myPlayer.getRole().name());
                 data.put("mySeat", myPlayer.getSeatNumber());
+                
+                // 狼人可以看到队友
+                if (myPlayer.getRole() == Player.Role.WEREWOLF) {
+                    List<Long> teammates = players.stream()
+                            .filter(p -> p.getRole() == Player.Role.WEREWOLF)
+                            .filter(p -> !p.getId().equals(myPlayer.getId()))
+                            .map(Player::getId)
+                            .collect(Collectors.toList());
+                    data.put("teammates", teammates);
+                }
             }
 
             return ResponseEntity.ok(ApiResponse.success(data));

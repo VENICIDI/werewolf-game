@@ -27,6 +27,7 @@ interface GameData {
   myPlayerId?: number
   myRole?: string
   mySeat?: number
+  teammates?: number[]  // 狼人队友 ID 列表
 }
 
 interface ChatMessage {
@@ -96,6 +97,7 @@ export default function GamePlay() {
         myPlayerId: playersRes.myPlayerId,
         myRole: playersRes.myRole,
         mySeat: playersRes.mySeat,
+        teammates: playersRes.teammates || [],
       }
 
       setGame(gameData)
@@ -408,23 +410,45 @@ export default function GamePlay() {
       {/* 玩家列表 */}
       <View className='players-section'>
         <Text className='section-title'>玩家列表</Text>
+        {/* 狼人队友提示 */}
+        {game?.myRole === 'WEREWOLF' && game?.teammates && game.teammates.length > 0 && (
+          <View style={{ padding: '4px 12px', marginBottom: '8px', background: 'rgba(180,40,40,0.15)', borderRadius: '6px', border: '1px solid rgba(180,40,40,0.3)' }}>
+            <Text style={{ fontSize: '12px', color: '#e04040' }}>
+              🐺 你的狼队友: {game.teammates.map(tid => {
+                const p = game.players.find(pl => pl.playerId === tid)
+                return p ? `${p.seatNumber}号${p.username}` : `${tid}`
+              }).join('、')}
+            </Text>
+          </View>
+        )}
         <View className='players-grid'>
-          {game?.players.map((player) => (
-            <View
-              key={player.playerId}
-              className={`player-card ${player.status} ${selectedTarget === player.playerId ? 'selected' : ''} ${speakingPlayerIds.has(player.playerId) ? 'speaking' : ''}`}
-              onClick={() => canAct() && player.status === 'ALIVE' && setSelectedTarget(player.playerId)}
-            >
-              <View className='player-avatar'>
-                <Text className='avatar-default'>
-                  {player.status === 'DEAD' ? '💀' : player.isAi ? '🤖' : '👤'}
-                </Text>
+          {game?.players.map((player) => {
+            const isTeammate = game?.myRole === 'WEREWOLF' && game?.teammates?.includes(player.playerId)
+            const isMe = player.playerId === game?.myPlayerId
+            return (
+              <View
+                key={player.playerId}
+                className={`player-card ${player.status} ${selectedTarget === player.playerId ? 'selected' : ''} ${speakingPlayerIds.has(player.playerId) ? 'speaking' : ''}`}
+                style={isTeammate ? { border: '2px solid #e04040', boxShadow: '0 0 8px rgba(224,64,64,0.4)' } : {}}
+                onClick={() => {
+                  if (!canAct() || player.status !== 'ALIVE') return
+                  // 狼人阶段不能选自己和队友
+                  if (game?.phase === 'WEREWOLF' && (isTeammate || isMe)) return
+                  setSelectedTarget(player.playerId)
+                }}
+              >
+                <View className='player-avatar'>
+                  <Text className='avatar-default'>
+                    {player.status === 'DEAD' ? '💀' : isTeammate ? '🐺' : isMe && game?.myRole === 'WEREWOLF' ? '🐺' : player.isAi ? '🤖' : '👤'}
+                  </Text>
+                </View>
+                <Text className='player-name'>{player.username}</Text>
+                <Text className='seat-num'>{player.seatNumber}号位</Text>
+                {isTeammate && <Text style={{ fontSize: '10px', color: '#e04040', textAlign: 'center' }}>队友</Text>}
+                {player.status === 'DEAD' && <Text className='dead-badge'>已死亡</Text>}
               </View>
-              <Text className='player-name'>{player.username}</Text>
-              <Text className='seat-num'>{player.seatNumber}号位</Text>
-              {player.status === 'DEAD' && <Text className='dead-badge'>已死亡</Text>}
-            </View>
-          ))}
+            )
+          })}
         </View>
       </View>
 
