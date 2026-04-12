@@ -12,6 +12,7 @@ import org.springframework.stereotype.Component;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.*;
 
 /**
@@ -28,6 +29,9 @@ public class PhaseScheduler {
 
     // 存储正在运行的游戏任务
     private final Map<Long, ScheduledFuture<?>> gameTasks = new ConcurrentHashMap<>();
+
+    // 投票结算幂等锁 (防止双重触发)
+    private final Set<Long> votingResolved = ConcurrentHashMap.newKeySet();
 
     // 存储游戏模式（用于夜晚结束后重新进入）
     private final Map<Long, GameConfig.GameMode> gameModes = new ConcurrentHashMap<>();
@@ -92,12 +96,13 @@ public class PhaseScheduler {
 
         if (phases == null || phaseIndex >= phases.size()) {
             if (isNight) {
-                // 夜晚阶段全部结束 → 结算夜晚 → 进入白天
+                // 夜晚阶段全部结束 → 结算夜晚 → 检查胜负 → 进入白天
                 log.info("夜晚阶段结束，开始结算");
                 executor.schedule(() -> {
                     try {
                         getGameService().resolveNight(gameId);
-                        // 检查胜负
+                        // ✨ FIX #1: 夜晚结算后检查胜负
+                        getGameService().checkWinCondition(gameId);
                         Game game = getGameService().getGameStatus(gameId);
                         if (game.getStatus() == Game.GameStatus.FINISHED) return;
                         // 进入白天
@@ -145,9 +150,11 @@ public class PhaseScheduler {
             try {
                 executePhaseEnd(gameId, phase);
 
-                // 特殊处理：投票阶段结束时强制结算
+                // 特殊处理：投票阶段结束时强制结算（幂等）
                 if ("voting".equals(phase.getPhase())) {
-                    getGameService().resolveVoting(gameId);
+                    if (votingResolved.add(gameId)) {
+                        getGameService().resolveVoting(gameId);
+                    }
                 }
 
                 // 调度下一阶段
@@ -193,6 +200,10 @@ public class PhaseScheduler {
                 break;
             case "announce_death":
                 // 死亡公告在 resolveNight 中已处理
+                break;
+            case "witch_action":
+                // ✨ FIX #3: 女巫阶段发送被杀者信息
+                getGameService().notifyWitchKillTarget(gameId);
                 break;
         }
     }

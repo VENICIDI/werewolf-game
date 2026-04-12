@@ -47,6 +47,14 @@ export default function GamePlay() {
   const [selectedTarget, setSelectedTarget] = useState<number | null>(null)
   const [phaseTimeLeft, setPhaseTimeLeft] = useState(0)
   const [showRoleModal, setShowRoleModal] = useState(false)
+  // ✨ 女巫信息
+  const [witchInfo, setWitchInfo] = useState<{
+    hasSave: boolean, hasPoison: boolean,
+    killTargetId?: number, killTargetSeat?: number, killTargetName?: string
+  } | null>(null)
+  const [witchAction, setWitchAction] = useState<'none' | 'save' | 'poison'>('none')
+  // ✨ 猎人开枪
+  const [canHunterShoot, setCanHunterShoot] = useState(false)
 
   // 初始化：通过 API 获取游戏状态
   useEffect(() => {
@@ -127,6 +135,8 @@ export default function GamePlay() {
       wsManager.on('VOTE_RESULT', handleVoteResult)
       wsManager.on('ACTION_CONFIRM', handleActionConfirm)
       wsManager.on('SEER_RESULT', handleSeerResult)
+      wsManager.on('WITCH_INFO', handleWitchInfo)
+      wsManager.on('HUNTER_SHOOT', handleHunterShoot)
       wsManager.on('SYSTEM', handleSystemMessage)
 
       await wsManager.connect(roomCode)
@@ -149,6 +159,8 @@ export default function GamePlay() {
     }
     setSelectedTarget(null)
     setSpeakingPlayerIds(new Set())
+    setWitchAction('none')
+    setWitchInfo(null)
 
     // 显示阶段提示
     if (data.message) {
@@ -239,18 +251,7 @@ export default function GamePlay() {
   }, [])
 
   const handleActionConfirm = useCallback((message: any) => {
-    const data = message.data
-    // 如果是查验结果，显示详细信息
-    if (data?.isWerewolf !== undefined) {
-      const isWolf = data.isWerewolf
-      Taro.showModal({
-        title: '🔮 查验结果',
-        content: `${data.targetSeat}号玩家是${isWolf ? '🐺 狼人' : '👤 好人'}`,
-        showCancel: false,
-      })
-    } else {
-      Taro.showToast({ title: '行动已确认', icon: 'success' })
-    }
+    Taro.showToast({ title: '行动已确认', icon: 'success' })
   }, [])
 
   const handleSeerResult = useCallback((message: any) => {
@@ -261,6 +262,41 @@ export default function GamePlay() {
       content: data?.message || `${data?.targetSeat}号玩家是${isWolf ? '🐺 狼人' : '👤 好人'}`,
       showCancel: false,
     })
+  }, [])
+
+  const handleWitchInfo = useCallback((message: any) => {
+    const data = message.data
+    setWitchInfo({
+      hasSave: data?.hasSave ?? false,
+      hasPoison: data?.hasPoison ?? false,
+      killTargetId: data?.killTargetId,
+      killTargetSeat: data?.killTargetSeat,
+      killTargetName: data?.killTargetName,
+    })
+  }, [])
+
+  const handleHunterShoot = useCallback((message: any) => {
+    const data = message.data
+    if (data?.canShoot) {
+      // 通知猎人可以开枪
+      setCanHunterShoot(true)
+      Taro.showToast({ title: '你已死亡，请选择开枪目标！', icon: 'none', duration: 3000 })
+    } else {
+      // 广播猎人开枪结果
+      if (data?.message) {
+        Taro.showToast({ title: data.message, icon: 'none', duration: 3000 })
+      }
+      // 更新被射杀玩家状态
+      if (data?.targetSeat) {
+        setGame(prev => {
+          if (!prev) return null
+          const updatedPlayers = prev.players.map(p =>
+            p.seatNumber === data.targetSeat ? { ...p, status: 'DEAD' } : p
+          )
+          return { ...prev, players: updatedPlayers }
+        })
+      }
+    }
   }, [])
 
   const handleSystemMessage = useCallback((message: any) => {
@@ -298,6 +334,10 @@ export default function GamePlay() {
   // 判断当前阶段我是否可以行动
   const canAct = () => {
     if (!game || !game.myRole) return false
+
+    // ✨ 猎人开枪（死亡后可行动）
+    if (canHunterShoot && game.myRole === 'HUNTER') return true
+
     const myPlayer = game.players.find(p => p.playerId === game.myPlayerId)
     if (!myPlayer || myPlayer.status !== 'ALIVE') return false
 
@@ -313,10 +353,13 @@ export default function GamePlay() {
 
   // 获取行动类型
   const getActionType = () => {
+    // 猎人开枪
+    if (canHunterShoot && game?.myRole === 'HUNTER') return 'shoot'
+
     switch (game?.phase) {
       case 'WEREWOLF': return 'kill'
       case 'SEER': return 'check'
-      case 'WITCH': return 'poison' // 简化：默认毒药
+      case 'WITCH': return witchAction === 'save' ? 'save' : witchAction === 'poison' ? 'poison' : 'skip'
       case 'GUARD': return 'guard'
       case 'VOTING': return 'vote'
       default: return 'skip'
@@ -324,15 +367,38 @@ export default function GamePlay() {
   }
 
   const handleAction = async () => {
-    if (!game || !selectedTarget) {
+    if (!game) return
+    const actionType = getActionType()
+
+    // 女巫救人不需要选目标
+    if (actionType === 'save') {
+      try {
+        await post(`/games/${game.gameId}/action`, { action: 'save' })
+        setWitchAction('none')
+        setWitchInfo(null)
+      } catch (error: any) {
+        Taro.showToast({ title: error.message || '行动失败', icon: 'none' })
+      }
+      return
+    }
+
+    if (!selectedTarget) {
       Taro.showToast({ title: '请选择目标', icon: 'none' })
       return
     }
     try {
       await post(`/games/${game.gameId}/action`, {
-        action: getActionType(),
+        action: actionType,
         targetId: selectedTarget
       })
+      // 猎人开枪后清除状态
+      if (actionType === 'shoot') {
+        setCanHunterShoot(false)
+      }
+      if (actionType === 'poison') {
+        setWitchAction('none')
+        setWitchInfo(null)
+      }
     } catch (error: any) {
       Taro.showToast({ title: error.message || '行动失败', icon: 'none' })
     }
@@ -455,27 +521,102 @@ export default function GamePlay() {
       {/* 行动按钮 */}
       {canAct() && (
         <View className='action-section'>
-          <Text className='action-hint'>
-            {selectedTarget
-              ? `⚔ 目标：${game?.players.find(p => p.playerId === selectedTarget)?.username}`
-              : '☞ 请点击上方选择目标'}
-          </Text>
-          <View style={{ display: 'flex', gap: '10px' }}>
-            <Button
-              className='action-btn'
-              onClick={handleAction}
-              disabled={!selectedTarget}
-            >
-              ◈ 确认行动 ◈
-            </Button>
-            <Button
-              className='action-btn'
-              onClick={handleSkip}
-              style={{ background: 'rgba(30,26,22,0.9)', border: '1.5px solid rgba(74,61,48,0.4)', boxShadow: 'none' }}
-            >
-              跳过
-            </Button>
-          </View>
+          {/* ✨ 女巫专用 UI */}
+          {game?.phase === 'WITCH' && game?.myRole === 'WITCH' ? (
+            <View>
+              {/* 被杀者信息 */}
+              {witchInfo?.killTargetSeat ? (
+                <Text style={{ display: 'block', textAlign: 'center', marginBottom: '8px', color: '#ff6b6b', fontSize: '14px', fontWeight: 'bold' }}>
+                  💀 今晚 {witchInfo.killTargetSeat}号 {witchInfo.killTargetName} 被狼人杀害
+                </Text>
+              ) : (
+                <Text style={{ display: 'block', textAlign: 'center', marginBottom: '8px', color: '#8a7a68', fontSize: '13px' }}>
+                  今晚是平安夜，无人被杀
+                </Text>
+              )}
+              <View style={{ display: 'flex', gap: '8px', justifyContent: 'center', flexWrap: 'wrap' }}>
+                {/* 解药按钮 */}
+                {witchInfo?.hasSave && witchInfo?.killTargetSeat && (
+                  <Button
+                    className='action-btn'
+                    style={{ background: witchAction === 'save' ? 'rgba(76,175,80,0.9)' : 'rgba(76,175,80,0.5)', flex: '1', minWidth: '80px', maxWidth: '120px' }}
+                    onClick={() => { setWitchAction('save'); setSelectedTarget(null) }}
+                  >
+                    💊 救人
+                  </Button>
+                )}
+                {/* 毒药按钮 */}
+                {witchInfo?.hasPoison && (
+                  <Button
+                    className='action-btn'
+                    style={{ background: witchAction === 'poison' ? 'rgba(156,39,176,0.9)' : 'rgba(156,39,176,0.5)', flex: '1', minWidth: '80px', maxWidth: '120px' }}
+                    onClick={() => { setWitchAction('poison'); setSelectedTarget(null) }}
+                  >
+                    ☠️ 毒人
+                  </Button>
+                )}
+                {/* 跳过 */}
+                <Button
+                  className='action-btn'
+                  style={{ background: 'rgba(30,26,22,0.9)', border: '1.5px solid rgba(74,61,48,0.4)', boxShadow: 'none', flex: '1', minWidth: '80px', maxWidth: '120px' }}
+                  onClick={handleSkip}
+                >
+                  跳过
+                </Button>
+              </View>
+              {/* 女巫选择提示和确认 */}
+              {witchAction === 'save' && (
+                <View style={{ marginTop: '8px', textAlign: 'center' }}>
+                  <Text style={{ color: '#4caf50', fontSize: '13px' }}>将使用解药救 {witchInfo?.killTargetSeat}号</Text>
+                  <Button className='action-btn' style={{ marginTop: '6px' }} onClick={handleAction}>
+                    ◈ 确认救人 ◈
+                  </Button>
+                </View>
+              )}
+              {witchAction === 'poison' && (
+                <View style={{ marginTop: '8px', textAlign: 'center' }}>
+                  <Text style={{ color: '#9c27b0', fontSize: '13px' }}>
+                    {selectedTarget ? `将使用毒药毒杀 ${game?.players.find(p => p.playerId === selectedTarget)?.seatNumber}号` : '请在上方选择毒杀目标'}
+                  </Text>
+                  <Button className='action-btn' style={{ marginTop: '6px' }} onClick={handleAction} disabled={!selectedTarget}>
+                    ◈ 确认毒人 ◈
+                  </Button>
+                </View>
+              )}
+            </View>
+          ) : (
+            /* 通用行动 UI */
+            <View>
+              {canHunterShoot && game?.myRole === 'HUNTER' && (
+                <Text style={{ display: 'block', textAlign: 'center', marginBottom: '6px', color: '#ff6b6b', fontSize: '13px', fontWeight: 'bold' }}>
+                  🔫 你已死亡！请选择开枪带走一个人
+                </Text>
+              )}
+              <Text className='action-hint'>
+                {selectedTarget
+                  ? `⚔ 目标：${game?.players.find(p => p.playerId === selectedTarget)?.username}`
+                  : '☞ 请点击上方选择目标'}
+              </Text>
+              <View style={{ display: 'flex', gap: '10px' }}>
+                <Button
+                  className='action-btn'
+                  onClick={handleAction}
+                  disabled={!selectedTarget}
+                >
+                  ◈ 确认行动 ◈
+                </Button>
+                {!canHunterShoot && (
+                  <Button
+                    className='action-btn'
+                    onClick={handleSkip}
+                    style={{ background: 'rgba(30,26,22,0.9)', border: '1.5px solid rgba(74,61,48,0.4)', boxShadow: 'none' }}
+                  >
+                    跳过
+                  </Button>
+                )}
+              </View>
+            </View>
+          )}
         </View>
       )}
 

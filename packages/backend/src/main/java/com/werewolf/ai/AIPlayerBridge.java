@@ -408,14 +408,21 @@ public class AIPlayerBridge {
         headers.setContentType(MediaType.APPLICATION_JSON);
         HttpEntity<Map<String, Object>> entity = new HttpEntity<>(request, headers);
 
-        ResponseEntity<Map> response = restTemplate.postForEntity(url, entity, Map.class);
-        
-        if (response.getStatusCode() == HttpStatus.OK && response.getBody() != null) {
-            Map<String, Object> body = response.getBody();
-            return (Map<String, Object>) body.get("data");
+        try {
+            ResponseEntity<Map> response = restTemplate.postForEntity(url, entity, Map.class);
+            
+            if (response.getStatusCode() == HttpStatus.OK && response.getBody() != null) {
+                Map<String, Object> body = response.getBody();
+                return (Map<String, Object>) body.get("data");
+            }
+        } catch (Exception e) {
+            log.warn("AI 夜间行动服务调用失败，降级为 skip: {}", e.getMessage());
         }
 
-        throw new RuntimeException("AI Service 调用失败");
+        // 降级：跳过行动
+        Map<String, Object> fallback = new HashMap<>();
+        fallback.put("action", "skip");
+        return fallback;
     }
 
     /**
@@ -433,14 +440,28 @@ public class AIPlayerBridge {
         headers.setContentType(MediaType.APPLICATION_JSON);
         HttpEntity<Map<String, Object>> entity = new HttpEntity<>(request, headers);
 
-        ResponseEntity<Map> response = restTemplate.postForEntity(url, entity, Map.class);
-        
-        if (response.getStatusCode() == HttpStatus.OK && response.getBody() != null) {
-            Map<String, Object> body = response.getBody();
-            return (Map<String, Object>) body.get("data");
+        try {
+            ResponseEntity<Map> response = restTemplate.postForEntity(url, entity, Map.class);
+            
+            if (response.getStatusCode() == HttpStatus.OK && response.getBody() != null) {
+                Map<String, Object> body = response.getBody();
+                return (Map<String, Object>) body.get("data");
+            }
+        } catch (Exception e) {
+            log.warn("AI 投票服务调用失败，使用随机投票: {}", e.getMessage());
         }
 
-        throw new RuntimeException("AI Service 投票调用失败");
+        // ✨ FIX #21: 降级 — 随机投一个存活玩家
+        List<Player> targets = gameService.getAlivePlayers(gameId).stream()
+                .filter(p -> !p.getId().equals(playerId))
+                .toList();
+        Map<String, Object> fallback = new HashMap<>();
+        if (!targets.isEmpty()) {
+            Player target = targets.get(ThreadLocalRandom.current().nextInt(targets.size()));
+            fallback.put("target_id", target.getId());
+        }
+        fallback.put("reason", "随机投票（AI 服务不可用）");
+        return fallback;
     }
 
     /**

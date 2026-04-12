@@ -16,6 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 /**
@@ -41,6 +42,12 @@ public class GameService {
     private final ActionDispatcher actionDispatcher;
     private final RoomWebSocketHandler webSocketHandler;
     private final ObjectMapper objectMapper;
+
+    // ✨ FIX #7: 猎人开枪一次性限制
+    private final Set<Long> hunterShot = ConcurrentHashMap.newKeySet();
+    
+    // ✨ FIX #6: 投票结算幂等锁
+    private final Set<Long> votingResolved = ConcurrentHashMap.newKeySet();
 
     // ========================= 统一行动入口 =========================
 
@@ -72,6 +79,11 @@ public class GameService {
             throw new RuntimeException("您已提交过行动");
         }
 
+        // ✨ FIX #7: 猎人开枪一次性校验
+        if ("shoot".equals(action) && !hunterShot.add(player.getId())) {
+            throw new RuntimeException("您已经开过枪了");
+        }
+
         // 构建行动上下文
         ActionContext context = ActionContext.builder()
                 .game(game)
@@ -97,16 +109,18 @@ public class GameService {
         saveLog(gameId, game.getCurrentRound(), game.getCurrentPhase().name(),
                 player.getId(), action.toUpperCase(), logData);
 
-        // WebSocket 确认（仅给操作者本人）
-        String roomCode = game.getRoom().getRoomCode();
-        WebSocketMessage confirmMsg = new WebSocketMessage(
-                WebSocketMessage.Type.ACTION_CONFIRM, result);
-        webSocketHandler.sendToUser(roomCode, userId, confirmMsg);
+        // WebSocket 确认（仅给操作者本人，check 除外因已发 SEER_RESULT）
+        if (!"check".equals(action)) {
+            String roomCode = game.getRoom().getRoomCode();
+            WebSocketMessage confirmMsg = new WebSocketMessage(
+                    WebSocketMessage.Type.ACTION_CONFIRM, result);
+            webSocketHandler.sendToUser(roomCode, userId, confirmMsg);
+        }
 
-        // 投票完成后自动结算
+        // 投票完成后自动结算（幂等）
         if ("vote".equals(action)) {
             VoteManager.VoteSession session = voteManager.getVoteSession(gameId);
-            if (session != null && session.isAllVoted()) {
+            if (session != null && session.isAllVoted() && votingResolved.add(gameId)) {
                 resolveVoting(gameId);
             }
         }
@@ -188,10 +202,10 @@ public class GameService {
         log.info("AI 玩家 {} ({}号) 执行行动: {}, 目标: {}", 
                 player.getAiName(), player.getSeatNumber(), action, targetId);
 
-        // 投票完成后自动结算
+        // 投票完成后自动结算（幂等）
         if ("vote".equals(action)) {
             VoteManager.VoteSession session = voteManager.getVoteSession(gameId);
-            if (session != null && session.isAllVoted()) {
+            if (session != null && session.isAllVoted() && votingResolved.add(gameId)) {
                 resolveVoting(gameId);
             }
         }
@@ -380,13 +394,105 @@ public class GameService {
     }
 
     private void notifyHunterCanShoot(Game game, Player hunter) {
-        if (hunter.getUser() != null) {
+        // ✨ FIX #7: 猎人只能开一次枪
+        if (!hunterShot.add(hunter.getId())) {
+            log.warn("猎人 {}号 已经开过枪了", hunter.getSeatNumber());
+            return;
+        }
+
+        if (Boolean.TRUE.equals(hunter.getIsAi())) {
+            // ✨ FIX #5: AI 猎人自动开枪（随机选一个存活的非狼人）
+            List<Player> targets = playerRepository.findByGameIdAndStatus(
+                    game.getId(), Player.PlayerStatus.ALIVE).stream()
+                    .filter(p -> !p.getId().equals(hunter.getId()))
+                    .toList();
+            if (!targets.isEmpty()) {
+                Player target = targets.get(new java.util.Random().nextInt(targets.size()));
+                try {
+                    executeAIAction(game.getId(), hunter.getId(), "shoot", target.getId());
+                    log.info("AI 猎人 {}号 自动开枪射杀 {}号", hunter.getSeatNumber(), target.getSeatNumber());
+                } catch (Exception e) {
+                    log.error("AI 猎人开枪异常", e);
+                }
+            }
+        } else if (hunter.getUser() != null) {
+            // 真人猎人：通知前端
             Map<String, Object> data = new HashMap<>();
             data.put("message", "你已死亡，可以选择开枪带走一个人");
             data.put("canShoot", true);
 
             webSocketHandler.sendToUser(game.getRoom().getRoomCode(), hunter.getUser().getId(),
                     new WebSocketMessage(WebSocketMessage.Type.HUNTER_SHOOT, data));
+        }
+    }
+
+    /**
+     * ✨ FIX #3: 女巫阶段通知被杀者信息
+     */
+    public void notifyWitchKillTarget(Long gameId) {
+        Game game = getGameStatus(gameId);
+        NightActionStore.RoundActions actions = nightActionStore.getOrCreate(gameId);
+        Long killTarget = actions.getWerewolfKillTarget();
+
+        // 找到女巫玩家
+        List<Player> witches = playerRepository.findByGameIdAndStatus(gameId, Player.PlayerStatus.ALIVE)
+                .stream()
+                .filter(p -> p.getRole() == Player.Role.WITCH)
+                .toList();
+
+        for (Player witch : witches) {
+            Map<String, Object> witchData = new HashMap<>();
+            witchData.put("hasSave", !actions.isWitchSaveUsed());
+            witchData.put("hasPoison", !actions.isWitchPoisonUsed());
+
+            if (killTarget != null) {
+                Player killed = playerRepository.findById(killTarget).orElse(null);
+                if (killed != null) {
+                    witchData.put("killTargetId", killTarget);
+                    witchData.put("killTargetSeat", killed.getSeatNumber());
+                    witchData.put("killTargetName", killed.getUser() != null ? killed.getUser().getUsername() : killed.getAiName());
+                }
+            }
+
+            if (Boolean.TRUE.equals(witch.getIsAi())) {
+                // AI 女巫：简单逻辑 — 有解药且有人被杀就救，否则跳过
+                handleAIWitch(gameId, witch, actions, killTarget);
+            } else if (witch.getUser() != null) {
+                webSocketHandler.sendToUser(game.getRoom().getRoomCode(), witch.getUser().getId(),
+                        new WebSocketMessage("WITCH_INFO", witchData));
+            }
+        }
+    }
+
+    /**
+     * ✨ FIX #12: AI 女巫决策（简单逻辑：有解药且有人被杀→50%概率救；有毒药→30%概率毒随机人）
+     */
+    private void handleAIWitch(Long gameId, Player witch, NightActionStore.RoundActions actions, Long killTarget) {
+        java.util.Random rand = new java.util.Random();
+        try {
+            // 救人判断
+            if (killTarget != null && !actions.isWitchSaveUsed() && rand.nextDouble() < 0.5) {
+                executeAIAction(gameId, witch.getId(), "save", null);
+                log.info("AI 女巫 {}号 使用解药", witch.getSeatNumber());
+                return; // 同一晚只能用一药
+            }
+            // 毒人判断
+            if (!actions.isWitchPoisonUsed() && rand.nextDouble() < 0.3) {
+                List<Player> targets = playerRepository.findByGameIdAndStatus(gameId, Player.PlayerStatus.ALIVE)
+                        .stream()
+                        .filter(p -> !p.getId().equals(witch.getId()))
+                        .toList();
+                if (!targets.isEmpty()) {
+                    Player target = targets.get(rand.nextInt(targets.size()));
+                    executeAIAction(gameId, witch.getId(), "poison", target.getId());
+                    log.info("AI 女巫 {}号 毒杀 {}号", witch.getSeatNumber(), target.getSeatNumber());
+                    return;
+                }
+            }
+            // 跳过
+            executeAIAction(gameId, witch.getId(), "skip", null);
+        } catch (Exception e) {
+            log.error("AI 女巫决策异常", e);
         }
     }
 
@@ -468,6 +574,7 @@ public class GameService {
                 new WebSocketMessage(WebSocketMessage.Type.VOTE_RESULT, data));
 
         voteManager.clearVote(gameId);
+        votingResolved.remove(gameId); // 清理幂等锁以备下一轮
         log.info("投票结算 - 游戏: {}, 平票: {}, 处决: {}",
                 gameId, result.isTie(), result.getEliminatedPlayerId());
 

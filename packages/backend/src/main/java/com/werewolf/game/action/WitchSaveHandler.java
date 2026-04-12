@@ -29,6 +29,10 @@ public class WitchSaveHandler implements GameActionHandler {
         if (context.getNightActions().getWerewolfKillTarget() == null) {
             throw new RuntimeException("今晚没有人被杀");
         }
+        // ✨ FIX #8: 同一晚只能用一瓶药
+        if (context.getNightActions().getWitchPoisonTarget() != null) {
+            throw new RuntimeException("本晚已使用毒药，不能再用解药");
+        }
     }
 
     @Override

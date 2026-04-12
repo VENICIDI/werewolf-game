@@ -29,6 +29,10 @@ public class WitchPoisonHandler implements GameActionHandler {
         if (context.getTargetId() == null) {
             throw new RuntimeException("必须选择毒杀目标");
         }
+        // ✨ FIX #8: 同一晚只能用一瓶药
+        if (context.getNightActions().getWitchSaveTarget() != null) {
+            throw new RuntimeException("本晚已使用解药，不能再用毒药");
+        }
         Player target = context.getPlayerRepository().findById(context.getTargetId())
                 .orElseThrow(() -> new RuntimeException("目标不存在"));
         if (target.getStatus() != Player.PlayerStatus.ALIVE) {
