@@ -60,7 +60,7 @@ public class PhaseScheduler {
     /**
      * 开始游戏阶段调度
      */
-    public void startGame(Long gameId, String gameModeId) {
+    public void startGame(Long gameId, String gameModeId, List<com.werewolf.entity.Player> players) {
         GameConfig.GameMode gameMode = configLoader.getGameMode(gameModeId);
         if (gameMode == null) {
             throw new RuntimeException("未知的游戏模式: " + gameModeId);
@@ -69,8 +69,17 @@ public class PhaseScheduler {
         gameModes.put(gameId, gameMode);
         log.info("开始游戏阶段调度 - 游戏ID: {}, 模式: {}", gameId, gameMode.getName());
 
-        // 启动夜晚第一个阶段
-        scheduleNextPhase(gameId, gameMode, 0, true);
+        // 延迟 2 秒后启动（确保事务已提交 + Agent 初始化完成）
+        executor.schedule(() -> {
+            try {
+                // 先在 AI Service 中创建 Agent 实例
+                getAIPlayerBridge().initializeAgents(gameId, players);
+                // 启动夜晚第一个阶段
+                scheduleNextPhase(gameId, gameMode, 0, true);
+            } catch (Exception e) {
+                log.error("游戏启动失败 - 游戏: {}", gameId, e);
+            }
+        }, 2, TimeUnit.SECONDS);
     }
 
     /**
@@ -196,6 +205,7 @@ public class PhaseScheduler {
             || phase == Game.GamePhase.WEREWOLF 
             || phase == Game.GamePhase.SEER 
             || phase == Game.GamePhase.WITCH
+            || phase == Game.GamePhase.DISCUSSION
             || phase == Game.GamePhase.VOTING;
     }
 

@@ -248,7 +248,7 @@ public class GameService {
         nightActionStore.getOrCreate(game.getId());
         broadcastGameStart(room.getRoomCode(), game.getId(), players);
         saveLog(game.getId(), 0, "GAME_START", null, "START", null);
-        phaseScheduler.startGame(game.getId(), gameModeId);
+        phaseScheduler.startGame(game.getId(), gameModeId, players);
 
         log.info("游戏开始 - ID: {}, 房间: {}, 模式: {}, 玩家数: {}",
                 game.getId(), room.getRoomCode(), gameModeId, players.size());

@@ -651,7 +651,8 @@ start_all() {
 
     start_infra
     start_backend
-    start_frontend
+    start_ai_service
+    start_ai_speech
 
     echo -e "${GREEN}╔══════════════════════════════════════════════╗${NC}"
     echo -e "${GREEN}║          🎉 所有服务已启动！                ║${NC}"
@@ -659,11 +660,12 @@ start_all() {
     echo -e "${GREEN}║  📦 MySQL:       localhost:${MYSQL_PORT}              ║${NC}"
     echo -e "${GREEN}║  📦 Redis:       localhost:${REDIS_PORT}              ║${NC}"
     echo -e "${GREEN}║  🔧 后端 API:    http://localhost:${BACKEND_PORT}       ║${NC}"
-    echo -e "${GREEN}║  🌐 前端 H5:     http://localhost:${FRONTEND_PORT}     ║${NC}"
+    echo -e "${GREEN}║  🤖 AI 服务:     http://localhost:${AI_SERVICE_PORT}       ║${NC}"
+    echo -e "${GREEN}║  🎙️ 语音服务:    http://localhost:${AI_SPEECH_PORT}       ║${NC}"
     echo -e "${GREEN}╚══════════════════════════════════════════════╝${NC}"
     echo ""
     echo -e "${YELLOW}提示: 日志文件位于 $LOG_DIR/ 目录${NC}"
-    echo -e "${YELLOW}提示: 若需启动 AI 服务，请运行: $0 ai${NC}"
+    echo -e "${YELLOW}提示: 若需启动前端，请运行: $0 frontend${NC}"
 }
 
 stop_all() {
@@ -812,7 +814,7 @@ show_help() {
     echo "用法: $0 <command> [options]"
     echo ""
     echo -e "${CYAN}服务管理:${NC}"
-    echo "  start           启动所有服务 (基础设施 + 后端 + 前端)"
+    echo "  start           启动核心服务 (基础设施 + 后端 + AI + 语音)"
     echo "  stop            停止所有服务"
     echo "  restart         重启所有服务"
     echo "  status          查看所有服务状态"
@@ -840,8 +842,10 @@ show_help() {
     echo "  help            显示帮助信息"
     echo ""
     echo -e "${CYAN}示例:${NC}"
-    echo "  $0 start            # 一键启动所有服务"
+    echo "  $0 start            # 一键启动核心服务 (后端+AI+语音)"
     echo "  $0 backend          # 仅启动后端"
+    echo "  $0 ai               # 仅启动 AI 服务"
+    echo "  $0 frontend         # 启动前端 (开发调试时)"
     echo "  $0 logs backend     # 实时查看后端日志"
     echo "  $0 status           # 查看服务状态"
     echo ""
