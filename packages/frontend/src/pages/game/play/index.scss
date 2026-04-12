@@ -1,76 +1,99 @@
-// 游戏对战页 - 血夜主题
+// 游戏对战页 - 沉浸式血夜桌游风
 .game-play-container {
   min-height: 100vh;
-  padding: 20px;
-  padding-bottom: 100px;
+  padding: 0;
+  padding-bottom: env(safe-area-inset-bottom);
   position: relative;
   z-index: 1;
+  overflow-x: hidden;
 
   &.night {
-    background: linear-gradient(180deg, #0c0808 0%, var(--shadow) 100%);
+    background: linear-gradient(180deg, #060404 0%, #0a0606 30%, #120808 60%, #0a0604 100%);
 
     &::before {
       content: '';
-      position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      background: radial-gradient(ellipse at 70% 10%, rgba(106, 0, 0, 0.12) 0%, transparent 60%);
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background:
+        radial-gradient(ellipse at 75% 5%, rgba(106, 0, 0, 0.18) 0%, transparent 50%),
+        radial-gradient(ellipse at 20% 15%, rgba(40, 20, 80, 0.08) 0%, transparent 40%),
+        radial-gradient(circle at 50% 50%, rgba(0, 0, 0, 0) 40%, rgba(0, 0, 0, 0.4) 100%);
       pointer-events: none;
       z-index: -1;
+    }
+
+    // 夜晚月光
+    &::after {
+      content: '';
+      position: fixed;
+      top: -40px; right: -20px;
+      width: 120px; height: 120px;
+      background: radial-gradient(circle, rgba(200, 200, 220, 0.08) 0%, transparent 70%);
+      border-radius: 50%;
+      pointer-events: none;
+      z-index: -1;
+      animation: moonGlow 6s ease-in-out infinite;
     }
   }
 
   &.day {
-    background: linear-gradient(180deg, #1a1510 0%, var(--shadow) 100%);
+    background: linear-gradient(180deg, #16120e 0%, #1a1510 30%, #12100c 100%);
 
     &::before {
       content: '';
-      position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      background: radial-gradient(ellipse at 30% 10%, rgba(184, 152, 48, 0.06) 0%, transparent 60%);
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background:
+        radial-gradient(ellipse at 40% 8%, rgba(212, 175, 55, 0.06) 0%, transparent 50%),
+        radial-gradient(ellipse at 60% 20%, rgba(255, 200, 80, 0.04) 0%, transparent 40%);
       pointer-events: none;
       z-index: -1;
     }
   }
 }
 
-.loading {
-  text-align: center;
-  padding: 100px;
-  color: var(--text-secondary);
-  font-size: 16px;
+@keyframes moonGlow {
+  0%, 100% { opacity: 0.6; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.05); }
 }
 
-// 顶部信息栏
+.loading {
+  text-align: center;
+  padding: 100px 20px;
+  color: var(--text-secondary);
+  font-size: 16px;
+  letter-spacing: 3px;
+}
+
+// ==================== 顶部 HUD ====================
 .top-bar {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 20px;
-  padding: 12px 16px;
-  background: rgba(30, 24, 18, 0.8);
-  border: 1px solid var(--card-border);
-  border-radius: 12px;
-  backdrop-filter: blur(8px);
+  padding: 10px 16px;
+  background: linear-gradient(180deg, rgba(8, 6, 4, 0.95) 0%, rgba(8, 6, 4, 0.7) 100%);
+  border-bottom: 1px solid rgba(196, 26, 26, 0.15);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  backdrop-filter: blur(12px);
 
   .round-info {
     .round-text {
       display: block;
-      font-size: 12px;
-      color: var(--text-secondary);
-      margin-bottom: 4px;
+      font-size: 10px;
+      color: var(--text-tertiary);
+      letter-spacing: 2px;
+      text-transform: uppercase;
     }
 
     .phase-text {
       display: block;
-      font-size: 16px;
-      font-weight: 600;
-      color: var(--text);
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--gold);
+      letter-spacing: 2px;
+      text-shadow: 0 0 8px rgba(229, 192, 64, 0.2);
     }
   }
 
@@ -78,265 +101,377 @@
     display: flex;
     align-items: center;
     gap: 4px;
-    background: rgba(196, 26, 26, 0.2);
-    border: 1px solid rgba(196, 26, 26, 0.3);
-    padding: 8px 16px;
+    background: rgba(196, 26, 26, 0.15);
+    border: 1px solid rgba(196, 26, 26, 0.25);
+    padding: 6px 14px;
     border-radius: 20px;
+    position: relative;
+    overflow: hidden;
+
+    &::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; bottom: 0;
+      width: var(--timer-progress, 100%);
+      background: rgba(196, 26, 26, 0.1);
+      transition: width 1s linear;
+    }
 
     .timer-icon {
-      font-size: 14px;
+      font-size: 12px;
     }
 
     .timer-text {
-      font-size: 16px;
-      font-weight: 600;
+      font-size: 18px;
+      font-weight: 700;
       color: var(--blood-glow);
+      font-family: monospace;
+      min-width: 36px;
+      text-align: center;
     }
   }
 
   .role-btn {
-    width: 40px;
-    height: 40px;
-    background: rgba(30, 24, 18, 0.8);
-    border: 1px solid var(--card-border);
+    width: 38px;
+    height: 38px;
+    background: rgba(30, 24, 18, 0.6);
+    border: 1.5px solid var(--gold-dim);
     border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
+    box-shadow: 0 0 8px rgba(212, 175, 55, 0.1);
 
     &:active {
-      background: rgba(196, 26, 26, 0.2);
+      background: rgba(196, 26, 26, 0.3);
+      border-color: var(--blood-red);
     }
 
     .role-icon {
-      font-size: 20px;
+      font-size: 18px;
     }
   }
 }
 
-// 阶段提示
+// ==================== 阶段横幅 ====================
 .phase-banner {
   text-align: center;
-  padding: 30px 20px;
-  margin-bottom: 20px;
-  background: linear-gradient(135deg, var(--card-surface) 0%, rgba(15, 12, 8, 0.9) 100%);
-  border: 1px solid var(--card-border);
-  border-radius: 12px;
+  padding: 24px 20px 20px;
+  margin: 0 16px 16px;
+  background: linear-gradient(135deg, rgba(20, 16, 12, 0.9) 0%, rgba(12, 10, 8, 0.95) 100%);
+  border: 1px solid rgba(74, 61, 48, 0.4);
+  border-radius: 4px 16px 4px 16px;
   position: relative;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.03);
 
+  // 顶部血线装饰
   &::before {
     content: '';
     position: absolute;
-    top: -1px;
-    left: 20px;
-    right: 20px;
+    top: -1px; left: 16px; right: 16px;
     height: 2px;
     background: linear-gradient(90deg, transparent, var(--blood-red), transparent);
   }
 
+  // 底部金线装饰
+  &::after {
+    content: '';
+    position: absolute;
+    bottom: -1px; left: 24px; right: 24px;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(212, 175, 55, 0.3), transparent);
+  }
+
   .phase-icon {
     display: block;
-    font-size: 48px;
-    margin-bottom: 12px;
-    filter: drop-shadow(0 4px 12px rgba(196, 26, 26, 0.4));
+    font-size: 52px;
+    margin-bottom: 8px;
+    filter: drop-shadow(0 4px 16px rgba(196, 26, 26, 0.5));
+    animation: iconFloat 3s ease-in-out infinite;
   }
 
   .phase-title {
     display: block;
     font-family: var(--font-display);
-    font-size: 24px;
+    font-size: 22px;
     font-weight: bold;
     color: var(--gold);
-    margin-bottom: 8px;
-    letter-spacing: 3px;
-    text-shadow: 0 0 12px rgba(229, 192, 64, 0.3);
+    margin-bottom: 6px;
+    letter-spacing: 4px;
+    text-shadow: 0 0 16px rgba(229, 192, 64, 0.3), 0 2px 4px rgba(0, 0, 0, 0.5);
   }
 
   .phase-subtitle {
     display: block;
-    font-size: 14px;
+    font-size: 13px;
     color: var(--text-secondary);
+    letter-spacing: 1px;
   }
 }
 
-// 玩家列表
+@keyframes iconFloat {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+
+// ==================== 玩家列表 - 桌游风格 ====================
 .players-section {
-  margin-bottom: 20px;
+  margin: 0 12px 16px;
 
   .section-title {
-    display: block;
-    font-size: 14px;
-    color: var(--gold);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    color: var(--gold-dim);
     margin-bottom: 12px;
-    letter-spacing: 1px;
+    padding: 0 4px;
+    letter-spacing: 2px;
 
     &::before {
-      content: '◆ ';
+      content: '◆';
       color: var(--blood-red);
-      font-size: 10px;
+      font-size: 8px;
+    }
+
+    &::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: linear-gradient(90deg, rgba(74, 61, 48, 0.4), transparent);
     }
   }
 
   .players-grid {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 10px;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
 
     .player-card {
-      background: rgba(30, 24, 18, 0.7);
-      border: 1px solid var(--card-border);
-      border-radius: 10px;
-      padding: 12px;
+      background: rgba(20, 16, 12, 0.8);
+      border: 1.5px solid rgba(74, 61, 48, 0.5);
+      border-radius: 12px;
+      padding: 10px 4px 8px;
       text-align: center;
       transition: all 0.3s ease;
       position: relative;
+      overflow: hidden;
+
+      // 卡片顶部装饰线
+      &::before {
+        content: '';
+        position: absolute;
+        top: 0; left: 8px; right: 8px;
+        height: 1px;
+        background: linear-gradient(90deg, transparent, rgba(212, 175, 55, 0.15), transparent);
+      }
 
       &.selected {
-        border-color: var(--blood-red);
-        background: rgba(196, 26, 26, 0.1);
-        box-shadow: 0 0 16px rgba(196, 26, 26, 0.2);
+        border-color: var(--blood-glow);
+        background: rgba(196, 26, 26, 0.12);
+        box-shadow: 0 0 20px rgba(196, 26, 26, 0.3), inset 0 0 12px rgba(196, 26, 26, 0.05);
+        transform: scale(1.04);
 
         &::before {
-          content: '';
-          position: absolute;
-          top: 0;
-          left: 0;
-          right: 0;
+          background: linear-gradient(90deg, transparent, var(--blood-glow), transparent);
           height: 2px;
-          background: linear-gradient(90deg, transparent, var(--blood-red), transparent);
+        }
+
+        .player-avatar {
+          border-color: var(--blood-glow);
+          box-shadow: 0 0 16px rgba(196, 26, 26, 0.5);
         }
       }
 
       &.DEAD {
-        opacity: 0.4;
-        filter: grayscale(0.5);
+        opacity: 0.45;
+        filter: grayscale(0.8) brightness(0.7);
+        pointer-events: none;
+
+        .player-avatar {
+          border-color: #3a3a3a;
+          box-shadow: none;
+          background: radial-gradient(circle, #2a2a2a 0%, #1a1a1a 100%);
+
+          // 头像上的红色 X 标记
+          &::before {
+            content: '';
+            position: absolute;
+            top: 50%; left: 50%;
+            width: 80%; height: 2px;
+            background: rgba(196, 26, 26, 0.7);
+            transform: translate(-50%, -50%) rotate(45deg);
+            z-index: 2;
+          }
+
+          &::after {
+            content: '';
+            position: absolute;
+            top: 50%; left: 50%;
+            width: 80%; height: 2px;
+            background: rgba(196, 26, 26, 0.7);
+            transform: translate(-50%, -50%) rotate(-45deg);
+            z-index: 2;
+            border: none;
+            inset: auto;
+            border-radius: 0;
+          }
+        }
+
+        .player-name {
+          color: #666;
+          text-decoration: line-through;
+          text-decoration-color: rgba(196, 26, 26, 0.5);
+        }
+
+        .seat-num {
+          color: #555;
+        }
       }
 
       // 发言中 - 绿色高亮边框
       &.speaking {
         border-color: #4caf50;
         background: rgba(76, 175, 80, 0.08);
-        box-shadow: 0 0 16px rgba(76, 175, 80, 0.25), inset 0 0 8px rgba(76, 175, 80, 0.05);
+        box-shadow: 0 0 18px rgba(76, 175, 80, 0.25), inset 0 0 8px rgba(76, 175, 80, 0.04);
         animation: speakingPulse 1.5s ease-in-out infinite;
 
         .player-avatar {
           border-color: #4caf50;
-          box-shadow: 0 0 12px rgba(76, 175, 80, 0.4);
+          box-shadow: 0 0 14px rgba(76, 175, 80, 0.5);
         }
 
         &::after {
           content: '🎙️';
           position: absolute;
-          top: 4px;
-          right: 4px;
-          font-size: 12px;
-          filter: drop-shadow(0 0 4px rgba(76, 175, 80, 0.6));
+          top: 3px; right: 3px;
+          font-size: 10px;
         }
       }
 
       .player-avatar {
-        width: 40px;
-        height: 40px;
+        width: 44px;
+        height: 44px;
         border-radius: 50%;
-        background: linear-gradient(135deg, var(--parchment-light) 0%, var(--parchment) 100%);
-        border: 2px solid var(--gold-dim);
-        margin: 0 auto 8px;
+        background: radial-gradient(circle at 35% 35%, var(--parchment-light) 0%, var(--parchment) 60%, #181410 100%);
+        border: 2.5px solid var(--gold-dim);
+        margin: 0 auto 6px;
         display: flex;
         align-items: center;
         justify-content: center;
         overflow: hidden;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.5), inset 0 1px 2px rgba(255, 255, 255, 0.1);
+        position: relative;
+
+        // 头像外环装饰
+        &::after {
+          content: '';
+          position: absolute;
+          inset: -5px;
+          border: 1px dashed rgba(212, 175, 55, 0.15);
+          border-radius: 50%;
+          pointer-events: none;
+        }
 
         .avatar-img {
           width: 100%;
           height: 100%;
+          border-radius: 50%;
         }
 
         .avatar-default {
-          font-size: 20px;
+          font-size: 22px;
+          filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.5));
         }
       }
 
       .player-name {
         display: block;
-        font-size: 12px;
+        font-size: 11px;
+        font-weight: 600;
         color: var(--text);
-        margin-bottom: 4px;
+        margin-bottom: 2px;
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
-      }
-
-      .host-badge {
-        display: inline-block;
-        font-size: 10px;
-        color: var(--blood-red);
-        background: rgba(196, 26, 26, 0.15);
-        border: 1px solid rgba(196, 26, 26, 0.3);
-        padding: 2px 6px;
-        border-radius: 4px;
-        margin-bottom: 4px;
+        padding: 0 2px;
       }
 
       .seat-num {
         display: block;
-        font-size: 11px;
+        font-size: 10px;
         color: var(--text-tertiary);
+        font-family: monospace;
+        letter-spacing: 1px;
       }
 
       .dead-badge {
         display: inline-block;
-        font-size: 10px;
-        color: var(--text-tertiary);
-        background: rgba(100, 100, 100, 0.2);
-        border: 1px solid rgba(100, 100, 100, 0.3);
-        padding: 2px 6px;
-        border-radius: 4px;
-        margin-top: 4px;
+        font-size: 9px;
+        color: var(--blood-red);
+        background: rgba(196, 26, 26, 0.12);
+        border: 1px solid rgba(196, 26, 26, 0.3);
+        padding: 1px 6px;
+        border-radius: 3px;
+        margin-top: 3px;
+        letter-spacing: 2px;
+        font-weight: 600;
       }
     }
   }
 }
 
-// 行动区域
+// ==================== 行动区域 ====================
 .action-section {
-  background: linear-gradient(135deg, var(--card-surface) 0%, rgba(15, 12, 8, 0.9) 100%);
-  border: 1px solid var(--card-border);
-  border-radius: 12px;
-  padding: 20px;
-  margin-bottom: 20px;
+  margin: 0 16px 16px;
+  background: linear-gradient(135deg, rgba(20, 16, 12, 0.95) 0%, rgba(10, 8, 6, 0.98) 100%);
+  border: 1.5px solid rgba(196, 26, 26, 0.3);
+  border-radius: 4px 12px 4px 12px;
+  padding: 18px 16px;
   text-align: center;
+  position: relative;
+  box-shadow: 0 4px 20px rgba(196, 26, 26, 0.1), inset 0 1px 0 rgba(196, 26, 26, 0.1);
+
+  &::before {
+    content: '';
+    position: absolute;
+    top: -1px; left: 12px; right: 12px;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--blood-red), transparent);
+  }
 
   .action-hint {
     display: block;
-    font-size: 14px;
+    font-size: 13px;
     color: var(--text-secondary);
-    margin-bottom: 16px;
+    margin-bottom: 14px;
+    letter-spacing: 1px;
   }
 
   .action-btn {
-    width: 100%;
-    height: 48px;
-    background: linear-gradient(180deg, rgba(196, 26, 26, 0.85) 0%, rgba(106, 0, 0, 0.95) 100%);
+    flex: 1;
+    height: 46px;
+    background: linear-gradient(180deg, rgba(196, 26, 26, 0.9) 0%, rgba(106, 0, 0, 0.95) 100%);
     border: 1.5px solid var(--gold);
-    border-radius: 8px;
+    border-radius: 6px;
     color: var(--text);
-    font-size: 16px;
-    font-weight: 600;
+    font-size: 15px;
+    font-weight: 700;
     letter-spacing: 3px;
-    box-shadow: 0 3px 0 var(--blood-dark);
+    box-shadow: 0 4px 0 var(--blood-dark), 0 6px 16px rgba(0, 0, 0, 0.3);
+    font-family: var(--font-serif);
 
     &::after {
       border: none;
     }
 
     &:active {
-      transform: translateY(3px);
-      box-shadow: none;
+      transform: translateY(4px);
+      box-shadow: 0 0 0 var(--blood-dark), 0 2px 8px rgba(0, 0, 0, 0.3);
     }
 
     &[disabled] {
-      background: rgba(40, 36, 32, 0.6);
+      background: rgba(40, 36, 32, 0.5);
       border-color: var(--card-border);
       color: var(--text-tertiary);
       box-shadow: none;
@@ -344,91 +479,95 @@
   }
 }
 
-// 聊天区域
+// ==================== 聊天区域 ====================
 .chat-section {
-  background: linear-gradient(135deg, var(--card-surface) 0%, rgba(15, 12, 8, 0.9) 100%);
-  border: 1px solid var(--card-border);
-  border-radius: 12px;
+  margin: 0 16px 20px;
+  background: linear-gradient(135deg, rgba(20, 16, 12, 0.9) 0%, rgba(10, 8, 6, 0.95) 100%);
+  border: 1px solid rgba(74, 61, 48, 0.4);
+  border-radius: 4px 12px 4px 12px;
   overflow: hidden;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.4);
 
   .chat-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 10px 16px;
-    border-bottom: 1px solid rgba(61, 48, 37, 0.3);
+    padding: 8px 14px;
+    border-bottom: 1px solid rgba(61, 48, 37, 0.25);
+    background: rgba(8, 6, 4, 0.3);
 
     .chat-title {
-      font-size: 13px;
+      font-size: 12px;
       font-weight: 600;
-      color: var(--gold);
-      letter-spacing: 1px;
+      color: var(--gold-dim);
+      letter-spacing: 2px;
     }
 
     .chat-hint {
-      font-size: 11px;
+      font-size: 10px;
       color: #4caf50;
       padding: 2px 8px;
-      background: rgba(76, 175, 80, 0.1);
+      background: rgba(76, 175, 80, 0.08);
       border: 1px solid rgba(76, 175, 80, 0.2);
       border-radius: 10px;
+      letter-spacing: 1px;
     }
   }
 
   .chat-messages {
-    height: 150px;
-    padding: 10px 14px;
+    height: 130px;
+    padding: 8px 12px;
     overflow-y: auto;
 
     &::-webkit-scrollbar {
-      width: 3px;
+      width: 2px;
     }
 
     &::-webkit-scrollbar-thumb {
       background: var(--blood-dark);
-      border-radius: 2px;
+      border-radius: 1px;
     }
 
     .chat-item {
-      margin-bottom: 8px;
-      padding: 6px 10px;
-      border-radius: 6px;
-      background: rgba(10, 8, 6, 0.3);
+      margin-bottom: 6px;
+      padding: 5px 8px;
+      border-radius: 4px;
+      background: rgba(10, 8, 6, 0.25);
+      border-left: 2px solid transparent;
 
       &.me {
-        background: rgba(139, 0, 0, 0.12);
-        border-left: 2px solid var(--blood-red);
+        background: rgba(139, 0, 0, 0.1);
+        border-left-color: var(--blood-red);
       }
 
       .chat-sender {
-        font-size: 12px;
-        color: var(--gold);
-        margin-right: 8px;
+        font-size: 11px;
+        color: var(--gold-dim);
+        margin-right: 6px;
         font-weight: 600;
       }
 
       .chat-content {
-        font-size: 14px;
+        font-size: 13px;
         color: var(--text);
       }
     }
   }
 
-  // 聊天输入行
   .chat-input-row {
     display: flex;
     gap: 8px;
-    padding: 10px 12px;
-    background: rgba(10, 8, 6, 0.5);
-    border-top: 1px solid rgba(61, 48, 37, 0.3);
+    padding: 8px 10px;
+    background: rgba(8, 6, 4, 0.5);
+    border-top: 1px solid rgba(61, 48, 37, 0.2);
 
     .chat-input {
       flex: 1;
-      height: 38px;
-      background: rgba(10, 8, 6, 0.6);
+      height: 36px;
+      background: rgba(10, 8, 6, 0.7);
       border: 1px solid #3d3025;
-      border-radius: 19px;
-      padding: 0 16px;
+      border-radius: 18px;
+      padding: 0 14px;
       color: var(--text);
       font-size: 13px;
 
@@ -443,110 +582,119 @@
     }
 
     .chat-send-btn {
-      width: 58px;
-      height: 38px;
+      width: 54px;
+      height: 36px;
       background: linear-gradient(180deg, rgba(76, 175, 80, 0.8) 0%, rgba(46, 125, 50, 0.9) 100%);
-      border: 1px solid #4caf50;
-      border-radius: 19px;
-      color: var(--text);
-      font-size: 13px;
+      border: 1px solid rgba(76, 175, 80, 0.6);
+      border-radius: 18px;
+      color: #fff;
+      font-size: 12px;
       font-weight: 600;
-      line-height: 38px;
+      line-height: 36px;
       flex-shrink: 0;
 
-      &::after {
-        border: none;
-      }
-
-      &:active {
-        background: #4caf50;
-      }
+      &::after { border: none; }
+      &:active { background: #4caf50; }
     }
   }
 
-  // 禁言状态
   .chat-input-disabled {
-    padding: 10px 12px;
-    background: rgba(10, 8, 6, 0.4);
-    border-top: 1px solid rgba(61, 48, 37, 0.2);
+    padding: 8px 10px;
+    background: rgba(8, 6, 4, 0.3);
+    border-top: 1px solid rgba(61, 48, 37, 0.15);
     text-align: center;
 
     .chat-disabled-text {
-      font-size: 12px;
+      font-size: 11px;
       color: #5a4a3a;
-      letter-spacing: 1px;
+      letter-spacing: 2px;
+      font-style: italic;
     }
   }
 }
 
-// 发言高亮动画
+// ==================== 动画 ====================
 @keyframes speakingPulse {
-  0%, 100% {
-    box-shadow: 0 0 12px rgba(76, 175, 80, 0.2), inset 0 0 6px rgba(76, 175, 80, 0.03);
-  }
-  50% {
-    box-shadow: 0 0 20px rgba(76, 175, 80, 0.35), inset 0 0 10px rgba(76, 175, 80, 0.06);
-  }
+  0%, 100% { box-shadow: 0 0 12px rgba(76, 175, 80, 0.2), inset 0 0 6px rgba(76, 175, 80, 0.03); }
+  50% { box-shadow: 0 0 22px rgba(76, 175, 80, 0.35), inset 0 0 10px rgba(76, 175, 80, 0.06); }
 }
 
-// 弹窗
+// ==================== 角色弹窗 ====================
 .modal-overlay {
   position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(5, 3, 2, 0.9);
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(3, 2, 1, 0.92);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 1000;
 
   .modal-content {
-    width: 80%;
+    width: 82%;
     max-width: 300px;
-    background: linear-gradient(135deg, var(--parchment-light) 0%, var(--parchment) 100%);
-    border: 1px solid var(--card-border);
-    border-radius: 4px 16px 4px 16px;
-    padding: 24px;
+    background: linear-gradient(135deg, #2a2218 0%, #1e1812 50%, #141210 100%);
+    border: 1.5px solid rgba(212, 175, 55, 0.3);
+    border-radius: 4px 20px 4px 20px;
+    padding: 28px 24px;
     text-align: center;
-    box-shadow: 0 16px 48px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(229, 192, 64, 0.1);
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(229, 192, 64, 0.08), 0 0 40px rgba(196, 26, 26, 0.1);
+    position: relative;
+
+    // 顶部装饰
+    &::before {
+      content: '';
+      position: absolute;
+      top: -1px; left: 20px; right: 20px;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, rgba(212, 175, 55, 0.5), transparent);
+    }
+
+    &::after {
+      content: '';
+      position: absolute;
+      bottom: -1px; left: 30px; right: 30px;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(196, 26, 26, 0.4), transparent);
+    }
 
     .modal-title {
       display: block;
       font-family: var(--font-display);
-      font-size: 18px;
+      font-size: 16px;
       font-weight: 600;
-      color: var(--gold);
-      margin-bottom: 16px;
-      letter-spacing: 2px;
+      color: var(--gold-dim);
+      margin-bottom: 6px;
+      letter-spacing: 3px;
     }
 
     .modal-role {
       display: block;
-      font-size: 24px;
-      color: var(--blood-red);
-      margin-bottom: 24px;
-      text-shadow: 0 0 12px rgba(196, 26, 26, 0.4);
+      font-size: 28px;
+      font-weight: 700;
+      color: var(--gold);
+      margin-bottom: 4px;
+      letter-spacing: 4px;
+      text-shadow: 0 0 20px rgba(229, 192, 64, 0.4), 0 2px 4px rgba(0, 0, 0, 0.5);
     }
 
     .modal-close {
       width: 100%;
       height: 44px;
-      background: linear-gradient(180deg, rgba(196, 26, 26, 0.85) 0%, rgba(106, 0, 0, 0.95) 100%);
+      margin-top: 16px;
+      background: linear-gradient(180deg, rgba(196, 26, 26, 0.85) 0%, rgba(90, 0, 0, 0.95) 100%);
       border: 1.5px solid var(--gold);
-      border-radius: 8px;
+      border-radius: 6px;
       color: var(--text);
       font-size: 14px;
-      font-weight: 600;
-      letter-spacing: 2px;
+      font-weight: 700;
+      letter-spacing: 3px;
+      font-family: var(--font-serif);
+      box-shadow: 0 3px 0 var(--blood-dark);
 
-      &::after {
-        border: none;
-      }
-
+      &::after { border: none; }
       &:active {
-        background: var(--blood-red);
+        transform: translateY(3px);
+        box-shadow: none;
       }
     }
   }

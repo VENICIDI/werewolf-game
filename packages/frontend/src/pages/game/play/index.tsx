@@ -223,6 +223,16 @@ export default function GamePlay() {
     if (data.message) {
       Taro.showToast({ title: data.message, icon: 'none', duration: 3000 })
     }
+    // 更新被处决玩家状态为 DEAD
+    if (data.eliminatedPlayerId) {
+      setGame(prev => {
+        if (!prev) return null
+        const updatedPlayers = prev.players.map(p =>
+          p.playerId === data.eliminatedPlayerId ? { ...p, status: 'DEAD' } : p
+        )
+        return { ...prev, players: updatedPlayers }
+      })
+    }
   }, [])
 
   const handleActionConfirm = useCallback((message: any) => {
@@ -401,8 +411,8 @@ export default function GamePlay() {
         <View className='action-section'>
           <Text className='action-hint'>
             {selectedTarget
-              ? `已选择 ${game?.players.find(p => p.playerId === selectedTarget)?.username}`
-              : '请点击选择目标'}
+              ? `⚔ 目标：${game?.players.find(p => p.playerId === selectedTarget)?.username}`
+              : '☞ 请点击上方选择目标'}
           </Text>
           <View style={{ display: 'flex', gap: '10px' }}>
             <Button
@@ -410,12 +420,12 @@ export default function GamePlay() {
               onClick={handleAction}
               disabled={!selectedTarget}
             >
-              确认行动
+              ◈ 确认行动 ◈
             </Button>
             <Button
               className='action-btn'
               onClick={handleSkip}
-              style={{ background: 'rgba(40,36,32,0.8)', border: '1px solid #4a3d30' }}
+              style={{ background: 'rgba(30,26,22,0.9)', border: '1.5px solid rgba(74,61,48,0.4)', boxShadow: 'none' }}
             >
               跳过
             </Button>
@@ -474,13 +484,19 @@ export default function GamePlay() {
       {showRoleModal && (
         <View className='modal-overlay' onClick={() => setShowRoleModal(false)}>
           <View className='modal-content' onClick={(e) => e.stopPropagation()}>
-            <Text className='modal-title'>你的身份</Text>
+            <Text className='modal-title'>—— 你的身份 ——</Text>
+            <Text style={{ display: 'block', textAlign: 'center', fontSize: '40px', marginBottom: '8px', filter: 'drop-shadow(0 4px 12px rgba(196, 26, 26, 0.4))' }}>
+              {game?.myRole === 'WEREWOLF' ? '🐺' : game?.myRole === 'SEER' ? '🔮' : game?.myRole === 'WITCH' ? '🧙' : game?.myRole === 'HUNTER' ? '🔫' : game?.myRole === 'GUARD' ? '🛡️' : game?.myRole === 'IDIOT' ? '🤡' : '👤'}
+            </Text>
             <Text className='modal-role'>{getRoleName(game?.myRole)}</Text>
-            <Text style={{ display: 'block', textAlign: 'center', fontSize: '13px', color: '#b0a090', marginBottom: '20px' }}>
+            <Text style={{ display: 'block', textAlign: 'center', fontSize: '11px', color: game?.myRole === 'WEREWOLF' ? '#ff4444' : '#4caf50', letterSpacing: '2px', marginBottom: '4px' }}>
+              {game?.myRole === 'WEREWOLF' ? '狼人阵营' : '好人阵营'}
+            </Text>
+            <Text style={{ display: 'block', textAlign: 'center', fontSize: '12px', color: '#8a7a68', marginBottom: '16px', fontFamily: 'monospace' }}>
               {game?.mySeat}号位
             </Text>
             <Button className='modal-close' onClick={() => setShowRoleModal(false)}>
-              知道了
+              ◈ 知道了 ◈
             </Button>
           </View>
         </View>
