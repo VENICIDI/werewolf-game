@@ -251,13 +251,15 @@ public class AIPlayerBridge {
             Map<String, Object> gameState = buildGameState(gameId);
 
             Map<String, Object> decision;
+            String action;
             if (phase == Game.GamePhase.VOTING) {
                 decision = callAIVoteDecision(gameId, aiPlayer.getId(), gameState);
+                action = "vote";  // 投票接口不返回 action 字段
             } else {
                 decision = callAINightAction(gameId, aiPlayer.getId(), gameState);
+                action = (String) decision.get("action");
+                if (action == null) action = "skip";
             }
-
-            String action = (String) decision.get("action");
             Object targetIdObj = decision.get("target_id");
             Long targetId = targetIdObj != null ? ((Number) targetIdObj).longValue() : null;
 

@@ -175,7 +175,7 @@ public class PhaseScheduler {
         // 广播阶段消息
         if (phase.getBroadcast() != null) {
             Map<String, Object> data = new HashMap<>();
-            data.put("phase", phase.getPhase());
+            data.put("phase", gamePhase != null ? gamePhase.name() : phase.getPhase());
             data.put("message", phase.getBroadcast());
             data.put("duration", phase.getDuration());
             getGameService().broadcastToGame(gameId, "PHASE_CHANGE", data);

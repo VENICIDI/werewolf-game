@@ -124,6 +124,7 @@ export default function GamePlay() {
       wsManager.on('VOTE_START', handleVoteStart)
       wsManager.on('VOTE_RESULT', handleVoteResult)
       wsManager.on('ACTION_CONFIRM', handleActionConfirm)
+      wsManager.on('SEER_RESULT', handleSeerResult)
       wsManager.on('SYSTEM', handleSystemMessage)
 
       await wsManager.connect(roomCode)
@@ -236,7 +237,28 @@ export default function GamePlay() {
   }, [])
 
   const handleActionConfirm = useCallback((message: any) => {
-    Taro.showToast({ title: '行动已确认', icon: 'success' })
+    const data = message.data
+    // 如果是查验结果，显示详细信息
+    if (data?.isWerewolf !== undefined) {
+      const isWolf = data.isWerewolf
+      Taro.showModal({
+        title: '🔮 查验结果',
+        content: `${data.targetSeat}号玩家是${isWolf ? '🐺 狼人' : '👤 好人'}`,
+        showCancel: false,
+      })
+    } else {
+      Taro.showToast({ title: '行动已确认', icon: 'success' })
+    }
+  }, [])
+
+  const handleSeerResult = useCallback((message: any) => {
+    const data = message.data
+    const isWolf = data?.isWerewolf
+    Taro.showModal({
+      title: '🔮 查验结果',
+      content: data?.message || `${data?.targetSeat}号玩家是${isWolf ? '🐺 狼人' : '👤 好人'}`,
+      showCancel: false,
+    })
   }, [])
 
   const handleSystemMessage = useCallback((message: any) => {
