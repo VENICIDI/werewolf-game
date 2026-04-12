@@ -256,7 +256,9 @@ public class GameService {
     }
 
     private List<Player> createPlayers(Game game, Long roomId) {
-        List<RoomMember> members = roomMemberRepository.findByRoomId(roomId);
+        List<RoomMember> members = new ArrayList<>(roomMemberRepository.findByRoomId(roomId));
+        // 随机打乱座位顺序，避免座位号与房间加入顺序一致
+        Collections.shuffle(members);
         List<Player> players = new ArrayList<>();
 
         int seatNumber = 1;
