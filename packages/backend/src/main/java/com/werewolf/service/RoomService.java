@@ -152,6 +152,28 @@ public class RoomService {
         }
         
         roomRepository.save(room);
+        
+        // 检查是否只剩 AI 玩家 —— 如果是，解散房间
+        if (room.getStatus() == Room.RoomStatus.WAITING && newCount > 0) {
+            dissolveIfOnlyAiRemaining(room);
+        }
+    }
+    
+    /**
+     * 如果房间中只剩 AI 玩家，清除所有 AI 并关闭房间
+     */
+    private void dissolveIfOnlyAiRemaining(Room room) {
+        List<RoomMember> remaining = roomMemberRepository.findByRoomId(room.getId());
+        boolean hasHuman = remaining.stream()
+                .anyMatch(m -> !m.getUser().getUsername().startsWith("[AI]"));
+        
+        if (!hasHuman && !remaining.isEmpty()) {
+            // 全是 AI，解散房间
+            roomMemberRepository.deleteAll(remaining);
+            room.setCurrentPlayers(0);
+            room.setStatus(Room.RoomStatus.FINISHED);
+            roomRepository.save(room);
+        }
     }
     
     /**
@@ -181,6 +203,11 @@ public class RoomService {
                 }
                 
                 roomRepository.save(memberRoom);
+                
+                // 检查是否只剩 AI，是则解散
+                if (memberRoom.getStatus() == Room.RoomStatus.WAITING && newCount > 0) {
+                    dissolveIfOnlyAiRemaining(memberRoom);
+                }
             }
         }
     }
