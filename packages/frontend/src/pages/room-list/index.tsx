@@ -61,13 +61,13 @@ export default function RoomList() {
       Taro.showLoading({ title: '加入中...' })
       await joinRoom(roomCode, password)
       Taro.hideLoading()
-      Taro.showToast({ title: '加入成功', icon: 'success' })
-      setTimeout(() => {
-        Taro.navigateTo({ url: `/pages/room/index?code=${roomCode}` })
-      }, 500)
+      Taro.navigateTo({ url: `/pages/room/index?code=${roomCode}` })
     } catch (error: any) {
       Taro.hideLoading()
-      Taro.showToast({ title: error.message || '加入失败', icon: 'none' })
+      const msg = error?.data?.message || error?.message || '加入失败'
+      setTimeout(() => {
+        Taro.showToast({ title: msg, icon: 'none' })
+      }, 100)
     }
   }
 

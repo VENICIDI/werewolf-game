@@ -34,13 +34,14 @@ const request = (options: any) => {
             })
             reject(data)
           }
-        } else if (res.statusCode === 401) {
-          // Token 过期，清除登录状态并弹出登录提示
+        } else if (res.statusCode === 401 || res.statusCode === 403) {
           Taro.removeStorageSync('token')
           Taro.removeStorageSync('userInfo')
           checkLogin({
-            title: '登录已过期',
-            message: '你的身份令牌已失效，需要重新登录以继续操作'
+            title: res.statusCode === 401 ? '登录已过期' : '请先登录',
+            message: res.statusCode === 401
+              ? '你的身份令牌已失效，需要重新登录以继续操作'
+              : '该操作需要登录，请先登录后再试'
           })
           reject(res)
         } else {

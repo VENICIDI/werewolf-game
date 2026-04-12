@@ -50,11 +50,22 @@ export const checkLogin = (options?: LoginGuardOptions): boolean => {
     return true
   }
 
-  // 优先使用注册的弹窗组件
-  if (showLoginModalCallback) {
+  // 小程序环境使用原生弹窗（自定义浮层在 App 组件中无法正确覆盖页面）
+  if (process.env.TARO_ENV !== 'h5') {
+    Taro.showModal({
+      title: options?.title || '需要登录',
+      content: options?.message || '该操作需要登录后才能使用，是否前往登录？',
+      confirmText: options?.confirmText || '去登录',
+      cancelText: options?.cancelText || '取消',
+      success: (res) => {
+        if (res.confirm) {
+          navigateToLogin(options?.redirectUrl)
+        }
+      }
+    })
+  } else if (showLoginModalCallback) {
     showLoginModalCallback(options)
   } else {
-    // 兜底方案：使用 Taro 原生弹窗
     Taro.showModal({
       title: options?.title || '需要登录',
       content: options?.message || '该操作需要登录后才能使用，是否前往登录？',

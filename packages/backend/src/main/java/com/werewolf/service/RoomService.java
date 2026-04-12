@@ -39,10 +39,12 @@ public class RoomService {
     }
     
     /**
-     * 创建房间
+     * 创建房间（自动退出其他等待中的房间）
      */
     @Transactional
     public Room createRoom(String roomName, User host, Integer maxPlayers, String password) {
+        leaveAllWaitingRooms(host);
+        
         String roomCode;
         do {
             roomCode = generateRoomCode();
@@ -61,7 +63,6 @@ public class RoomService {
         
         Room savedRoom = roomRepository.save(room);
         
-        // 添加房主到房间成员
         RoomMember member = RoomMember.builder()
                 .room(savedRoom)
                 .user(host)
@@ -95,25 +96,23 @@ public class RoomService {
     }
     
     /**
-     * 用户加入房间
+     * 用户加入房间（幂等：已在房间则直接返回；自动退出其他等待中的房间）
      */
     @Transactional
     public void joinRoom(Room room, User user) {
-        // 检查是否已在房间
         if (roomMemberRepository.existsByRoomIdAndUserId(room.getId(), user.getId())) {
-            throw new RuntimeException("您已在该房间中");
+            return;
         }
         
-        // 检查房间是否已满
         if (room.getCurrentPlayers() >= room.getMaxPlayers()) {
             throw new RuntimeException("房间已满");
         }
         
-        // 更新房间人数
+        leaveAllWaitingRooms(user);
+        
         room.setCurrentPlayers(room.getCurrentPlayers() + 1);
         roomRepository.save(room);
         
-        // 添加成员
         RoomMember member = RoomMember.builder()
                 .room(room)
                 .user(user)
@@ -153,6 +152,37 @@ public class RoomService {
         }
         
         roomRepository.save(room);
+    }
+    
+    /**
+     * 退出用户所在的所有等待中的房间
+     */
+    @Transactional
+    public void leaveAllWaitingRooms(User user) {
+        List<RoomMember> memberships = roomMemberRepository.findByUserId(user.getId());
+        for (RoomMember membership : memberships) {
+            Room memberRoom = membership.getRoom();
+            if (memberRoom.getStatus() == Room.RoomStatus.WAITING) {
+                roomMemberRepository.delete(membership);
+                
+                int newCount = Math.max(0, memberRoom.getCurrentPlayers() - 1);
+                memberRoom.setCurrentPlayers(newCount);
+                
+                if (newCount == 0) {
+                    memberRoom.setStatus(Room.RoomStatus.FINISHED);
+                } else if (membership.getIsHost()) {
+                    List<RoomMember> remaining = roomMemberRepository.findByRoomId(memberRoom.getId());
+                    if (!remaining.isEmpty()) {
+                        RoomMember newHost = remaining.get(0);
+                        newHost.setIsHost(true);
+                        roomMemberRepository.save(newHost);
+                        memberRoom.setHost(newHost.getUser());
+                    }
+                }
+                
+                roomRepository.save(memberRoom);
+            }
+        }
     }
     
     /**

@@ -2,7 +2,9 @@ package com.werewolf.websocket;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.werewolf.entity.Room;
+import com.werewolf.entity.User;
 import com.werewolf.service.RoomService;
+import com.werewolf.service.UserService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.CloseStatus;
@@ -26,10 +28,12 @@ public class RoomWebSocketHandler extends TextWebSocketHandler {
     
     private final ObjectMapper objectMapper;
     private final RoomService roomService;
+    private final UserService userService;
     
-    public RoomWebSocketHandler(ObjectMapper objectMapper, RoomService roomService) {
+    public RoomWebSocketHandler(ObjectMapper objectMapper, RoomService roomService, UserService userService) {
         this.objectMapper = objectMapper;
         this.roomService = roomService;
+        this.userService = userService;
     }
     
     @Override
@@ -98,7 +102,6 @@ public class RoomWebSocketHandler extends TextWebSocketHandler {
         
         log.info("WebSocket 连接关闭 - 房间: {}, 用户: {}", roomCode, username);
         
-        // 从房间移除
         if (roomCode != null && userId != null) {
             Map<Long, WebSocketSession> sessions = roomSessions.get(roomCode);
             if (sessions != null) {
@@ -108,6 +111,20 @@ public class RoomWebSocketHandler extends TextWebSocketHandler {
                 }
             }
             userRoomMap.remove(userId);
+            
+            // 如果房间处于等待状态，自动将用户从房间中移除
+            try {
+                Room room = roomService.findByRoomCode(roomCode).orElse(null);
+                if (room != null && room.getStatus() == Room.RoomStatus.WAITING) {
+                    User user = userService.findById(userId).orElse(null);
+                    if (user != null && roomService.isUserInRoom(room.getId(), userId)) {
+                        roomService.leaveRoom(room, user);
+                        log.info("用户 {} 断连，已自动退出等待中的房间 {}", username, roomCode);
+                    }
+                }
+            } catch (Exception e) {
+                log.error("自动退出房间失败 - 用户: {}, 房间: {}, 错误: {}", username, roomCode, e.getMessage());
+            }
             
             // 广播用户离开消息
             WebSocketMessage message = new WebSocketMessage(

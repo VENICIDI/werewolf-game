@@ -212,6 +212,28 @@
         filter: grayscale(0.5);
       }
 
+      // 发言中 - 绿色高亮边框
+      &.speaking {
+        border-color: #4caf50;
+        background: rgba(76, 175, 80, 0.08);
+        box-shadow: 0 0 16px rgba(76, 175, 80, 0.25), inset 0 0 8px rgba(76, 175, 80, 0.05);
+        animation: speakingPulse 1.5s ease-in-out infinite;
+
+        .player-avatar {
+          border-color: #4caf50;
+          box-shadow: 0 0 12px rgba(76, 175, 80, 0.4);
+        }
+
+        &::after {
+          content: '🎙️';
+          position: absolute;
+          top: 4px;
+          right: 4px;
+          font-size: 12px;
+          filter: drop-shadow(0 0 4px rgba(76, 175, 80, 0.6));
+        }
+      }
+
       .player-avatar {
         width: 40px;
         height: 40px;
@@ -327,11 +349,35 @@
   background: linear-gradient(135deg, var(--card-surface) 0%, rgba(15, 12, 8, 0.9) 100%);
   border: 1px solid var(--card-border);
   border-radius: 12px;
-  padding: 16px;
-  height: 150px;
+  overflow: hidden;
+
+  .chat-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 16px;
+    border-bottom: 1px solid rgba(61, 48, 37, 0.3);
+
+    .chat-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--gold);
+      letter-spacing: 1px;
+    }
+
+    .chat-hint {
+      font-size: 11px;
+      color: #4caf50;
+      padding: 2px 8px;
+      background: rgba(76, 175, 80, 0.1);
+      border: 1px solid rgba(76, 175, 80, 0.2);
+      border-radius: 10px;
+    }
+  }
 
   .chat-messages {
-    height: 100%;
+    height: 150px;
+    padding: 10px 14px;
     overflow-y: auto;
 
     &::-webkit-scrollbar {
@@ -345,8 +391,14 @@
 
     .chat-item {
       margin-bottom: 8px;
-      padding: 4px 8px;
-      border-radius: 4px;
+      padding: 6px 10px;
+      border-radius: 6px;
+      background: rgba(10, 8, 6, 0.3);
+
+      &.me {
+        background: rgba(139, 0, 0, 0.12);
+        border-left: 2px solid var(--blood-red);
+      }
 
       .chat-sender {
         font-size: 12px;
@@ -360,6 +412,80 @@
         color: var(--text);
       }
     }
+  }
+
+  // 聊天输入行
+  .chat-input-row {
+    display: flex;
+    gap: 8px;
+    padding: 10px 12px;
+    background: rgba(10, 8, 6, 0.5);
+    border-top: 1px solid rgba(61, 48, 37, 0.3);
+
+    .chat-input {
+      flex: 1;
+      height: 38px;
+      background: rgba(10, 8, 6, 0.6);
+      border: 1px solid #3d3025;
+      border-radius: 19px;
+      padding: 0 16px;
+      color: var(--text);
+      font-size: 13px;
+
+      &:focus {
+        border-color: #4caf50;
+        box-shadow: 0 0 0 1px rgba(76, 175, 80, 0.15);
+      }
+
+      &::placeholder {
+        color: #5a4a3a;
+      }
+    }
+
+    .chat-send-btn {
+      width: 58px;
+      height: 38px;
+      background: linear-gradient(180deg, rgba(76, 175, 80, 0.8) 0%, rgba(46, 125, 50, 0.9) 100%);
+      border: 1px solid #4caf50;
+      border-radius: 19px;
+      color: var(--text);
+      font-size: 13px;
+      font-weight: 600;
+      line-height: 38px;
+      flex-shrink: 0;
+
+      &::after {
+        border: none;
+      }
+
+      &:active {
+        background: #4caf50;
+      }
+    }
+  }
+
+  // 禁言状态
+  .chat-input-disabled {
+    padding: 10px 12px;
+    background: rgba(10, 8, 6, 0.4);
+    border-top: 1px solid rgba(61, 48, 37, 0.2);
+    text-align: center;
+
+    .chat-disabled-text {
+      font-size: 12px;
+      color: #5a4a3a;
+      letter-spacing: 1px;
+    }
+  }
+}
+
+// 发言高亮动画
+@keyframes speakingPulse {
+  0%, 100% {
+    box-shadow: 0 0 12px rgba(76, 175, 80, 0.2), inset 0 0 6px rgba(76, 175, 80, 0.03);
+  }
+  50% {
+    box-shadow: 0 0 20px rgba(76, 175, 80, 0.35), inset 0 0 10px rgba(76, 175, 80, 0.06);
   }
 }
 

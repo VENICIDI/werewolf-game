@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react'
 import Taro, { useRouter } from '@tarojs/taro'
-import { View, Text, Button, ScrollView } from '@tarojs/components'
+import { View, Text, Button, ScrollView, Input } from '@tarojs/components'
 import { getGameStatus, GamePhase, GameStatus, Role } from '../../../api/game'
 import { get, post } from '../../../utils/request'
 import { wsManager } from '../../../utils/websocket'
@@ -41,6 +41,8 @@ export default function GamePlay() {
   const [game, setGame] = useState<GameData | null>(null)
   const [loading, setLoading] = useState(true)
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([])
+  const [chatInput, setChatInput] = useState('')
+  const [speakingPlayerIds, setSpeakingPlayerIds] = useState<Set<number>>(new Set())
   const [selectedTarget, setSelectedTarget] = useState<number | null>(null)
   const [phaseTimeLeft, setPhaseTimeLeft] = useState(0)
   const [showRoleModal, setShowRoleModal] = useState(false)
@@ -143,6 +145,7 @@ export default function GamePlay() {
       setPhaseTimeLeft(Math.floor(data.duration / 1000))
     }
     setSelectedTarget(null)
+    setSpeakingPlayerIds(new Set())
 
     // 显示阶段提示
     if (data.message) {
@@ -155,12 +158,23 @@ export default function GamePlay() {
   }, [])
 
   const handlePlayerChat = useCallback((message: any) => {
+    const senderId = message.senderId
     setChatMessages(prev => [...prev, {
-      senderId: message.senderId,
+      senderId,
       senderName: message.senderName,
       content: message.data?.content || '',
       timestamp: message.timestamp
     }])
+    // 标记发言者高亮
+    setSpeakingPlayerIds(prev => new Set(prev).add(senderId))
+    // 3秒后取消高亮
+    setTimeout(() => {
+      setSpeakingPlayerIds(prev => {
+        const next = new Set(prev)
+        next.delete(senderId)
+        return next
+      })
+    }, 3000)
   }, [])
 
   const handleGameOver = useCallback((message: any) => {
@@ -310,6 +324,21 @@ export default function GamePlay() {
     return map[role || ''] || role || '未知'
   }
 
+  // 判断当前阶段是否可以发送聊天消息（白天讨论阶段存活玩家可发言）
+  const canChat = () => {
+    if (!game) return false
+    const myPlayer = game.players.find(p => p.playerId === game.myPlayerId)
+    if (!myPlayer || myPlayer.status !== 'ALIVE') return false
+    return ['DISCUSSION', 'DAY_START'].includes(game.phase)
+  }
+
+  // 发送聊天消息
+  const handleSendChat = () => {
+    if (!chatInput.trim()) return
+    wsManager.sendChat(chatInput)
+    setChatInput('')
+  }
+
   const phaseDisplay = getPhaseDisplay()
 
   if (loading) {
@@ -351,7 +380,7 @@ export default function GamePlay() {
           {game?.players.map((player) => (
             <View
               key={player.playerId}
-              className={`player-card ${player.status} ${selectedTarget === player.playerId ? 'selected' : ''}`}
+              className={`player-card ${player.status} ${selectedTarget === player.playerId ? 'selected' : ''} ${speakingPlayerIds.has(player.playerId) ? 'speaking' : ''}`}
               onClick={() => canAct() && player.status === 'ALIVE' && setSelectedTarget(player.playerId)}
             >
               <View className='player-avatar'>
@@ -396,20 +425,49 @@ export default function GamePlay() {
 
       {/* 聊天区域 */}
       <View className='chat-section'>
-        <ScrollView className='chat-messages' scrollY>
+        <View className='chat-header'>
+          <Text className='chat-title'>💬 消息</Text>
+          {canChat() && <Text className='chat-hint'>讨论阶段，畅所欲言</Text>}
+        </View>
+        <ScrollView className='chat-messages' scrollY scrollWithAnimation>
           {chatMessages.length === 0 ? (
             <View style={{ textAlign: 'center', padding: '20px', color: '#8a7a68' }}>
               暗夜寂静...
             </View>
           ) : (
             chatMessages.map((msg, index) => (
-              <View key={index} className='chat-item'>
+              <View key={index} className={`chat-item ${msg.senderId === game?.myPlayerId ? 'me' : ''}`}>
                 <Text className='chat-sender'>{msg.senderName}:</Text>
                 <Text className='chat-content'>{msg.content}</Text>
               </View>
             ))
           )}
         </ScrollView>
+
+        {/* 聊天输入框 - 讨论阶段可用 */}
+        {canChat() ? (
+          <View className='chat-input-row'>
+            <Input
+              className='chat-input'
+              placeholder='发表你的看法...'
+              value={chatInput}
+              onInput={(e) => setChatInput(e.detail.value)}
+              onConfirm={handleSendChat}
+            />
+            <Button className='chat-send-btn' onClick={handleSendChat}>
+              发送
+            </Button>
+          </View>
+        ) : (
+          <View className='chat-input-disabled'>
+            <Text className='chat-disabled-text'>
+              {game?.phase === 'VOTING' ? '投票阶段，禁止发言' :
+               game?.phase === 'EXECUTION' ? '处决阶段，静默等待' :
+               ['NIGHT_START', 'WEREWOLF', 'SEER', 'WITCH', 'GUARD', 'HUNTER'].includes(game?.phase || '') ? '夜晚降临，保持沉默' :
+               '当前阶段无法发言'}
+            </Text>
+          </View>
+        )}
       </View>
 
       {/* 角色信息弹窗 */}
