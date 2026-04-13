@@ -8,12 +8,14 @@ LLM 发言生成器 (SpeechGenerator)
 4. 调用 LLM 生成
 5. 解析输出
 """
+import time
 import logging
 from typing import Optional, Dict, Any, TYPE_CHECKING
 
 from langchain_core.output_parsers import StrOutputParser
 
 from prompts.speech_prompts import SPEECH_PROMPT, DEFENSE_PROMPT
+from services.log_service import log_llm_call, get_game_logger
 
 if TYPE_CHECKING:
     from agents.base_agent import WerewolfAgent
@@ -59,15 +61,30 @@ class SpeechGenerator:
             # 2. 选择 Prompt 模板
             prompt = DEFENSE_PROMPT if context == "defense" else SPEECH_PROMPT
             
-            # 3. 构建 Chain 并调用 LLM
+            # 3. 构建 Chain 并调用 LLM（记录耗时）
             chain = prompt | self.llm | self.parser
             
-            result = await chain.ainvoke(prompt_vars)
+            # 格式化 prompt 用于日志记录
+            formatted_prompt = prompt.format(**prompt_vars)
             
-            # 4. 后处理
+            start_time = time.time()
+            result = await chain.ainvoke(prompt_vars)
+            duration_ms = (time.time() - start_time) * 1000
+            
+            # 4. 记录 LLM 调用日志
+            log_llm_call(
+                game_id=agent.game_id,
+                player_id=agent.player_id,
+                action=f"speak/{context}",
+                prompt=formatted_prompt,
+                response=result,
+                duration_ms=duration_ms
+            )
+            
+            # 5. 后处理
             result = self._post_process(result)
             
-            logger.info(f"[SpeechGen] Player {agent.player_id} generated: {result[:50]}...")
+            logger.info(f"[SpeechGen] Player {agent.player_id} generated ({duration_ms:.0f}ms): {result[:50]}...")
             return result
             
         except Exception as e:

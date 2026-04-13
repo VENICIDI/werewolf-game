@@ -2,6 +2,7 @@
 Agent 管理 API 路由
 提供 Agent 创建、销毁、事件通知、决策接口
 """
+import logging
 from fastapi import APIRouter, HTTPException
 from agents.agent_manager import agent_manager
 from models.agent_models import (
@@ -14,6 +15,9 @@ from models.agent_models import (
 )
 from models.game_models import GameState
 from models.event_models import GameEvent
+from services.log_service import get_game_logger
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/agents", tags=["agents"])
 
@@ -43,6 +47,12 @@ async def create_agent(request: CreateAgentRequest):
             seat_number=request.seat_number,
             player_ids=request.player_ids,
             seat_map=request.seat_map,
+        )
+        
+        glog = get_game_logger(request.game_id)
+        glog.info(
+            f"Agent 创建: player={request.player_id}, role={request.role}, "
+            f"persona={request.persona}, seat={request.seat_number}"
         )
         
         return {

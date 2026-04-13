@@ -18,6 +18,7 @@ from models.agent_models import Persona
 from models.event_models import GameEvent, EventType
 from services.llm_service import LLMService
 from services.rag_service import RAGService
+from services.log_service import get_game_logger
 from agents.memory.memory_system import MemorySystem
 from agents.strategies import create_strategy, RoleStrategy
 from agents.persona.persona_profiles import get_persona, PersonaProfile
@@ -195,6 +196,7 @@ class WerewolfAgent:
     async def decide_night_action(self, game_state: GameState) -> NightActionDecision:
         """夜间行动决策"""
         logger.info(f"[Agent {self.player_id}] 夜间行动决策 ({self.strategy.role_name})")
+        glog = get_game_logger(self.game_id)
         
         self.memory.working.update_phase(game_state.round, game_state.phase.value)
         
@@ -206,6 +208,11 @@ class WerewolfAgent:
         
         decision = self.strategy.plan_night_action(self, game_state)
         
+        glog.info(
+            f"[Agent {self.player_id}] 夜间决策: action={decision.action}, "
+            f"target={decision.target_id}, confidence={decision.confidence:.2f}, "
+            f"reason={decision.reason}"
+        )
         logger.info(
             f"[Agent {self.player_id}] 决策: {decision.reason}, "
             f"target={decision.target_id}, confidence={decision.confidence:.2f}"
@@ -223,6 +230,7 @@ class WerewolfAgent:
         优先使用 LLM 生成，失败时降级为模板。
         """
         logger.info(f"[Agent {self.player_id}] 生成发言 ({context})")
+        glog = get_game_logger(self.game_id)
         
         content = None
         
@@ -238,6 +246,9 @@ class WerewolfAgent:
             guidance = self.strategy.get_speech_guidance(self, game_state)
             memory_ctx = self.memory.get_full_context()
             content = self._generate_template_speech(game_state, context, guidance, memory_ctx)
+            glog.info(f"[Agent {self.player_id}] 使用模板发言 (LLM不可用)")
+        
+        glog.info(f"[Agent {self.player_id}] 发言内容: {content[:100]}...")
         
         emotion = self._determine_emotion(game_state)
         mentioned = self._extract_mentioned_players(content, game_state)
@@ -317,10 +328,15 @@ class WerewolfAgent:
     async def decide_vote(self, game_state: GameState) -> VoteDecision:
         """投票决策"""
         logger.info(f"[Agent {self.player_id}] 投票决策")
+        glog = get_game_logger(self.game_id)
         self.memory.working.update_phase(game_state.round, "VOTING")
         
         decision = self.strategy.plan_vote(self, game_state)
         
+        glog.info(
+            f"[Agent {self.player_id}] 投票: target={decision.target_id}, "
+            f"reason={decision.reason}"
+        )
         logger.info(
             f"[Agent {self.player_id}] 投票: target={decision.target_id}, "
             f"reason={decision.reason}"

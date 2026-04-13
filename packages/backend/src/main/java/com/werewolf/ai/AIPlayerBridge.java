@@ -8,6 +8,7 @@ import com.werewolf.repository.PlayerRepository;
 import com.werewolf.service.GameService;
 import com.werewolf.websocket.RoomWebSocketHandler;
 import com.werewolf.websocket.WebSocketMessage;
+import com.werewolf.logging.GameLogger;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -368,6 +369,8 @@ public class AIPlayerBridge {
         request.put("game_state", gameState);
         request.put("speak_context", "discussion");
 
+        GameLogger.aiRequest(gameId, playerId, "/api/agents/action/speak", request);
+
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
         HttpEntity<Map<String, Object>> entity = new HttpEntity<>(request, headers);
@@ -377,12 +380,14 @@ public class AIPlayerBridge {
             
             if (response.getStatusCode() == HttpStatus.OK && response.getBody() != null) {
                 Map<String, Object> body = response.getBody();
+                GameLogger.aiResponse(gameId, playerId, "/api/agents/action/speak", body);
                 Object data = body.get("data");
                 if (data instanceof Map) {
                     return (Map<String, Object>) data;
                 }
             }
         } catch (Exception e) {
+            GameLogger.aiFallback(gameId, playerId, "/api/agents/action/speak", e.getMessage());
             log.warn("AI 发言服务调用失败，使用默认发言: {}", e.getMessage());
         }
 
@@ -404,6 +409,8 @@ public class AIPlayerBridge {
         request.put("player_id", playerId.intValue());
         request.put("game_state", gameState);
 
+        GameLogger.aiRequest(gameId, playerId, "/api/agents/action/night", request);
+
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
         HttpEntity<Map<String, Object>> entity = new HttpEntity<>(request, headers);
@@ -413,9 +420,11 @@ public class AIPlayerBridge {
             
             if (response.getStatusCode() == HttpStatus.OK && response.getBody() != null) {
                 Map<String, Object> body = response.getBody();
+                GameLogger.aiResponse(gameId, playerId, "/api/agents/action/night", body);
                 return (Map<String, Object>) body.get("data");
             }
         } catch (Exception e) {
+            GameLogger.aiFallback(gameId, playerId, "/api/agents/action/night", e.getMessage());
             log.warn("AI 夜间行动服务调用失败，降级为 skip: {}", e.getMessage());
         }
 
@@ -436,6 +445,8 @@ public class AIPlayerBridge {
         request.put("player_id", playerId.intValue());
         request.put("game_state", gameState);
 
+        GameLogger.aiRequest(gameId, playerId, "/api/agents/action/vote", request);
+
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
         HttpEntity<Map<String, Object>> entity = new HttpEntity<>(request, headers);
@@ -445,9 +456,11 @@ public class AIPlayerBridge {
             
             if (response.getStatusCode() == HttpStatus.OK && response.getBody() != null) {
                 Map<String, Object> body = response.getBody();
+                GameLogger.aiResponse(gameId, playerId, "/api/agents/action/vote", body);
                 return (Map<String, Object>) body.get("data");
             }
         } catch (Exception e) {
+            GameLogger.aiFallback(gameId, playerId, "/api/agents/action/vote", e.getMessage());
             log.warn("AI 投票服务调用失败，使用随机投票: {}", e.getMessage());
         }
 

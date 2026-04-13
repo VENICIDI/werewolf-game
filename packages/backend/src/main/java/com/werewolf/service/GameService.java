@@ -9,6 +9,7 @@ import com.werewolf.game.action.ActionDispatcher;
 import com.werewolf.repository.*;
 import com.werewolf.websocket.RoomWebSocketHandler;
 import com.werewolf.websocket.WebSocketMessage;
+import com.werewolf.logging.GameLogger;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -201,6 +202,9 @@ public class GameService {
         // ⚠️ AI 不发送 WebSocket 确认（因为没有 userId）
         log.info("AI 玩家 {} ({}号) 执行行动: {}, 目标: {}", 
                 player.getAiName(), player.getSeatNumber(), action, targetId);
+        GameLogger.room(game.getRoom().getRoomCode(), gameId,
+                "AI {}号({}) 执行: action={}, target={}",
+                player.getSeatNumber(), player.getRole(), action, targetId);
 
         // 投票完成后自动结算（幂等）
         if ("vote".equals(action)) {
@@ -266,6 +270,12 @@ public class GameService {
 
         log.info("游戏开始 - ID: {}, 房间: {}, 模式: {}, 玩家数: {}",
                 game.getId(), room.getRoomCode(), gameModeId, players.size());
+        GameLogger.room(room.getRoomCode(), game.getId(),
+                "=== 游戏开始 === 模式: {}, 玩家数: {}, 角色分配: {}",
+                gameModeId, players.size(),
+                players.stream().map(p -> p.getSeatNumber() + "号(" 
+                    + (Boolean.TRUE.equals(p.getIsAi()) ? "AI" : "人类") + ")=" + p.getRole())
+                    .collect(Collectors.joining(", ")));
         return game;
     }
 
@@ -367,6 +377,10 @@ public class GameService {
         }
 
         log.info("夜晚结算完成 - 游戏: {}, 死亡: {} 人", gameId, deadPlayers.size());
+        GameLogger.room(game.getRoom().getRoomCode(), gameId,
+                "夜晚结算: 死亡 {} 人 [{}]", deadPlayers.size(),
+                deadPlayers.stream().map(p -> p.getSeatNumber() + "号(" + p.getRole() + ")")
+                    .collect(Collectors.joining(", ")));
         return deadPlayers;
     }
 
@@ -577,6 +591,8 @@ public class GameService {
         votingResolved.remove(gameId); // 清理幂等锁以备下一轮
         log.info("投票结算 - 游戏: {}, 平票: {}, 处决: {}",
                 gameId, result.isTie(), result.getEliminatedPlayerId());
+        GameLogger.room(roomCode, gameId, "投票结算: 平票={}, 处决={}",
+                result.isTie(), result.getEliminatedPlayerId());
 
         checkWinCondition(gameId);
     }
@@ -720,6 +736,7 @@ public class GameService {
                 "{\"winner\":\"" + winner.name() + "\"}");
 
         log.info("游戏结束 - ID: {}, 获胜方: {}", gameId, winner);
+        GameLogger.room(roomCode, gameId, "=== 游戏结束 === 获胜方: {}", winner);
     }
 
     private String getWinnerMessage(Game.Winner winner) {

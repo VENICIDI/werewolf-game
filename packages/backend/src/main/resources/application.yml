@@ -14,11 +14,11 @@ spring:
   jpa:
     hibernate:
       ddl-auto: update
-    show-sql: true
+    show-sql: false
     properties:
       hibernate:
         dialect: org.hibernate.dialect.MySQL8Dialect
-        format_sql: true
+        format_sql: false
   
   redis:
     host: localhost
@@ -42,8 +42,6 @@ wechat:
   appid: ${WECHAT_APPID:}  # 微信小程序 AppID
   secret: ${WECHAT_SECRET:}  # 微信小程序 AppSecret
 
-# 日志
+# 日志（详细配置见 logback-spring.xml）
 logging:
-  level:
-    com.werewolf: DEBUG
-    org.springframework.web.socket: DEBUG
+  config: classpath:logback-spring.xml

@@ -20,11 +20,9 @@ from agents.agent_manager import agent_manager
 # Load environment variables
 load_dotenv()
 
-# Configure logging
-logging.basicConfig(
-    level=getattr(logging, os.getenv("LOG_LEVEL", "INFO")),
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-)
+# Configure logging (按游戏ID分文件 + 主日志文件)
+from services.log_service import setup_main_logging
+setup_main_logging()
 logger = logging.getLogger(__name__)
 
 # Global services

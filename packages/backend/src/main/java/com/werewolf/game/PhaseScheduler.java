@@ -4,6 +4,7 @@ import com.werewolf.ai.AIPlayerBridge;
 import com.werewolf.config.ConfigLoader;
 import com.werewolf.config.GameConfig;
 import com.werewolf.entity.Game;
+import com.werewolf.logging.GameLogger;
 import com.werewolf.service.GameService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationContext;
@@ -178,6 +179,13 @@ public class PhaseScheduler {
         if (gamePhase != null) {
             getGameService().updatePhase(gameId, gamePhase);
         }
+
+        // 记录房间日志
+        try {
+            Game game = getGameService().getGameStatus(gameId);
+            GameLogger.room(game.getRoom().getRoomCode(), gameId,
+                    "▶ 阶段开始: {} (第{}回合)", phase.getPhase(), game.getCurrentRound());
+        } catch (Exception ignored) {}
 
         // 广播阶段消息
         if (phase.getBroadcast() != null) {

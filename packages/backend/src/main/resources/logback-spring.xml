@@ -1,0 +1,134 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+
+    <property name="LOG_DIR" value="${LOG_BASE_DIR:-logs}" />
+    <property name="PATTERN" value="%d{HH:mm:ss.SSS} [%thread] %-5level %logger{20} - %msg%n" />
+    <property name="FULL_PATTERN" value="%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n" />
+
+    <!-- ========================= 控制台输出 ========================= -->
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>${PATTERN}</pattern>
+            <charset>UTF-8</charset>
+        </encoder>
+    </appender>
+
+    <!-- ========================= 主日志文件（精简版） ========================= -->
+    <appender name="MAIN_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${LOG_DIR}/backend.log</file>
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <fileNamePattern>${LOG_DIR}/backend.%d{yyyy-MM-dd}.%i.log</fileNamePattern>
+            <maxFileSize>20MB</maxFileSize>
+            <maxHistory>7</maxHistory>
+            <totalSizeCap>200MB</totalSizeCap>
+        </rollingPolicy>
+        <encoder>
+            <pattern>${FULL_PATTERN}</pattern>
+            <charset>UTF-8</charset>
+        </encoder>
+    </appender>
+
+    <!-- ========================= 游戏房间日志（按房间ID分文件） ========================= -->
+    <!-- 使用 SiftingAppender 根据 MDC 中的 roomCode 动态创建日志文件 -->
+    <appender name="GAME_ROOM_SIFT" class="ch.qos.logback.classic.sift.SiftingAppender">
+        <discriminator>
+            <key>roomCode</key>
+            <defaultValue>no-room</defaultValue>
+        </discriminator>
+        <sift>
+            <appender name="GAME_ROOM_${roomCode}" class="ch.qos.logback.core.rolling.RollingFileAppender">
+                <file>${LOG_DIR}/rooms/${roomCode}.log</file>
+                <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+                    <fileNamePattern>${LOG_DIR}/rooms/${roomCode}.%d{yyyy-MM-dd}.%i.log</fileNamePattern>
+                    <maxFileSize>10MB</maxFileSize>
+                    <maxHistory>3</maxHistory>
+                    <totalSizeCap>50MB</totalSizeCap>
+                </rollingPolicy>
+                <encoder>
+                    <pattern>%d{HH:mm:ss.SSS} %-5level [G:%X{gameId}] %msg%n</pattern>
+                    <charset>UTF-8</charset>
+                </encoder>
+            </appender>
+        </sift>
+    </appender>
+
+    <!-- ========================= AI 对话日志（按游戏ID分文件） ========================= -->
+    <appender name="AI_DIALOG_SIFT" class="ch.qos.logback.classic.sift.SiftingAppender">
+        <discriminator>
+            <key>gameId</key>
+            <defaultValue>no-game</defaultValue>
+        </discriminator>
+        <sift>
+            <appender name="AI_DIALOG_${gameId}" class="ch.qos.logback.core.rolling.RollingFileAppender">
+                <file>${LOG_DIR}/ai-dialog/game-${gameId}.log</file>
+                <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+                    <fileNamePattern>${LOG_DIR}/ai-dialog/game-${gameId}.%d{yyyy-MM-dd}.%i.log</fileNamePattern>
+                    <maxFileSize>10MB</maxFileSize>
+                    <maxHistory>3</maxHistory>
+                    <totalSizeCap>50MB</totalSizeCap>
+                </rollingPolicy>
+                <encoder>
+                    <pattern>%d{HH:mm:ss.SSS} %msg%n</pattern>
+                    <charset>UTF-8</charset>
+                </encoder>
+            </appender>
+        </sift>
+    </appender>
+
+    <!-- ========================= 错误日志（独立文件） ========================= -->
+    <appender name="ERROR_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${LOG_DIR}/error.log</file>
+        <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
+            <level>ERROR</level>
+        </filter>
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <fileNamePattern>${LOG_DIR}/error.%d{yyyy-MM-dd}.%i.log</fileNamePattern>
+            <maxFileSize>10MB</maxFileSize>
+            <maxHistory>7</maxHistory>
+            <totalSizeCap>100MB</totalSizeCap>
+        </rollingPolicy>
+        <encoder>
+            <pattern>${FULL_PATTERN}</pattern>
+            <charset>UTF-8</charset>
+        </encoder>
+    </appender>
+
+    <!-- ========================= Logger 配置 ========================= -->
+
+    <!-- 游戏房间日志 Logger -->
+    <logger name="GAME_ROOM" level="DEBUG" additivity="false">
+        <appender-ref ref="GAME_ROOM_SIFT" />
+        <appender-ref ref="CONSOLE" />
+    </logger>
+
+    <!-- AI 对话日志 Logger -->
+    <logger name="AI_DIALOG" level="DEBUG" additivity="false">
+        <appender-ref ref="AI_DIALOG_SIFT" />
+        <appender-ref ref="CONSOLE" />
+    </logger>
+
+    <!-- 精简 Hibernate SQL 日志：只输出单行 SQL，不格式化 -->
+    <logger name="org.hibernate.SQL" level="DEBUG" additivity="false">
+        <appender-ref ref="MAIN_FILE" />
+    </logger>
+    <!-- 关闭 SQL 参数绑定（太长） -->
+    <logger name="org.hibernate.orm.jdbc.bind" level="OFF" />
+    <!-- 关闭 Hibernate 格式化 SQL 的 stdout 输出 -->
+    <logger name="org.hibernate.engine" level="WARN" />
+    <logger name="org.hibernate.type" level="WARN" />
+
+    <!-- Spring 框架日志精简 -->
+    <logger name="org.springframework" level="WARN" />
+    <logger name="org.springframework.web.socket" level="INFO" />
+
+    <!-- 项目业务日志 -->
+    <logger name="com.werewolf" level="DEBUG" />
+
+    <!-- ========================= Root Logger ========================= -->
+    <root level="INFO">
+        <appender-ref ref="CONSOLE" />
+        <appender-ref ref="MAIN_FILE" />
+        <appender-ref ref="ERROR_FILE" />
+    </root>
+
+</configuration>
