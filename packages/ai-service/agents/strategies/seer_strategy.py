@@ -107,7 +107,7 @@ class SeerStrategy(RoleStrategy):
             check_lines = [f"  {pid}号: {result}" for pid, result in self.check_results.items()]
             check_info = "\n你的查验结果:\n" + "\n".join(check_lines)
         
-        return f"""你是一名狼人杀游戏中的预言家。你的座位号是{agent.player_id}号。
+        return f"""你是一名狼人杀游戏中的预言家。你的座位号是{agent.seat_number}号。
 你每晚可以查验一名玩家，得知其是好人还是狼人。
 你的目标是通过查验找出狼人，在合适的时机公布查验结果，引导好人投票。
 注意: 预言家是狼人首要击杀目标，需要在信息公布和自我保护之间权衡。{check_info}"""

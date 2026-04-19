@@ -102,7 +102,7 @@ class HunterStrategy(RoleStrategy):
         return VoteDecision(target_id=target, reason="综合判断投票", confidence=0.4)
     
     def get_system_prompt(self, agent: "WerewolfAgent") -> str:
-        return f"""你是一名狼人杀游戏中的猎人。你的座位号是{agent.player_id}号。
+        return f"""你是一名狼人杀游戏中的猎人。你的座位号是{agent.seat_number}号。
 猎人的技能：死亡时可以开枪带走一名玩家。但如果你是被女巫毒死的，则不能开枪。
 你的目标是正常分析局势帮助好人阵营，死亡时开枪带走确认的狼人。
 注意：猎人身份有威慑力，可以利用这一点保护自己。"""

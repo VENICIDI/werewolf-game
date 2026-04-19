@@ -136,7 +136,9 @@ export default function RoleReveal() {
   const isWerewolf = roleInfo.camp === 'werewolf'
 
   const goToGame = () => {
-    Taro.redirectTo({ url: '/pages/game/play/index' })
+    const gameId = Taro.getStorageSync('currentGameId') || ''
+    const roomCode = Taro.getStorageSync('currentRoomCode') || ''
+    Taro.redirectTo({ url: `/pages/game/play/index?gameId=${gameId}&roomCode=${roomCode}` })
   }
 
   return (

@@ -8,8 +8,9 @@ export default function GameEntry() {
   useEffect(() => {
     // 检查是否有游戏 ID，如果有则跳转到对应的游戏页面
     const gameId = router.params.gameId
+    const roomCode = router.params.roomCode || Taro.getStorageSync('currentRoomCode') || ''
     if (gameId) {
-      Taro.redirectTo({ url: `/pages/game/play/index?gameId=${gameId}` })
+      Taro.redirectTo({ url: `/pages/game/play/index?gameId=${gameId}&roomCode=${roomCode}` })
     }
   }, [])
 

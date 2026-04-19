@@ -328,12 +328,26 @@ public class GameService {
         webSocketHandler.broadcastToRoom(roomCode,
                 new WebSocketMessage(WebSocketMessage.Type.GAME_START, gameStartData));
 
+        // 预先收集狼人 ID 列表（用于发送队友信息）
+        List<Long> werewolfPlayerIds = players.stream()
+                .filter(p -> p.getRole() == Player.Role.WEREWOLF)
+                .map(Player::getId)
+                .collect(Collectors.toList());
+
         for (Player player : players) {
             if (player.getUser() != null) {
                 Map<String, Object> roleData = new HashMap<>();
                 roleData.put("playerId", player.getId());
                 roleData.put("role", player.getRole().name());
                 roleData.put("seatNumber", player.getSeatNumber());
+
+                // 狼人额外发送队友列表
+                if (player.getRole() == Player.Role.WEREWOLF) {
+                    List<Long> teammates = werewolfPlayerIds.stream()
+                            .filter(id -> !id.equals(player.getId()))
+                            .collect(Collectors.toList());
+                    roleData.put("teammates", teammates);
+                }
 
                 webSocketHandler.sendToUser(roomCode, player.getUser().getId(),
                         new WebSocketMessage(WebSocketMessage.Type.ROLE_ASSIGN, roleData));

@@ -259,10 +259,6 @@ public class AIPlayerBridge {
         CompletableFuture.runAsync(() -> {
             for (Player aiPlayer : aiPlayers) {
                 try {
-                    // 模拟思考延迟 2~5 秒
-                    int delay = ThreadLocalRandom.current().nextInt(2000, 5000);
-                    TimeUnit.MILLISECONDS.sleep(delay);
-
                     // 确认游戏仍在讨论阶段
                     Game game = gameService.getGameStatus(gameId);
                     if (game.getCurrentPhase() != Game.GamePhase.DISCUSSION) {
@@ -271,6 +267,10 @@ public class AIPlayerBridge {
                     }
 
                     executeAISpeech(gameId, aiPlayer);
+
+                    // AI 发言后短暂间隔 1~2 秒（模拟自然节奏）
+                    int delay = ThreadLocalRandom.current().nextInt(1000, 2000);
+                    TimeUnit.MILLISECONDS.sleep(delay);
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
                     break;
@@ -301,8 +301,8 @@ public class AIPlayerBridge {
             // 通过 WebSocket 广播 AI 发言（与真人聊天消息格式一致）
             Game game = gameService.getGameStatus(gameId);
             String roomCode = game.getRoom().getRoomCode();
-            String aiName = aiPlayer.getAiName() != null ? aiPlayer.getAiName() : 
-                            aiPlayer.getSeatNumber() + "号(AI)";
+            String aiName = aiPlayer.getSeatNumber() + "号 " + 
+                            (aiPlayer.getAiName() != null ? aiPlayer.getAiName() : "AI");
 
             Map<String, Object> chatData = new HashMap<>();
             chatData.put("content", content);
@@ -489,18 +489,19 @@ public class AIPlayerBridge {
         state.put("game_id", String.valueOf(gameId));
         state.put("round", game.getCurrentRound());
         state.put("phase", game.getCurrentPhase().name());
-        state.put("alive_players", alivePlayers.stream().map(Player::getId).toList());
-        state.put("dead_players", deadPlayers.stream().map(Player::getId).toList());
+        // 使用座位号而非数据库 ID，让 AI 发言时说"1号、2号"而不是"172号"
+        state.put("alive_players", alivePlayers.stream().map(Player::getSeatNumber).toList());
+        state.put("dead_players", deadPlayers.stream().map(Player::getSeatNumber).toList());
 
-        // 构建 player_infos (ai-service GameState 必需字段)
+        // 构建 player_infos — key 使用座位号
         Map<String, Map<String, Object>> playerInfos = new HashMap<>();
         List<Player> allPlayers = new java.util.ArrayList<>(alivePlayers);
         allPlayers.addAll(deadPlayers);
         for (Player p : allPlayers) {
             Map<String, Object> info = new HashMap<>();
-            info.put("player_id", p.getId());
+            info.put("player_id", p.getSeatNumber());
             info.put("is_alive", p.getStatus() == Player.PlayerStatus.ALIVE);
-            playerInfos.put(String.valueOf(p.getId()), info);
+            playerInfos.put(String.valueOf(p.getSeatNumber()), info);
         }
         state.put("player_infos", playerInfos);
 

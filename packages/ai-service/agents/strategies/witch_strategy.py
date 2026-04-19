@@ -171,7 +171,7 @@ class WitchStrategy(RoleStrategy):
                 f"第{i+1}晚刀了{pid}号" for i, pid in enumerate(self.knife_targets)
             )
         
-        return f"""你是一名狼人杀游戏中的女巫。你的座位号是{agent.player_id}号。
+        return f"""你是一名狼人杀游戏中的女巫。你的座位号是{agent.seat_number}号。
 你拥有两瓶药水:
   {chr(10).join(potion_status)}
 解药可以救活当晚被狼人杀害的人，毒药可以毒杀任意一名玩家。

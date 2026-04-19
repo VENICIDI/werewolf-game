@@ -132,7 +132,7 @@ class SpeechGenerator:
                 logger.warning(f"RAG query failed: {e}")
         
         return {
-            "seat_number": agent.player_id,
+            "seat_number": agent.seat_number or agent.player_id,
             "role_prompt": role_prompt,
             "persona_description": persona_desc,
             "round": game_state.round,

@@ -64,7 +64,7 @@ class VillagerStrategy(RoleStrategy):
         return VoteDecision(target_id=target, reason="综合判断投票", confidence=0.4)
     
     def get_system_prompt(self, agent: "WerewolfAgent") -> str:
-        return f"""你是一名狼人杀游戏中的普通村民。你的座位号是{agent.player_id}号。
+        return f"""你是一名狼人杀游戏中的普通村民。你的座位号是{agent.seat_number}号。
 村民没有特殊技能，但你可以通过观察和逻辑分析来辨别狼人。
 你的目标是积极参与讨论，提供有价值的分析，配合神职找出狼人并投票出局。
 注意: 仔细分析每个人的发言和投票行为。"""

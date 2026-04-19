@@ -124,7 +124,7 @@ class GuardStrategy(RoleStrategy):
     
     def get_system_prompt(self, agent: "WerewolfAgent") -> str:
         last_info = f"\n上一晚守护了{self.last_guarded}号（今晚不能再守）。" if self.last_guarded else ""
-        return f"""你是一名狼人杀游戏中的守卫。你的座位号是{agent.player_id}号。
+        return f"""你是一名狼人杀游戏中的守卫。你的座位号是{agent.seat_number}号。
 守卫每晚可以守护一名玩家（包括自己），被守护的玩家当晚不会被狼人杀死。
 限制: 不能连续两晚守护同一人。{last_info}
 你的目标是守护关键好人（尤其是预言家），防止被狼人击杀。

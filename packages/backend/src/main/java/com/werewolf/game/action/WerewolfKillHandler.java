@@ -31,6 +31,14 @@ public class WerewolfKillHandler implements GameActionHandler {
         if (target.getStatus() != Player.PlayerStatus.ALIVE) {
             throw new RuntimeException("目标已死亡");
         }
+        // 不能选自己
+        if (target.getId().equals(context.getPlayer().getId())) {
+            throw new RuntimeException("不能击杀自己");
+        }
+        // 不能选狼人队友
+        if (target.getRole() == Player.Role.WEREWOLF) {
+            throw new RuntimeException("不能击杀狼人队友");
+        }
     }
 
     @Override

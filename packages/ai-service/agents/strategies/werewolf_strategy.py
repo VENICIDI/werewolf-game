@@ -132,7 +132,7 @@ class WerewolfStrategy(RoleStrategy):
     def get_system_prompt(self, agent: "WerewolfAgent") -> str:
         teammates = getattr(agent, "teammates", [])
         teammate_str = "、".join(str(t) for t in teammates) if teammates else "无"
-        return f"""你是一名狼人杀游戏中的狼人。你的座位号是{agent.player_id}号。
+        return f"""你是一名狼人杀游戏中的狼人。你的座位号是{agent.seat_number}号。
 你的队友是: {teammate_str}号。
 你的目标是隐藏自己的狼人身份，白天伪装成好人，引导投票投出好人。
 夜晚与队友协商击杀目标，优先击杀预言家等神职。

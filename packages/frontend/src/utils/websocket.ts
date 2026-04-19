@@ -27,6 +27,15 @@ class WebSocketManager {
 
   // 连接 WebSocket（兼容微信小程序和 H5）
   connect(roomCode: string): Promise<void> {
+    // 先关闭已有连接，防止连到旧房间
+    if (this.socketTask) {
+      try {
+        this.socketTask.close({})
+      } catch (e) { /* ignore */ }
+      this.socketTask = null as any
+    }
+    this.reconnectAttempts = 0
+
     return new Promise((resolve, reject) => {
       const token = getToken()
       if (!token) {

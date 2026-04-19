@@ -224,8 +224,13 @@ export default function GamePlay() {
 
   const handleRoleAssign = useCallback((message: any) => {
     const data = message.data
-    console.log('[Game] 角色分配:', data.role)
-    setGame(prev => prev ? { ...prev, myRole: data.role, myPlayerId: data.playerId } : null)
+    console.log('[Game] 角色分配:', data.role, '队友:', data.teammates)
+    setGame(prev => prev ? {
+      ...prev,
+      myRole: data.role,
+      myPlayerId: data.playerId,
+      teammates: data.teammates || [],
+    } : null)
     setShowRoleModal(true)
   }, [])
 
@@ -646,7 +651,7 @@ export default function GamePlay() {
           <View className='chat-input-row'>
             <Input
               className='chat-input'
-              placeholder='发表你的看法...'
+              placeholder={phaseTimeLeft > 0 ? `发言倒计时 ${phaseTimeLeft}s，发表你的看法...` : '发表你的看法...'}
               value={chatInput}
               onInput={(e) => setChatInput(e.detail.value)}
               onConfirm={handleSendChat}
