@@ -187,12 +187,15 @@ public class PhaseScheduler {
                     "▶ 阶段开始: {} (第{}回合)", phase.getPhase(), game.getCurrentRound());
         } catch (Exception ignored) {}
 
-        // 广播阶段消息
-        if (phase.getBroadcast() != null) {
+        // 广播阶段消息（所有阶段都发 PHASE_CHANGE，确保前端收到 phase + duration）
+        {
             Map<String, Object> data = new HashMap<>();
             data.put("phase", gamePhase != null ? gamePhase.name() : phase.getPhase());
-            data.put("message", phase.getBroadcast());
             data.put("duration", phase.getDuration());
+            data.put("round", getGameService().getGameStatus(gameId).getCurrentRound());
+            if (phase.getBroadcast() != null) {
+                data.put("message", phase.getBroadcast());
+            }
             getGameService().broadcastToGame(gameId, "PHASE_CHANGE", data);
         }
         

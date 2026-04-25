@@ -283,6 +283,101 @@
         }
       }
 
+      &.werewolf-teammate {
+        border-color: #e04040;
+        box-shadow: 0 0 8px rgba(224, 64, 64, 0.3);
+      }
+
+      // 当前阶段可行动/可发言的玩家
+      &.active-turn,
+      &.active-speaker {
+        transform: scale(1.04);
+
+        &::before {
+          height: 2px;
+        }
+
+        .player-avatar {
+          box-shadow: 0 0 16px currentColor;
+        }
+      }
+
+      &.active-werewolf {
+        color: #ff4444;
+        border-color: #ff4444;
+        background: rgba(139, 0, 0, 0.15);
+        box-shadow: 0 0 16px rgba(255, 68, 68, 0.45), inset 0 0 10px rgba(255, 68, 68, 0.06);
+
+        &::before {
+          background: linear-gradient(90deg, transparent, #ff4444, transparent);
+        }
+
+        .player-avatar {
+          border-color: #ff4444;
+        }
+      }
+
+      &.active-seer {
+        color: #8a7dff;
+        border-color: #8a7dff;
+        background: rgba(95, 80, 220, 0.14);
+        box-shadow: 0 0 16px rgba(138, 125, 255, 0.36), inset 0 0 10px rgba(138, 125, 255, 0.05);
+
+        &::before {
+          background: linear-gradient(90deg, transparent, #8a7dff, transparent);
+        }
+
+        .player-avatar {
+          border-color: #8a7dff;
+        }
+      }
+
+      &.active-witch {
+        color: #b84cff;
+        border-color: #b84cff;
+        background: rgba(156, 39, 176, 0.14);
+        box-shadow: 0 0 16px rgba(184, 76, 255, 0.36), inset 0 0 10px rgba(184, 76, 255, 0.05);
+
+        &::before {
+          background: linear-gradient(90deg, transparent, #b84cff, transparent);
+        }
+
+        .player-avatar {
+          border-color: #b84cff;
+        }
+      }
+
+      &.active-guard,
+      &.active-hunter {
+        color: var(--gold);
+        border-color: var(--gold);
+        background: rgba(212, 175, 55, 0.12);
+        box-shadow: 0 0 16px rgba(212, 175, 55, 0.3), inset 0 0 10px rgba(212, 175, 55, 0.05);
+
+        &::before {
+          background: linear-gradient(90deg, transparent, var(--gold), transparent);
+        }
+
+        .player-avatar {
+          border-color: var(--gold);
+        }
+      }
+
+      &.active-speaker {
+        color: #4caf50;
+        border-color: #4caf50;
+        background: rgba(76, 175, 80, 0.08);
+        box-shadow: 0 0 16px rgba(76, 175, 80, 0.24), inset 0 0 8px rgba(76, 175, 80, 0.04);
+
+        &::before {
+          background: linear-gradient(90deg, transparent, #4caf50, transparent);
+        }
+
+        .player-avatar {
+          border-color: #4caf50;
+        }
+      }
+
       &.DEAD {
         opacity: 0.45;
         filter: grayscale(0.8) brightness(0.7);
@@ -415,6 +510,19 @@
         border-radius: 3px;
         margin-top: 3px;
         letter-spacing: 2px;
+        font-weight: 600;
+      }
+
+      .active-badge {
+        display: inline-block;
+        font-size: 9px;
+        color: currentColor;
+        background: rgba(255, 255, 255, 0.08);
+        border: 1px solid currentColor;
+        padding: 1px 6px;
+        border-radius: 3px;
+        margin-top: 3px;
+        letter-spacing: 1px;
         font-weight: 600;
       }
     }

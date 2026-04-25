@@ -166,6 +166,8 @@ export default function Room() {
     const gameId = message.data?.gameId
     console.log('[Room] 收到 GAME_START, gameId:', gameId)
     if (gameId && roomCode) {
+      // 先断开房间页的 WebSocket，防止残留连接
+      wsManager.disconnect()
       Taro.setStorageSync('currentRoomCode', roomCode)
       Taro.setStorageSync('currentGameId', gameId)
       Taro.redirectTo({ url: `/pages/game/play/index?gameId=${gameId}&roomCode=${roomCode}` })
@@ -278,6 +280,8 @@ export default function Room() {
       const res: any = await startGame(room.id, gameModeId)
       Taro.hideLoading()
       console.log('[Room] 游戏开始:', JSON.stringify(res))
+      // 先断开 WebSocket，防止 GAME_START 回调重复跳转
+      wsManager.disconnect()
       Taro.setStorageSync('currentRoomCode', room.roomCode)
       Taro.setStorageSync('currentGameId', res.gameId)
       Taro.redirectTo({ url: `/pages/game/play/index?gameId=${res.gameId}&roomCode=${room.roomCode}` })

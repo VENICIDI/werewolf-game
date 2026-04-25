@@ -225,7 +225,10 @@ public class RoomWebSocketHandler extends TextWebSocketHandler {
      */
     public void sendToUser(String roomCode, Long userId, WebSocketMessage message) {
         Map<Long, WebSocketSession> sessions = roomSessions.get(roomCode);
-        if (sessions == null) return;
+        if (sessions == null) {
+            log.warn("单播失败: 房间 {} 无活跃会话, type={}, userId={}", roomCode, message.getType(), userId);
+            return;
+        }
 
         WebSocketSession session = sessions.get(userId);
         if (session != null && session.isOpen()) {
@@ -234,6 +237,8 @@ public class RoomWebSocketHandler extends TextWebSocketHandler {
             } catch (IOException e) {
                 log.error("单播消息失败 - 用户: {}, 错误: {}", userId, e.getMessage());
             }
+        } else {
+            log.warn("单播失败: 房间 {} 用户 {} 无会话或已关闭, type={}", roomCode, userId, message.getType());
         }
     }
 

@@ -618,15 +618,7 @@ public class GameService {
         Game game = getGameStatus(gameId);
         game.setCurrentPhase(phase);
         gameRepository.save(game);
-
-        String roomCode = game.getRoom().getRoomCode();
-        Map<String, Object> data = new HashMap<>();
-        data.put("gameId", gameId);
-        data.put("phase", phase.name());
-        data.put("round", game.getCurrentRound());
-
-        webSocketHandler.broadcastToRoom(roomCode,
-                new WebSocketMessage(WebSocketMessage.Type.PHASE_CHANGE, data));
+        // 注意：不在此处广播 PHASE_CHANGE，由 PhaseScheduler.executePhaseStart() 统一广播（带 duration）
     }
 
     @Transactional

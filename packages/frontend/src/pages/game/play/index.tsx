@@ -160,7 +160,10 @@ export default function GamePlay() {
     setSelectedTarget(null)
     setSpeakingPlayerIds(new Set())
     setWitchAction('none')
-    setWitchInfo(null)
+    // 进入女巫阶段时不清除 witchInfo（WITCH_INFO 消息可能先到）
+    if (data.phase !== 'WITCH') {
+      setWitchInfo(null)
+    }
 
     // 显示阶段提示
     if (data.message) {
@@ -392,10 +395,19 @@ export default function GamePlay() {
       return
     }
     try {
-      await post(`/games/${game.gameId}/action`, {
+      const res: any = await post(`/games/${game.gameId}/action`, {
         action: actionType,
         targetId: selectedTarget
       })
+      // 预言家查验：直接从 HTTP 响应弹出结果（不依赖 WebSocket SEER_RESULT）
+      if (actionType === 'check' && res) {
+        const isWolf = res.isWerewolf
+        Taro.showModal({
+          title: '🔮 查验结果',
+          content: res.message || `${res.targetSeat}号玩家是${isWolf ? '🐺 狼人' : '👤 好人'}`,
+          showCancel: false,
+        })
+      }
       // 猎人开枪后清除状态
       if (actionType === 'shoot') {
         setCanHunterShoot(false)
@@ -435,6 +447,43 @@ export default function GamePlay() {
     const myPlayer = game.players.find(p => p.playerId === game.myPlayerId)
     if (!myPlayer || myPlayer.status !== 'ALIVE') return false
     return ['DISCUSSION', 'DAY_START'].includes(game.phase)
+  }
+
+  const getActingRoleForPhase = (phase?: string) => {
+    const roleByPhase: Record<string, string> = {
+      WEREWOLF: 'WEREWOLF',
+      SEER: 'SEER',
+      WITCH: 'WITCH',
+      GUARD: 'GUARD',
+      HUNTER: 'HUNTER',
+    }
+    return roleByPhase[phase || '']
+  }
+
+  const getPlayerHighlight = (player: PlayerInfo) => {
+    if (!game || player.status !== 'ALIVE') {
+      return { active: false, className: '', label: '' }
+    }
+
+    if (['DAY_START', 'DISCUSSION'].includes(game.phase)) {
+      return { active: true, className: 'active-speaker', label: '可发言' }
+    }
+
+    const actingRole = getActingRoleForPhase(game.phase)
+    if (!actingRole) {
+      return { active: false, className: '', label: '' }
+    }
+
+    const isMe = player.playerId === game.myPlayerId
+    const isWerewolfTeammate = actingRole === 'WEREWOLF' && game.teammates?.includes(player.playerId)
+    const roleVisibleToMe = isMe ? game.myRole : player.role
+    const isActingPlayer = roleVisibleToMe === actingRole || isWerewolfTeammate
+
+    return {
+      active: isActingPlayer,
+      className: isActingPlayer ? `active-turn active-${actingRole.toLowerCase()}` : '',
+      label: isActingPlayer ? '行动中' : '',
+    }
   }
 
   // 发送聊天消息
@@ -481,13 +530,13 @@ export default function GamePlay() {
       {/* 玩家列表 */}
       <View className='players-section'>
         <Text className='section-title'>玩家列表</Text>
-        {/* 狼人队友提示 */}
+        {/* 狼人队友提示 - 始终显示 */}
         {game?.myRole === 'WEREWOLF' && game?.teammates && game.teammates.length > 0 && (
-          <View style={{ padding: '4px 12px', marginBottom: '8px', background: 'rgba(180,40,40,0.15)', borderRadius: '6px', border: '1px solid rgba(180,40,40,0.3)' }}>
-            <Text style={{ fontSize: '12px', color: '#e04040' }}>
+          <View style={{ padding: '6px 12px', marginBottom: '8px', background: 'rgba(180,40,40,0.2)', borderRadius: '6px', border: '1.5px solid rgba(180,40,40,0.4)' }}>
+            <Text style={{ fontSize: '13px', color: '#ff4444', fontWeight: 'bold' }}>
               🐺 你的狼队友: {game.teammates.map(tid => {
                 const p = game.players.find(pl => pl.playerId === tid)
-                return p ? `${p.seatNumber}号${p.username}` : `${tid}`
+                return p ? `${p.seatNumber}号 ${p.username}` : `ID${tid}`
               }).join('、')}
             </Text>
           </View>
@@ -496,11 +545,11 @@ export default function GamePlay() {
           {game?.players.map((player) => {
             const isTeammate = game?.myRole === 'WEREWOLF' && game?.teammates?.includes(player.playerId)
             const isMe = player.playerId === game?.myPlayerId
+            const highlight = getPlayerHighlight(player)
             return (
               <View
                 key={player.playerId}
-                className={`player-card ${player.status} ${selectedTarget === player.playerId ? 'selected' : ''} ${speakingPlayerIds.has(player.playerId) ? 'speaking' : ''}`}
-                style={isTeammate ? { border: '2px solid #e04040', boxShadow: '0 0 8px rgba(224,64,64,0.4)' } : {}}
+                className={`player-card ${player.status} ${selectedTarget === player.playerId ? 'selected' : ''} ${speakingPlayerIds.has(player.playerId) ? 'speaking' : ''} ${isTeammate ? 'werewolf-teammate' : ''} ${highlight.className}`}
                 onClick={() => {
                   if (!canAct() || player.status !== 'ALIVE') return
                   // 狼人阶段不能选自己和队友
@@ -510,12 +559,20 @@ export default function GamePlay() {
               >
                 <View className='player-avatar'>
                   <Text className='avatar-default'>
-                    {player.status === 'DEAD' ? '💀' : isTeammate ? '🐺' : isMe && game?.myRole === 'WEREWOLF' ? '🐺' : player.isAi ? '🤖' : '👤'}
+                    {player.status === 'DEAD' ? '💀'
+                      : (isTeammate || (isMe && game?.myRole === 'WEREWOLF')) ? '🐺'
+                      : player.isAi ? '🤖' : '👤'}
                   </Text>
                 </View>
                 <Text className='player-name'>{player.username}</Text>
                 <Text className='seat-num'>{player.seatNumber}号位</Text>
-                {isTeammate && <Text style={{ fontSize: '10px', color: '#e04040', textAlign: 'center' }}>队友</Text>}
+                {isMe && game?.myRole === 'WEREWOLF' && (
+                  <Text style={{ fontSize: '10px', color: '#ff4444', textAlign: 'center', fontWeight: 'bold' }}>🐺 你</Text>
+                )}
+                {isTeammate && (
+                  <Text style={{ fontSize: '10px', color: '#ff4444', textAlign: 'center', fontWeight: 'bold' }}>🐺 队友</Text>
+                )}
+                {highlight.active && <Text className='active-badge'>{highlight.label}</Text>}
                 {player.status === 'DEAD' && <Text className='dead-badge'>已死亡</Text>}
               </View>
             )
@@ -529,64 +586,111 @@ export default function GamePlay() {
           {/* ✨ 女巫专用 UI */}
           {game?.phase === 'WITCH' && game?.myRole === 'WITCH' ? (
             <View>
-              {/* 被杀者信息 */}
+              {/* 药水状态 */}
+              <View style={{ display: 'flex', justifyContent: 'center', gap: '16px', marginBottom: '10px' }}>
+                <Text style={{ fontSize: '12px', color: witchInfo?.hasSave ? '#4caf50' : '#666' }}>
+                  💊 解药{witchInfo?.hasSave ? '✓' : '✗ 已用'}
+                </Text>
+                <Text style={{ fontSize: '12px', color: witchInfo?.hasPoison ? '#9c27b0' : '#666' }}>
+                  ☠️ 毒药{witchInfo?.hasPoison ? '✓' : '✗ 已用'}
+                </Text>
+              </View>
+
+              {/* 被杀者信息 - 醒目红色 */}
               {witchInfo?.killTargetSeat ? (
-                <Text style={{ display: 'block', textAlign: 'center', marginBottom: '8px', color: '#ff6b6b', fontSize: '14px', fontWeight: 'bold' }}>
-                  💀 今晚 {witchInfo.killTargetSeat}号 {witchInfo.killTargetName} 被狼人杀害
-                </Text>
+                <View style={{ padding: '10px 14px', marginBottom: '12px', background: 'rgba(255,60,60,0.12)', borderRadius: '8px', border: '1.5px solid rgba(255,60,60,0.4)', textAlign: 'center' }}>
+                  <Text style={{ fontSize: '16px', color: '#ff4444', fontWeight: 'bold', display: 'block' }}>
+                    💀 今晚 {witchInfo.killTargetSeat}号 {witchInfo.killTargetName} 被狼人杀害
+                  </Text>
+                  {witchInfo?.hasSave && (
+                    <Text style={{ fontSize: '12px', color: '#4caf50', display: 'block', marginTop: '4px' }}>
+                      你可以使用解药救活TA
+                    </Text>
+                  )}
+                </View>
               ) : (
-                <Text style={{ display: 'block', textAlign: 'center', marginBottom: '8px', color: '#8a7a68', fontSize: '13px' }}>
-                  今晚是平安夜，无人被杀
-                </Text>
+                <View style={{ padding: '8px 14px', marginBottom: '12px', background: 'rgba(100,100,100,0.1)', borderRadius: '8px', textAlign: 'center' }}>
+                  <Text style={{ fontSize: '13px', color: '#8a7a68' }}>
+                    🌙 今晚是平安夜，无人被杀
+                  </Text>
+                </View>
               )}
+
+              {/* 行动按钮组 */}
               <View style={{ display: 'flex', gap: '8px', justifyContent: 'center', flexWrap: 'wrap' }}>
-                {/* 解药按钮 */}
+                {/* 解药按钮 - 只有有人死且有解药时才显示 */}
                 {witchInfo?.hasSave && witchInfo?.killTargetSeat && (
                   <Button
                     className='action-btn'
-                    style={{ background: witchAction === 'save' ? 'rgba(76,175,80,0.9)' : 'rgba(76,175,80,0.5)', flex: '1', minWidth: '80px', maxWidth: '120px' }}
+                    style={{
+                      background: witchAction === 'save'
+                        ? 'linear-gradient(180deg, rgba(76,175,80,0.95) 0%, rgba(46,125,50,0.95) 100%)'
+                        : 'rgba(76,175,80,0.4)',
+                      border: witchAction === 'save' ? '2px solid #4caf50' : '1.5px solid rgba(76,175,80,0.4)',
+                      flex: '1', minWidth: '90px', maxWidth: '130px'
+                    }}
                     onClick={() => { setWitchAction('save'); setSelectedTarget(null) }}
                   >
-                    💊 救人
+                    💊 使用解药
                   </Button>
                 )}
                 {/* 毒药按钮 */}
                 {witchInfo?.hasPoison && (
                   <Button
                     className='action-btn'
-                    style={{ background: witchAction === 'poison' ? 'rgba(156,39,176,0.9)' : 'rgba(156,39,176,0.5)', flex: '1', minWidth: '80px', maxWidth: '120px' }}
+                    style={{
+                      background: witchAction === 'poison'
+                        ? 'linear-gradient(180deg, rgba(156,39,176,0.95) 0%, rgba(106,27,154,0.95) 100%)'
+                        : 'rgba(156,39,176,0.4)',
+                      border: witchAction === 'poison' ? '2px solid #9c27b0' : '1.5px solid rgba(156,39,176,0.4)',
+                      flex: '1', minWidth: '90px', maxWidth: '130px'
+                    }}
                     onClick={() => { setWitchAction('poison'); setSelectedTarget(null) }}
                   >
-                    ☠️ 毒人
+                    ☠️ 使用毒药
                   </Button>
                 )}
                 {/* 跳过 */}
                 <Button
                   className='action-btn'
-                  style={{ background: 'rgba(30,26,22,0.9)', border: '1.5px solid rgba(74,61,48,0.4)', boxShadow: 'none', flex: '1', minWidth: '80px', maxWidth: '120px' }}
+                  style={{ background: 'rgba(30,26,22,0.9)', border: '1.5px solid rgba(74,61,48,0.4)', boxShadow: 'none', flex: '1', minWidth: '90px', maxWidth: '130px' }}
                   onClick={handleSkip}
                 >
-                  跳过
+                  🌙 不使用
                 </Button>
               </View>
-              {/* 女巫选择提示和确认 */}
+
+              {/* 解药确认 */}
               {witchAction === 'save' && (
-                <View style={{ marginTop: '8px', textAlign: 'center' }}>
-                  <Text style={{ color: '#4caf50', fontSize: '13px' }}>将使用解药救 {witchInfo?.killTargetSeat}号</Text>
-                  <Button className='action-btn' style={{ marginTop: '6px' }} onClick={handleAction}>
+                <View style={{ marginTop: '10px', textAlign: 'center', padding: '8px', background: 'rgba(76,175,80,0.1)', borderRadius: '6px', border: '1px solid rgba(76,175,80,0.3)' }}>
+                  <Text style={{ color: '#4caf50', fontSize: '14px', fontWeight: 'bold', display: 'block' }}>
+                    💊 将使用解药救活 {witchInfo?.killTargetSeat}号 {witchInfo?.killTargetName}
+                  </Text>
+                  <Button className='action-btn' style={{ marginTop: '8px', background: 'linear-gradient(180deg, rgba(76,175,80,0.9) 0%, rgba(46,125,50,0.95) 100%)' }} onClick={handleAction}>
                     ◈ 确认救人 ◈
                   </Button>
                 </View>
               )}
+
+              {/* 毒药确认 - 需要选择目标 */}
               {witchAction === 'poison' && (
-                <View style={{ marginTop: '8px', textAlign: 'center' }}>
-                  <Text style={{ color: '#9c27b0', fontSize: '13px' }}>
-                    {selectedTarget ? `将使用毒药毒杀 ${game?.players.find(p => p.playerId === selectedTarget)?.seatNumber}号` : '请在上方选择毒杀目标'}
+                <View style={{ marginTop: '10px', textAlign: 'center', padding: '8px', background: 'rgba(156,39,176,0.1)', borderRadius: '6px', border: '1px solid rgba(156,39,176,0.3)' }}>
+                  <Text style={{ color: '#9c27b0', fontSize: '14px', fontWeight: 'bold', display: 'block' }}>
+                    {selectedTarget
+                      ? `☠️ 将使用毒药毒杀 ${game?.players.find(p => p.playerId === selectedTarget)?.seatNumber}号 ${game?.players.find(p => p.playerId === selectedTarget)?.username}`
+                      : '☝️ 请在上方玩家列表中选择毒杀目标'}
                   </Text>
-                  <Button className='action-btn' style={{ marginTop: '6px' }} onClick={handleAction} disabled={!selectedTarget}>
+                  <Button className='action-btn' style={{ marginTop: '8px', background: 'linear-gradient(180deg, rgba(156,39,176,0.9) 0%, rgba(106,27,154,0.95) 100%)' }} onClick={handleAction} disabled={!selectedTarget}>
                     ◈ 确认毒人 ◈
                   </Button>
                 </View>
+              )}
+
+              {/* 未选择时的提示 */}
+              {witchAction === 'none' && (
+                <Text style={{ display: 'block', textAlign: 'center', marginTop: '8px', fontSize: '12px', color: '#8a7a68' }}>
+                  选择使用解药、毒药或跳过本轮
+                </Text>
               )}
             </View>
           ) : (
@@ -684,9 +788,23 @@ export default function GamePlay() {
             <Text style={{ display: 'block', textAlign: 'center', fontSize: '11px', color: game?.myRole === 'WEREWOLF' ? '#ff4444' : '#4caf50', letterSpacing: '2px', marginBottom: '4px' }}>
               {game?.myRole === 'WEREWOLF' ? '狼人阵营' : '好人阵营'}
             </Text>
-            <Text style={{ display: 'block', textAlign: 'center', fontSize: '12px', color: '#8a7a68', marginBottom: '16px', fontFamily: 'monospace' }}>
+            <Text style={{ display: 'block', textAlign: 'center', fontSize: '12px', color: '#8a7a68', marginBottom: '8px', fontFamily: 'monospace' }}>
               {game?.mySeat}号位
             </Text>
+            {/* 狼人队友 */}
+            {game?.myRole === 'WEREWOLF' && game?.teammates && game.teammates.length > 0 && (
+              <View style={{ padding: '8px 12px', marginBottom: '12px', background: 'rgba(180,40,40,0.15)', borderRadius: '6px', border: '1px solid rgba(180,40,40,0.3)' }}>
+                <Text style={{ display: 'block', fontSize: '12px', color: '#ff4444', textAlign: 'center', fontWeight: 'bold' }}>
+                  🐺 你的狼队友
+                </Text>
+                <Text style={{ display: 'block', fontSize: '13px', color: '#ff6666', textAlign: 'center', marginTop: '4px' }}>
+                  {game.teammates.map(tid => {
+                    const p = game.players.find(pl => pl.playerId === tid)
+                    return p ? `${p.seatNumber}号 ${p.username}` : `ID${tid}`
+                  }).join('、')}
+                </Text>
+              </View>
+            )}
             <Button className='modal-close' onClick={() => setShowRoleModal(false)}>
               ◈ 知道了 ◈
             </Button>
