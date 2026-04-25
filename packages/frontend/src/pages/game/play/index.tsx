@@ -15,6 +15,7 @@ interface PlayerInfo {
   status: string
   role?: string
   isCaptain?: boolean
+  canSpeak?: boolean
 }
 
 interface GameData {
@@ -44,6 +45,7 @@ export default function GamePlay() {
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([])
   const [chatInput, setChatInput] = useState('')
   const [speakingPlayerIds, setSpeakingPlayerIds] = useState<Set<number>>(new Set())
+  const [currentSpeakerId, setCurrentSpeakerId] = useState<number | null>(null)
   const [selectedTarget, setSelectedTarget] = useState<number | null>(null)
   const [phaseTimeLeft, setPhaseTimeLeft] = useState(0)
   const [showRoleModal, setShowRoleModal] = useState(false)
@@ -55,6 +57,19 @@ export default function GamePlay() {
   const [witchAction, setWitchAction] = useState<'none' | 'save' | 'poison'>('none')
   // ✨ 猎人开枪
   const [canHunterShoot, setCanHunterShoot] = useState(false)
+  // ✨ 投票实时快照: voterId -> targetId（0=弃票）
+  const [voteRecords, setVoteRecords] = useState<Record<number, number>>({})
+  const [voteProgress, setVoteProgress] = useState<{ voted: number, total: number }>({ voted: 0, total: 0 })
+  // ✨ 投票最终结果（处决面板）
+  const [voteResult, setVoteResult] = useState<{
+    votesByVoter: Record<number, number>   // voterId -> targetId
+    voteDetails: Record<number, number>    // targetId -> count
+    isTie: boolean
+    eliminatedPlayerId: number | null
+    eliminatedSeat: number | null
+    eliminatedName?: string
+    message: string
+  } | null>(null)
 
   // 初始化：通过 API 获取游戏状态
   useEffect(() => {
@@ -109,6 +124,8 @@ export default function GamePlay() {
       }
 
       setGame(gameData)
+      const initialSpeaker = (gameData.players || []).find(p => p.canSpeak && p.status === 'ALIVE')
+      setCurrentSpeakerId(initialSpeaker?.playerId || null)
       setLoading(false)
       console.log('[Game] 游戏数据加载完成:', gameData.phase, '我的角色:', gameData.myRole)
 
@@ -132,12 +149,15 @@ export default function GamePlay() {
       wsManager.on('DEATH_ANNOUNCE', handleDeathAnnounce)
       wsManager.on('ROLE_ASSIGN', handleRoleAssign)
       wsManager.on('VOTE_START', handleVoteStart)
+      wsManager.on('VOTE_UPDATE', handleVoteUpdate)
       wsManager.on('VOTE_RESULT', handleVoteResult)
       wsManager.on('ACTION_CONFIRM', handleActionConfirm)
       wsManager.on('SEER_RESULT', handleSeerResult)
       wsManager.on('WITCH_INFO', handleWitchInfo)
       wsManager.on('HUNTER_SHOOT', handleHunterShoot)
+      wsManager.on('SPEAKER_CHANGE', handleSpeakerChange)
       wsManager.on('SYSTEM', handleSystemMessage)
+      wsManager.on('ERROR', handleWsError)
 
       await wsManager.connect(roomCode)
       console.log('[Game] WebSocket 已连接')
@@ -160,9 +180,18 @@ export default function GamePlay() {
     setSelectedTarget(null)
     setSpeakingPlayerIds(new Set())
     setWitchAction('none')
+    if (data.phase !== 'DISCUSSION') {
+      setCurrentSpeakerId(null)
+    }
     // 进入女巫阶段时不清除 witchInfo（WITCH_INFO 消息可能先到）
     if (data.phase !== 'WITCH') {
       setWitchInfo(null)
+    }
+    // 投票/处决状态仅在这两个阶段保留
+    if (data.phase !== 'VOTING' && data.phase !== 'EXECUTION') {
+      setVoteRecords({})
+      setVoteProgress({ voted: 0, total: 0 })
+      setVoteResult(null)
     }
 
     // 显示阶段提示
@@ -238,15 +267,36 @@ export default function GamePlay() {
   }, [])
 
   const handleVoteStart = useCallback((message: any) => {
+    const data = message?.data || {}
+    // 进入新一轮投票 → 清空上一轮的快照与结果面板
+    setVoteRecords({})
+    setVoteResult(null)
+    setVoteProgress({ voted: 0, total: Number(data.eligibleCount) || 0 })
     Taro.showToast({ title: '投票阶段开始', icon: 'none' })
   }, [])
 
+  // 实时投票更新：每次有人投票，后端广播 VOTE_UPDATE
+  const handleVoteUpdate = useCallback((message: any) => {
+    const data = message?.data || {}
+    const raw = (data.votesByVoter || {}) as Record<string, number>
+    const normalized: Record<number, number> = {}
+    Object.keys(raw).forEach(k => {
+      const v = raw[k]
+      normalized[Number(k)] = typeof v === 'number' ? v : Number(v)
+    })
+    setVoteRecords(normalized)
+    setVoteProgress({
+      voted: Number(data.votedCount) || Object.keys(normalized).length,
+      total: Number(data.eligibleCount) || 0,
+    })
+  }, [])
+
   const handleVoteResult = useCallback((message: any) => {
-    const data = message.data
+    const data = message?.data || {}
     if (data.message) {
       Taro.showToast({ title: data.message, icon: 'none', duration: 3000 })
     }
-    // 更新被处决玩家状态为 DEAD
+    // 更新被放逐玩家状态为 DEAD
     if (data.eliminatedPlayerId) {
       setGame(prev => {
         if (!prev) return null
@@ -256,6 +306,31 @@ export default function GamePlay() {
         return { ...prev, players: updatedPlayers }
       })
     }
+
+    // 归一化 map (JSON 里 key 是 string)
+    const rawVotes = (data.votesByVoter || {}) as Record<string, number>
+    const votesByVoter: Record<number, number> = {}
+    Object.keys(rawVotes).forEach(k => {
+      const v = rawVotes[k]
+      votesByVoter[Number(k)] = typeof v === 'number' ? v : Number(v)
+    })
+    const rawDetails = (data.voteDetails || {}) as Record<string, number>
+    const voteDetails: Record<number, number> = {}
+    Object.keys(rawDetails).forEach(k => {
+      const v = rawDetails[k]
+      voteDetails[Number(k)] = typeof v === 'number' ? v : Number(v)
+    })
+
+    setVoteRecords(votesByVoter)
+    setVoteResult({
+      votesByVoter,
+      voteDetails,
+      isTie: Boolean(data.isTie),
+      eliminatedPlayerId: data.eliminatedPlayerId ?? null,
+      eliminatedSeat: data.eliminatedSeat ?? null,
+      eliminatedName: data.eliminatedName,
+      message: data.message || '',
+    })
   }, [])
 
   const handleActionConfirm = useCallback((message: any) => {
@@ -310,6 +385,33 @@ export default function GamePlay() {
   const handleSystemMessage = useCallback((message: any) => {
     if (message.data?.message) {
       Taro.showToast({ title: message.data.message, icon: 'none' })
+    }
+  }, [])
+
+  const handleSpeakerChange = useCallback((message: any) => {
+    const data = message.data || {}
+    const nextSpeakerId = Number(data.playerId)
+    if (!nextSpeakerId) return
+    setCurrentSpeakerId(nextSpeakerId)
+    setGame(prev => {
+      if (!prev) return null
+      return {
+        ...prev,
+        players: prev.players.map(p => ({
+          ...p,
+          canSpeak: p.playerId === nextSpeakerId && p.status === 'ALIVE',
+        })),
+      }
+    })
+    if (data.message) {
+      Taro.showToast({ title: data.message, icon: 'none', duration: 1200 })
+    }
+  }, [])
+
+  const handleWsError = useCallback((message: any) => {
+    const text = typeof message?.data === 'string' ? message.data : ''
+    if (text) {
+      Taro.showToast({ title: text, icon: 'none' })
     }
   }, [])
 
@@ -441,12 +543,12 @@ export default function GamePlay() {
     return map[role || ''] || role || '未知'
   }
 
-  // 判断当前阶段是否可以发送聊天消息（白天讨论阶段存活玩家可发言）
+  // 判断当前阶段是否可以发送聊天消息（讨论阶段轮流发言）
   const canChat = () => {
     if (!game) return false
     const myPlayer = game.players.find(p => p.playerId === game.myPlayerId)
     if (!myPlayer || myPlayer.status !== 'ALIVE') return false
-    return ['DISCUSSION', 'DAY_START'].includes(game.phase)
+    return game.phase === 'DISCUSSION' && currentSpeakerId === game.myPlayerId
   }
 
   const getActingRoleForPhase = (phase?: string) => {
@@ -465,8 +567,9 @@ export default function GamePlay() {
       return { active: false, className: '', label: '' }
     }
 
-    if (['DAY_START', 'DISCUSSION'].includes(game.phase)) {
-      return { active: true, className: 'active-speaker', label: '可发言' }
+    if (game.phase === 'DISCUSSION') {
+      const isCurrentSpeaker = player.playerId === currentSpeakerId
+      return { active: isCurrentSpeaker, className: isCurrentSpeaker ? 'active-speaker' : '', label: isCurrentSpeaker ? '发言中' : '' }
     }
 
     const actingRole = getActingRoleForPhase(game.phase)
@@ -488,10 +591,16 @@ export default function GamePlay() {
 
   // 发送聊天消息
   const handleSendChat = () => {
+    if (!canChat()) {
+      Taro.showToast({ title: '还没轮到你发言', icon: 'none' })
+      return
+    }
     if (!chatInput.trim()) return
     wsManager.sendChat(chatInput)
     setChatInput('')
   }
+
+  const currentSpeaker = game?.players.find(p => p.playerId === currentSpeakerId)
 
   const phaseDisplay = getPhaseDisplay()
 
@@ -527,6 +636,36 @@ export default function GamePlay() {
         <Text className='phase-subtitle'>{phaseDisplay.subtitle}</Text>
       </View>
 
+      {/* ✨ 投票阶段进度条 */}
+      {(game?.phase === 'VOTING' || game?.phase === 'EXECUTION') && voteProgress.total > 0 && (
+        <View style={{
+          margin: '8px 12px 0', padding: '8px 12px',
+          background: 'rgba(20,16,12,0.75)',
+          border: '1px solid rgba(212,175,55,0.3)',
+          borderRadius: '8px'
+        }}>
+          <View style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+            <Text style={{ fontSize: '13px', color: '#d4af37', fontWeight: 'bold' }}>
+              🗳️ 投票进度
+            </Text>
+            <Text style={{ fontSize: '12px', color: '#c9a86a' }}>
+              {voteProgress.voted} / {voteProgress.total}
+            </Text>
+          </View>
+          <View style={{
+            height: '6px', background: 'rgba(0,0,0,0.4)',
+            borderRadius: '3px', overflow: 'hidden'
+          }}>
+            <View style={{
+              height: '100%',
+              width: `${voteProgress.total > 0 ? (voteProgress.voted / voteProgress.total) * 100 : 0}%`,
+              background: 'linear-gradient(90deg, #d4af37, #ff9800)',
+              transition: 'width 0.4s ease'
+            }} />
+          </View>
+        </View>
+      )}
+
       {/* 玩家列表 */}
       <View className='players-section'>
         <Text className='section-title'>玩家列表</Text>
@@ -546,10 +685,19 @@ export default function GamePlay() {
             const isTeammate = game?.myRole === 'WEREWOLF' && game?.teammates?.includes(player.playerId)
             const isMe = player.playerId === game?.myPlayerId
             const highlight = getPlayerHighlight(player)
+            // 投票相关：显示在 VOTING / EXECUTION 阶段
+            const showVoteUI = game?.phase === 'VOTING' || game?.phase === 'EXECUTION'
+            const receivedVotes = showVoteUI
+              ? Object.values(voteRecords).filter(t => Number(t) === player.playerId).length
+              : 0
+            const myVoteTarget = game?.myPlayerId != null ? voteRecords[game.myPlayerId] : undefined
+            const iVotedHim = showVoteUI && myVoteTarget != null && Number(myVoteTarget) === player.playerId
+            const isEliminated = game?.phase === 'EXECUTION'
+              && voteResult?.eliminatedPlayerId === player.playerId
             return (
               <View
                 key={player.playerId}
-                className={`player-card ${player.status} ${selectedTarget === player.playerId ? 'selected' : ''} ${speakingPlayerIds.has(player.playerId) ? 'speaking' : ''} ${isTeammate ? 'werewolf-teammate' : ''} ${highlight.className}`}
+                className={`player-card ${player.status} ${selectedTarget === player.playerId ? 'selected' : ''} ${speakingPlayerIds.has(player.playerId) ? 'speaking' : ''} ${isTeammate ? 'werewolf-teammate' : ''} ${highlight.className} ${isEliminated ? 'eliminated' : ''}`}
                 onClick={() => {
                   if (!canAct() || player.status !== 'ALIVE') return
                   // 狼人阶段不能选自己和队友
@@ -573,12 +721,223 @@ export default function GamePlay() {
                   <Text style={{ fontSize: '10px', color: '#ff4444', textAlign: 'center', fontWeight: 'bold' }}>🐺 队友</Text>
                 )}
                 {highlight.active && <Text className='active-badge'>{highlight.label}</Text>}
-                {player.status === 'DEAD' && <Text className='dead-badge'>已死亡</Text>}
+                {player.status === 'DEAD' && !isEliminated && <Text className='dead-badge'>已死亡</Text>}
+
+                {/* ✨ 投票气泡：得票数 + 是否为我的投票目标 */}
+                {showVoteUI && receivedVotes > 0 && (
+                  <View style={{
+                    position: 'absolute', top: '2px', right: '2px',
+                    background: 'linear-gradient(135deg, #ff6b6b, #c62828)',
+                    color: '#fff', borderRadius: '10px',
+                    padding: '2px 6px', minWidth: '20px',
+                    textAlign: 'center',
+                    boxShadow: '0 2px 6px rgba(198,40,40,0.5)',
+                    border: '1px solid rgba(255,255,255,0.85)',
+                    zIndex: 3
+                  }}>
+                    <Text style={{ fontSize: '11px', color: '#fff', fontWeight: 'bold' }}>
+                      {receivedVotes}
+                    </Text>
+                  </View>
+                )}
+                {iVotedHim && (
+                  <Text style={{
+                    position: 'absolute', bottom: '2px', left: '50%',
+                    transform: 'translateX(-50%)',
+                    fontSize: '10px', color: '#ffd54f',
+                    background: 'rgba(30,20,10,0.85)',
+                    padding: '1px 6px', borderRadius: '8px',
+                    border: '1px solid rgba(255,213,79,0.6)',
+                    whiteSpace: 'nowrap',
+                    zIndex: 3
+                  }}>
+                    ✦ 我的一票
+                  </Text>
+                )}
+                {isEliminated && (
+                  <Text style={{
+                    position: 'absolute', top: '50%', left: '50%',
+                    transform: 'translate(-50%, -50%)',
+                    fontSize: '14px', color: '#fff',
+                    background: 'rgba(198,40,40,0.95)',
+                    padding: '3px 10px', borderRadius: '12px',
+                    fontWeight: 'bold',
+                    boxShadow: '0 2px 12px rgba(198,40,40,0.8)',
+                    whiteSpace: 'nowrap',
+                    zIndex: 4
+                  }}>
+                    ⚖ 被放逐
+                  </Text>
+                )}
               </View>
             )
           })}
         </View>
       </View>
+
+      {/* ✨ 投票明细面板（VOTING 实时 / EXECUTION 最终） */}
+      {(game?.phase === 'VOTING' || game?.phase === 'EXECUTION') && (() => {
+        // VOTING 阶段用实时 voteRecords，EXECUTION 阶段优先用 voteResult
+        const records: Record<number, number> = (game?.phase === 'EXECUTION' && voteResult)
+          ? voteResult.votesByVoter
+          : voteRecords
+        const entries = Object.entries(records).map(([vid, tid]) => ({
+          voterId: Number(vid),
+          targetId: Number(tid),
+        }))
+        if (entries.length === 0 && game?.phase === 'VOTING') {
+          return (
+            <View style={{
+              margin: '8px 12px', padding: '12px',
+              background: 'rgba(20,16,12,0.75)',
+              border: '1px solid rgba(74,61,48,0.5)',
+              borderRadius: '8px', textAlign: 'center'
+            }}>
+              <Text style={{ fontSize: '13px', color: '#8a7a68' }}>
+                等待玩家投票中…
+              </Text>
+            </View>
+          )
+        }
+        // 排序：按投票人座位号
+        entries.sort((a, b) => {
+          const sa = game?.players.find(p => p.playerId === a.voterId)?.seatNumber ?? 99
+          const sb = game?.players.find(p => p.playerId === b.voterId)?.seatNumber ?? 99
+          return sa - sb
+        })
+        // 汇总得票数（用于 EXECUTION 阶段柱状）
+        const countMap: Record<number, number> = {}
+        entries.forEach(e => {
+          if (e.targetId && e.targetId > 0) {
+            countMap[e.targetId] = (countMap[e.targetId] || 0) + 1
+          }
+        })
+        const maxCount = Math.max(1, ...Object.values(countMap))
+        const countEntries = Object.entries(countMap)
+          .map(([tid, c]) => ({ targetId: Number(tid), count: c }))
+          .sort((a, b) => b.count - a.count)
+        const abstainCount = entries.filter(e => !e.targetId || e.targetId <= 0).length
+
+        const isFinal = game?.phase === 'EXECUTION' && !!voteResult
+
+        return (
+          <View style={{
+            margin: '8px 12px', padding: '12px',
+            background: isFinal
+              ? 'linear-gradient(180deg, rgba(50,20,20,0.85), rgba(20,16,12,0.9))'
+              : 'rgba(20,16,12,0.8)',
+            border: isFinal
+              ? '1.5px solid rgba(198,40,40,0.55)'
+              : '1px solid rgba(212,175,55,0.3)',
+            borderRadius: '10px',
+            boxShadow: isFinal ? '0 4px 18px rgba(198,40,40,0.3)' : 'none'
+          }}>
+            <Text style={{
+              display: 'block', fontSize: '14px',
+              color: isFinal ? '#ff8a80' : '#d4af37',
+              fontWeight: 'bold', marginBottom: '8px',
+              textAlign: 'center'
+            }}>
+              {isFinal ? '⚖ 放逐结果' : '🗳 实时投票'}
+            </Text>
+
+            {/* EXECUTION 阶段：最终处决结论 */}
+            {isFinal && voteResult && (
+              <View style={{
+                marginBottom: '10px', padding: '10px',
+                background: voteResult.eliminatedPlayerId
+                  ? 'rgba(198,40,40,0.22)'
+                  : 'rgba(80,80,80,0.22)',
+                borderRadius: '6px',
+                border: `1px solid ${voteResult.eliminatedPlayerId ? 'rgba(198,40,40,0.6)' : 'rgba(140,140,140,0.4)'}`,
+                textAlign: 'center'
+              }}>
+                <Text style={{
+                  fontSize: '15px', fontWeight: 'bold',
+                  color: voteResult.eliminatedPlayerId ? '#ff6b6b' : '#c9a86a'
+                }}>
+                  {voteResult.eliminatedPlayerId
+                    ? `⚔ ${voteResult.eliminatedSeat}号 ${voteResult.eliminatedName || ''} 被放逐`
+                    : (voteResult.isTie ? '⚖ 平票，无人被放逐' : '🕊 无人被放逐')}
+                </Text>
+              </View>
+            )}
+
+            {/* 每个目标的得票柱状 */}
+            {countEntries.length > 0 && (
+              <View style={{ marginBottom: '8px' }}>
+                {countEntries.map(({ targetId, count }) => {
+                  const target = game?.players.find(p => p.playerId === targetId)
+                  const isEliminated = isFinal && voteResult?.eliminatedPlayerId === targetId
+                  return (
+                    <View key={targetId} style={{ marginBottom: '6px' }}>
+                      <View style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2px' }}>
+                        <Text style={{ fontSize: '12px', color: isEliminated ? '#ff8a80' : '#c9a86a' }}>
+                          {target ? `${target.seatNumber}号 ${target.username}` : `ID ${targetId}`}
+                          {isEliminated && ' ⚔'}
+                        </Text>
+                        <Text style={{ fontSize: '12px', color: isEliminated ? '#ff8a80' : '#c9a86a', fontWeight: 'bold' }}>
+                          {count}票
+                        </Text>
+                      </View>
+                      <View style={{
+                        height: '6px', background: 'rgba(0,0,0,0.4)',
+                        borderRadius: '3px', overflow: 'hidden'
+                      }}>
+                        <View style={{
+                          height: '100%',
+                          width: `${(count / maxCount) * 100}%`,
+                          background: isEliminated
+                            ? 'linear-gradient(90deg, #ff6b6b, #c62828)'
+                            : 'linear-gradient(90deg, #d4af37, #ff9800)',
+                          transition: 'width 0.4s ease'
+                        }} />
+                      </View>
+                    </View>
+                  )
+                })}
+                {abstainCount > 0 && (
+                  <View style={{ marginTop: '4px' }}>
+                    <Text style={{ fontSize: '11px', color: '#8a7a68' }}>
+                      弃票: {abstainCount}
+                    </Text>
+                  </View>
+                )}
+              </View>
+            )}
+
+            {/* 投票明细："X号 → Y号" */}
+            <View style={{
+              paddingTop: '8px',
+              borderTop: '1px dashed rgba(212,175,55,0.25)'
+            }}>
+              <Text style={{ display: 'block', fontSize: '11px', color: '#8a7a68', marginBottom: '6px' }}>
+                投票明细
+              </Text>
+              <View style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                {entries.map(({ voterId, targetId }) => {
+                  const voter = game?.players.find(p => p.playerId === voterId)
+                  const target = targetId > 0 ? game?.players.find(p => p.playerId === targetId) : null
+                  const abstain = !targetId || targetId <= 0
+                  return (
+                    <View key={voterId} style={{
+                      padding: '3px 8px',
+                      background: abstain ? 'rgba(80,80,80,0.25)' : 'rgba(212,175,55,0.12)',
+                      border: `1px solid ${abstain ? 'rgba(140,140,140,0.3)' : 'rgba(212,175,55,0.3)'}`,
+                      borderRadius: '10px'
+                    }}>
+                      <Text style={{ fontSize: '11px', color: abstain ? '#8a7a68' : '#c9a86a' }}>
+                        {voter ? `${voter.seatNumber}号` : `ID${voterId}`}
+                        {abstain ? ' 弃票' : ` → ${target ? `${target.seatNumber}号` : `ID${targetId}`}`}
+                      </Text>
+                    </View>
+                  )
+                })}
+              </View>
+            </View>
+          </View>
+        )
+      })()}
 
       {/* 行动按钮 */}
       {canAct() && (
@@ -733,7 +1092,11 @@ export default function GamePlay() {
       <View className='chat-section'>
         <View className='chat-header'>
           <Text className='chat-title'>💬 消息</Text>
-          {canChat() && <Text className='chat-hint'>讨论阶段，畅所欲言</Text>}
+          {game?.phase === 'DISCUSSION' && currentSpeaker && (
+            <Text className='chat-hint'>
+              轮到 {currentSpeaker.seatNumber}号 {currentSpeaker.username} 发言
+            </Text>
+          )}
         </View>
         <ScrollView className='chat-messages' scrollY scrollWithAnimation>
           {chatMessages.length === 0 ? (
@@ -767,7 +1130,8 @@ export default function GamePlay() {
         ) : (
           <View className='chat-input-disabled'>
             <Text className='chat-disabled-text'>
-              {game?.phase === 'VOTING' ? '投票阶段，禁止发言' :
+              {game?.phase === 'DISCUSSION' ? `当前发言人：${currentSpeaker ? `${currentSpeaker.seatNumber}号 ${currentSpeaker.username}` : '等待切换'}` :
+               game?.phase === 'VOTING' ? '投票阶段，禁止发言' :
                game?.phase === 'EXECUTION' ? '处决阶段，静默等待' :
                ['NIGHT_START', 'WEREWOLF', 'SEER', 'WITCH', 'GUARD', 'HUNTER'].includes(game?.phase || '') ? '夜晚降临，保持沉默' :
                '当前阶段无法发言'}

@@ -68,6 +68,7 @@ public class WebSocketMessage {
         public static final String NIGHT_RESULT = "NIGHT_RESULT";
         public static final String DEATH_ANNOUNCE = "DEATH_ANNOUNCE";
         public static final String VOTE_START = "VOTE_START";
+        public static final String VOTE_UPDATE = "VOTE_UPDATE";
         public static final String VOTE_RESULT = "VOTE_RESULT";
         public static final String SEER_RESULT = "SEER_RESULT";
         public static final String HUNTER_SHOOT = "HUNTER_SHOOT";

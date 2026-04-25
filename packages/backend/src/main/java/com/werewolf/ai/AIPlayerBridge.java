@@ -315,6 +315,9 @@ public class AIPlayerBridge {
                     roomCode
             );
             webSocketHandler.broadcastToRoom(roomCode, chatMsg);
+            if (game.getCurrentPhase() == Game.GamePhase.DISCUSSION) {
+                gameService.advanceDiscussionSpeaker(gameId, aiPlayer.getId());
+            }
 
             log.info("AI 玩家 {} ({}号) 发言成功: {}...", 
                 aiPlayer.getId(), aiPlayer.getSeatNumber(), 
@@ -514,8 +517,14 @@ public class AIPlayerBridge {
     private List<Player> getAIPlayersForPhase(Long gameId, Game.GamePhase phase) {
         List<Player> alivePlayers = playerRepository.findByGameIdAndStatus(gameId, Player.PlayerStatus.ALIVE);
 
-        if (phase == Game.GamePhase.VOTING || phase == Game.GamePhase.DISCUSSION) {
-            // 投票/讨论阶段：所有存活的 AI 玩家
+        if (phase == Game.GamePhase.VOTING) {
+            // 投票阶段：可投票的 AI 玩家
+            return alivePlayers.stream()
+                .filter(p -> Boolean.TRUE.equals(p.getIsAi()))
+                .filter(p -> Boolean.TRUE.equals(p.getCanVote()))
+                .toList();
+        } else if (phase == Game.GamePhase.DISCUSSION) {
+            // 讨论阶段：仅当前可发言的 AI 玩家
             return alivePlayers.stream()
                 .filter(p -> Boolean.TRUE.equals(p.getIsAi()))
                 .filter(p -> Boolean.TRUE.equals(p.getCanSpeak()))

@@ -176,6 +176,9 @@ public class NightActionStore {
                 }
             }
 
+            log.info("夜晚结算输入: killTarget={}, guardTarget={}, saveTarget={}, poisonTarget={}, 死亡名单={}",
+                    killTarget, guardProtectTarget, witchSaveTarget, witchPoisonTarget, deadPlayers);
+
             return deadPlayers;
         }
     }

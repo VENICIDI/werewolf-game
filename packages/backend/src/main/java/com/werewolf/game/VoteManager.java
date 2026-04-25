@@ -77,12 +77,35 @@ public class VoteManager {
         }
 
         /**
+         * 获取当前所有投票记录快照 (voterId -> targetId, 0=弃票)
+         */
+        public Map<Long, Long> snapshotVotes() {
+            return new HashMap<>(votes);
+        }
+
+        /**
+         * 已投票人数
+         */
+        public int getVotedCount() {
+            return votes.size();
+        }
+
+        /**
+         * 总投票人数
+         */
+        public int getEligibleCount() {
+            return eligibleVoterIds.size();
+        }
+
+        /**
          * 获取投票结果
          * @return VoteResult 包含被票出的玩家或平票信息
          */
         public VoteResult resolve() {
+            Map<Long, Long> votesByVoter = new HashMap<>(votes);
+
             if (votes.isEmpty()) {
-                return new VoteResult(null, true, Collections.emptyMap());
+                return new VoteResult(null, true, Collections.emptyMap(), votesByVoter);
             }
 
             // 统计票数 (排除弃票 targetId=0)
@@ -95,7 +118,7 @@ public class VoteManager {
             }
 
             if (voteCount.isEmpty()) {
-                return new VoteResult(null, false, voteCount);
+                return new VoteResult(null, false, voteCount, votesByVoter);
             }
 
             // 找最高票数
@@ -109,10 +132,10 @@ public class VoteManager {
 
             if (topPlayers.size() > 1) {
                 // 平票
-                return new VoteResult(null, true, voteCount);
+                return new VoteResult(null, true, voteCount, votesByVoter);
             }
 
-            return new VoteResult(topPlayers.get(0), false, voteCount);
+            return new VoteResult(topPlayers.get(0), false, voteCount, votesByVoter);
         }
     }
 
@@ -123,12 +146,15 @@ public class VoteManager {
     public static class VoteResult {
         private final Long eliminatedPlayerId; // null表示无人被处决
         private final boolean isTie;           // 是否平票
-        private final Map<Long, Integer> voteDetails; // 投票详情
+        private final Map<Long, Integer> voteDetails; // 票数统计: targetId -> count
+        private final Map<Long, Long> votesByVoter;   // 投票明细: voterId -> targetId (0=弃票)
 
-        public VoteResult(Long eliminatedPlayerId, boolean isTie, Map<Long, Integer> voteDetails) {
+        public VoteResult(Long eliminatedPlayerId, boolean isTie,
+                          Map<Long, Integer> voteDetails, Map<Long, Long> votesByVoter) {
             this.eliminatedPlayerId = eliminatedPlayerId;
             this.isTie = isTie;
             this.voteDetails = voteDetails;
+            this.votesByVoter = votesByVoter;
         }
     }
 }

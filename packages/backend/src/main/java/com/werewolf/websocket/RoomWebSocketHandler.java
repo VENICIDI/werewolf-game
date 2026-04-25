@@ -1,8 +1,12 @@
 package com.werewolf.websocket;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.werewolf.entity.Game;
+import com.werewolf.entity.Player;
 import com.werewolf.entity.Room;
 import com.werewolf.entity.User;
+import com.werewolf.repository.GameRepository;
+import com.werewolf.repository.PlayerRepository;
 import com.werewolf.service.RoomService;
 import com.werewolf.service.UserService;
 import lombok.extern.slf4j.Slf4j;
@@ -13,6 +17,9 @@ import org.springframework.web.socket.WebSocketSession;
 import org.springframework.web.socket.handler.TextWebSocketHandler;
 
 import java.io.IOException;
+import java.util.Comparator;
+import java.util.List;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -29,11 +36,20 @@ public class RoomWebSocketHandler extends TextWebSocketHandler {
     private final ObjectMapper objectMapper;
     private final RoomService roomService;
     private final UserService userService;
+    private final GameRepository gameRepository;
+    private final PlayerRepository playerRepository;
     
-    public RoomWebSocketHandler(ObjectMapper objectMapper, RoomService roomService, UserService userService) {
+    public RoomWebSocketHandler(
+            ObjectMapper objectMapper,
+            RoomService roomService,
+            UserService userService,
+            GameRepository gameRepository,
+            PlayerRepository playerRepository) {
         this.objectMapper = objectMapper;
         this.roomService = roomService;
         this.userService = userService;
+        this.gameRepository = gameRepository;
+        this.playerRepository = playerRepository;
     }
     
     @Override
@@ -140,10 +156,91 @@ public class RoomWebSocketHandler extends TextWebSocketHandler {
     
     // 处理聊天消息
     private void handleChatMessage(String roomCode, Long userId, String username, WebSocketMessage message) {
+        Room room = roomService.findByRoomCode(roomCode).orElse(null);
+        if (room != null) {
+            Game game = gameRepository.findByRoomId(room.getId()).orElse(null);
+            if (game != null && game.getStatus() == Game.GameStatus.RUNNING) {
+                if (game.getCurrentPhase() != Game.GamePhase.DISCUSSION) {
+                    sendToUser(roomCode, userId, new WebSocketMessage(WebSocketMessage.Type.ERROR, "当前阶段禁止发言"));
+                    return;
+                }
+
+                Player player = playerRepository.findByGameIdAndUserId(game.getId(), userId).orElse(null);
+                if (player == null || player.getStatus() != Player.PlayerStatus.ALIVE) {
+                    sendToUser(roomCode, userId, new WebSocketMessage(WebSocketMessage.Type.ERROR, "你已死亡，不能发言"));
+                    return;
+                }
+                if (!Boolean.TRUE.equals(player.getCanSpeak())) {
+                    sendToUser(roomCode, userId, new WebSocketMessage(WebSocketMessage.Type.ERROR, "还没轮到你发言"));
+                    return;
+                }
+            }
+        }
+
         message.setSenderId(userId);
         message.setSenderName(username);
         message.setRoomCode(roomCode);
         broadcastToRoom(roomCode, message);
+
+        if (room != null) {
+            Game game = gameRepository.findByRoomId(room.getId()).orElse(null);
+            if (game != null && game.getStatus() == Game.GameStatus.RUNNING
+                    && game.getCurrentPhase() == Game.GamePhase.DISCUSSION) {
+                Player speaker = playerRepository.findByGameIdAndUserId(game.getId(), userId).orElse(null);
+                if (speaker != null) {
+                    advanceDiscussionSpeaker(game, speaker.getId());
+                }
+            }
+        }
+    }
+
+    private void advanceDiscussionSpeaker(Game game, Long currentSpeakerId) {
+        List<Player> alivePlayers = playerRepository.findByGameIdAndStatus(game.getId(), Player.PlayerStatus.ALIVE)
+                .stream()
+                .sorted(Comparator.comparing(Player::getSeatNumber))
+                .toList();
+        if (alivePlayers.size() <= 1) {
+            return;
+        }
+
+        int currentIdx = -1;
+        for (int i = 0; i < alivePlayers.size(); i++) {
+            if (alivePlayers.get(i).getId().equals(currentSpeakerId)) {
+                currentIdx = i;
+                break;
+            }
+        }
+        if (currentIdx < 0) {
+            return;
+        }
+
+        Player nextSpeaker = pickNextDiscussionSpeaker(alivePlayers, currentIdx);
+        for (Player p : alivePlayers) {
+            p.setCanSpeak(p.getId().equals(nextSpeaker.getId()));
+            playerRepository.save(p);
+        }
+
+        Map<String, Object> data = new HashMap<>();
+        data.put("playerId", nextSpeaker.getId());
+        data.put("seatNumber", nextSpeaker.getSeatNumber());
+        data.put("username", nextSpeaker.getUser() != null ? nextSpeaker.getUser().getUsername() : nextSpeaker.getAiName());
+        data.put("message", "轮到" + nextSpeaker.getSeatNumber() + "号玩家发言");
+        broadcastToRoom(game.getRoom().getRoomCode(), new WebSocketMessage("SPEAKER_CHANGE", data));
+    }
+
+    private Player pickNextDiscussionSpeaker(List<Player> alivePlayers, int currentIdx) {
+        Player defaultNext = alivePlayers.get((currentIdx + 1) % alivePlayers.size());
+        if (!Boolean.TRUE.equals(defaultNext.getIsAi())) {
+            return defaultNext;
+        }
+
+        for (int i = 1; i <= alivePlayers.size(); i++) {
+            Player candidate = alivePlayers.get((currentIdx + i) % alivePlayers.size());
+            if (!Boolean.TRUE.equals(candidate.getIsAi())) {
+                return candidate;
+            }
+        }
+        return defaultNext;
     }
     
     // 处理准备消息

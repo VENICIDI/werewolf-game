@@ -486,6 +486,8 @@ public class GameService {
                 // AI 女巫：简单逻辑 — 有解药且有人被杀就救，否则跳过
                 handleAIWitch(gameId, witch, actions, killTarget);
             } else if (witch.getUser() != null) {
+                log.info("女巫阶段-发送WITCH_INFO给真人女巫 {}号(userId={}) data={}",
+                        witch.getSeatNumber(), witch.getUser().getId(), witchData);
                 webSocketHandler.sendToUser(game.getRoom().getRoomCode(), witch.getUser().getId(),
                         new WebSocketMessage("WITCH_INFO", witchData));
             }
@@ -549,6 +551,8 @@ public class GameService {
 
         Map<String, Object> data = new HashMap<>();
         data.put("candidates", candidates);
+        data.put("voterIds", new ArrayList<>(voterIds));
+        data.put("eligibleCount", voterIds.size());
         data.put("message", "投票阶段开始，请投票");
 
         webSocketHandler.broadcastToRoom(roomCode,
@@ -567,13 +571,28 @@ public class GameService {
         VoteManager.VoteResult result = session.resolve();
         String roomCode = game.getRoom().getRoomCode();
 
+        // voteDetails: targetId -> count；JSON key 需字符串
+        Map<String, Integer> voteDetails = new HashMap<>();
+        for (Map.Entry<Long, Integer> entry : result.getVoteDetails().entrySet()) {
+            voteDetails.put(String.valueOf(entry.getKey()), entry.getValue());
+        }
+        // votesByVoter: voterId -> targetId (0=弃票)
+        Map<String, Long> votesByVoter = new HashMap<>();
+        for (Map.Entry<Long, Long> entry : result.getVotesByVoter().entrySet()) {
+            votesByVoter.put(String.valueOf(entry.getKey()), entry.getValue());
+        }
+
         Map<String, Object> data = new HashMap<>();
-        data.put("voteDetails", result.getVoteDetails());
+        data.put("voteDetails", voteDetails);
+        data.put("votesByVoter", votesByVoter);
         data.put("isTie", result.isTie());
+        data.put("votedCount", session.getVotedCount());
+        data.put("eligibleCount", session.getEligibleCount());
 
         if (result.isTie()) {
-            data.put("message", "平票，无人被处决");
+            data.put("message", "平票，无人被放逐");
             data.put("eliminatedPlayerId", null);
+            data.put("eliminatedSeat", null);
         } else if (result.getEliminatedPlayerId() != null) {
             Player eliminated = playerRepository.findById(result.getEliminatedPlayerId()).orElse(null);
             if (eliminated != null) {
@@ -584,7 +603,9 @@ public class GameService {
 
                 data.put("eliminatedPlayerId", eliminated.getId());
                 data.put("eliminatedSeat", eliminated.getSeatNumber());
-                data.put("message", eliminated.getSeatNumber() + "号玩家被投票处决");
+                data.put("eliminatedName",
+                        eliminated.getUser() != null ? eliminated.getUser().getUsername() : eliminated.getAiName());
+                data.put("message", eliminated.getSeatNumber() + "号玩家被投票放逐");
 
                 saveLog(gameId, game.getCurrentRound(), "EXECUTION",
                         eliminated.getId(), "EXECUTED", null);
@@ -594,8 +615,9 @@ public class GameService {
                 }
             }
         } else {
-            data.put("message", "无人被处决");
+            data.put("message", "无人被放逐");
             data.put("eliminatedPlayerId", null);
+            data.put("eliminatedSeat", null);
         }
 
         webSocketHandler.broadcastToRoom(roomCode,
@@ -603,8 +625,8 @@ public class GameService {
 
         voteManager.clearVote(gameId);
         votingResolved.remove(gameId); // 清理幂等锁以备下一轮
-        log.info("投票结算 - 游戏: {}, 平票: {}, 处决: {}",
-                gameId, result.isTie(), result.getEliminatedPlayerId());
+        log.info("投票结算 - 游戏: {}, 平票: {}, 处决: {}, 明细: {}",
+                gameId, result.isTie(), result.getEliminatedPlayerId(), result.getVotesByVoter());
         GameLogger.room(roomCode, gameId, "投票结算: 平票={}, 处决={}",
                 result.isTie(), result.getEliminatedPlayerId());
 
@@ -618,7 +640,88 @@ public class GameService {
         Game game = getGameStatus(gameId);
         game.setCurrentPhase(phase);
         gameRepository.save(game);
+        if (phase == Game.GamePhase.DISCUSSION) {
+            initDiscussionSpeaker(game);
+        }
         // 注意：不在此处广播 PHASE_CHANGE，由 PhaseScheduler.executePhaseStart() 统一广播（带 duration）
+    }
+
+    @Transactional
+    public void advanceDiscussionSpeaker(Long gameId, Long currentSpeakerId) {
+        Game game = getGameStatus(gameId);
+        if (game.getCurrentPhase() != Game.GamePhase.DISCUSSION) {
+            return;
+        }
+
+        List<Player> alivePlayers = playerRepository.findByGameIdAndStatus(gameId, Player.PlayerStatus.ALIVE)
+                .stream()
+                .sorted(Comparator.comparing(Player::getSeatNumber))
+                .toList();
+        if (alivePlayers.isEmpty()) {
+            return;
+        }
+
+        int currentIdx = -1;
+        for (int i = 0; i < alivePlayers.size(); i++) {
+            if (alivePlayers.get(i).getId().equals(currentSpeakerId)) {
+                currentIdx = i;
+                break;
+            }
+        }
+        if (currentIdx < 0) {
+            return;
+        }
+
+        Player nextSpeaker = pickNextDiscussionSpeaker(alivePlayers, currentIdx);
+        setSingleSpeaker(alivePlayers, nextSpeaker.getId());
+        broadcastSpeakerChange(game, nextSpeaker);
+    }
+
+    private void initDiscussionSpeaker(Game game) {
+        List<Player> alivePlayers = playerRepository.findByGameIdAndStatus(game.getId(), Player.PlayerStatus.ALIVE)
+                .stream()
+                .sorted(Comparator.comparing(Player::getSeatNumber))
+                .toList();
+        if (alivePlayers.isEmpty()) {
+            return;
+        }
+
+        Player firstSpeaker = alivePlayers.get(0);
+        setSingleSpeaker(alivePlayers, firstSpeaker.getId());
+        broadcastSpeakerChange(game, firstSpeaker);
+    }
+
+    private void setSingleSpeaker(List<Player> alivePlayers, Long speakerPlayerId) {
+        for (Player player : alivePlayers) {
+            player.setCanSpeak(player.getId().equals(speakerPlayerId));
+            playerRepository.save(player);
+        }
+    }
+
+    private Player pickNextDiscussionSpeaker(List<Player> alivePlayers, int currentIdx) {
+        Player defaultNext = alivePlayers.get((currentIdx + 1) % alivePlayers.size());
+        if (!Boolean.TRUE.equals(defaultNext.getIsAi())) {
+            return defaultNext;
+        }
+
+        // 若下一位是 AI，优先切到后续真人，避免无人可发言卡住讨论流程
+        for (int i = 1; i <= alivePlayers.size(); i++) {
+            Player candidate = alivePlayers.get((currentIdx + i) % alivePlayers.size());
+            if (!Boolean.TRUE.equals(candidate.getIsAi())) {
+                return candidate;
+            }
+        }
+        return defaultNext;
+    }
+
+    private void broadcastSpeakerChange(Game game, Player speaker) {
+        Map<String, Object> data = new HashMap<>();
+        data.put("playerId", speaker.getId());
+        data.put("seatNumber", speaker.getSeatNumber());
+        data.put("username", speaker.getUser() != null ? speaker.getUser().getUsername() : speaker.getAiName());
+        data.put("message", "轮到" + speaker.getSeatNumber() + "号玩家发言");
+        webSocketHandler.broadcastToRoom(game.getRoom().getRoomCode(),
+                new WebSocketMessage("SPEAKER_CHANGE", data));
     }
 
     @Transactional

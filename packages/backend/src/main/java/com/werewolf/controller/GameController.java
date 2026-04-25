@@ -129,6 +129,7 @@ public class GameController {
                 info.put("isAi", p.getIsAi());
                 info.put("status", p.getStatus().name());
                 info.put("isCaptain", p.getIsCaptain());
+                info.put("canSpeak", p.getCanSpeak());
 
                 // 角色可见性：自己可见 + 游戏结束后全部公开
                 if (isFinished || (myPlayer != null && p.getId().equals(myPlayer.getId()))) {
