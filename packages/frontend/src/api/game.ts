@@ -10,6 +10,67 @@ export const getGameStatus = (gameId: number) => {
   return get(`/games/${gameId}/status`)
 }
 
+// ✨ 获取完整游戏快照(断线重连/首次进入时调用)
+export const getGameSnapshot = (gameId: number): Promise<GameSnapshot> => {
+  return get(`/games/${gameId}/snapshot`) as Promise<GameSnapshot>
+}
+
+// ✨ 游戏快照数据结构 - 与后端 GameService.buildGameSnapshot 对应
+export interface GameSnapshot {
+  gameId: number
+  status: string
+  round: number
+  phase: string
+  winner?: string | null
+  serverNow: number
+  // 阶段绝对时间戳(epoch ms) - 供前端计算倒计时,避免本地时钟漂移
+  phaseStartedAt?: number
+  phaseEndsAt?: number
+  phaseRemainingMs?: number
+  isNight?: boolean
+  // 玩家列表
+  players: Array<{
+    playerId: number
+    seatNumber: number
+    username: string
+    avatarUrl?: string
+    isAi: boolean
+    status: string
+    canSpeak: boolean
+    role: string // 未揭示为 "UNKNOWN"
+  }>
+  // 个人视角
+  myPlayerId?: number
+  myRole?: string
+  mySeat?: number
+  teammates?: number[]
+  mySubmitted?: boolean
+  canHunterShoot?: boolean
+  witchInfo?: {
+    hasSave: boolean
+    hasPoison: boolean
+    killTargetId?: number
+    killTargetSeat?: number
+    killTargetName?: string
+  }
+  // 讨论阶段
+  discussion?: {
+    currentSpeakerId: number
+    currentIndex: number
+    totalSpeakers: number
+    speakTimeMs: number
+    speakStartedAt: number
+    speakEndsAt: number
+    speakOrder: number[]
+  }
+  // 投票阶段
+  vote?: {
+    votesByVoter: Record<string, number>
+    votedCount: number
+    eligibleCount: number
+  }
+}
+
 // 执行夜晚行动
 export const nightAction = (gameId: number, action: string, targetId?: number) => {
   return post(`/games/${gameId}/night-action`, { action, targetId })

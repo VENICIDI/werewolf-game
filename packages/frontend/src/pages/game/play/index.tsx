@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
 import Taro, { useRouter } from '@tarojs/taro'
 import { View, Text, Button, ScrollView, Input } from '@tarojs/components'
-import { getGameStatus, GamePhase, GameStatus, Role } from '../../../api/game'
+import { getGameStatus, getGameSnapshot, GamePhase, GameStatus, Role } from '../../../api/game'
 import { get, post } from '../../../utils/request'
 import { wsManager } from '../../../utils/websocket'
 import './index.scss'
@@ -50,6 +50,12 @@ export default function GamePlay() {
   const [speakTimeLeft, setSpeakTimeLeft] = useState(0)
   const [selectedTarget, setSelectedTarget] = useState<number | null>(null)
   const [phaseTimeLeft, setPhaseTimeLeft] = useState(0)
+  // ✨ 阶段 / 发言 的绝对结束时间戳(epoch ms,服务端时间)
+  const [phaseEndsAt, setPhaseEndsAt] = useState<number>(0)
+  const [speakEndsAt, setSpeakEndsAt] = useState<number>(0)
+  // ✨ 服务器 - 本地时钟偏移(ms) = serverNow - Date.now() (收到消息时算)
+  // 计算剩余时间:Math.max(0, (endsAt - (Date.now() + serverClockOffset)) / 1000)
+  const serverClockOffsetRef = useRef<number>(0)
   const [showRoleModal, setShowRoleModal] = useState(false)
   // ✨ 女巫信息
   const [witchInfo, setWitchInfo] = useState<{
@@ -103,23 +109,38 @@ export default function GamePlay() {
     }
   }, [])
 
-  // 倒计时
+  // ✨ 阶段倒计时(绝对时间戳驱动,自愈漂移)
+  // 每 500ms 用 (phaseEndsAt - serverNow) 重算 phaseTimeLeft,服务端-本地时钟差自动补偿
   useEffect(() => {
-    if (phaseTimeLeft <= 0) return
-    const timer = setInterval(() => {
-      setPhaseTimeLeft(prev => Math.max(0, prev - 1))
-    }, 1000)
+    if (!phaseEndsAt) {
+      setPhaseTimeLeft(0)
+      return
+    }
+    const tick = () => {
+      const serverNow = Date.now() + serverClockOffsetRef.current
+      const remainMs = Math.max(0, phaseEndsAt - serverNow)
+      setPhaseTimeLeft(Math.ceil(remainMs / 1000))
+    }
+    tick()
+    const timer = setInterval(tick, 500)
     return () => clearInterval(timer)
-  }, [phaseTimeLeft])
+  }, [phaseEndsAt])
 
-  // ✨ 讨论阶段每位发言人 30s 倒计时 (speakTimeLeft)
+  // ✨ 当前发言人倒计时(绝对时间戳驱动)
   useEffect(() => {
-    if (speakTimeLeft <= 0) return
-    const timer = setInterval(() => {
-      setSpeakTimeLeft(prev => Math.max(0, prev - 1))
-    }, 1000)
+    if (!speakEndsAt) {
+      setSpeakTimeLeft(0)
+      return
+    }
+    const tick = () => {
+      const serverNow = Date.now() + serverClockOffsetRef.current
+      const remainMs = Math.max(0, speakEndsAt - serverNow)
+      setSpeakTimeLeft(Math.ceil(remainMs / 1000))
+    }
+    tick()
+    const timer = setInterval(tick, 500)
     return () => clearInterval(timer)
-  }, [speakTimeLeft])
+  }, [speakEndsAt])
 
   // ✨ 调试：监控关键状态变化
   useEffect(() => {
@@ -174,6 +195,86 @@ export default function GamePlay() {
     }
   }
 
+  // ✨ 应用后端返回的完整快照到本地状态 (WS 重连/首次进入时调用)
+  // 作为权威数据源对齐:阶段、倒计时、玩家状态、投票进度、发言人、行动锁
+  const applySnapshot = useCallback(async (gameId: number) => {
+    try {
+      const snap = await getGameSnapshot(gameId)
+      console.log('[Snapshot] 应用快照', snap)
+
+      // ① 校准时钟偏移
+      if (snap.serverNow) {
+        serverClockOffsetRef.current = Number(snap.serverNow) - Date.now()
+      }
+
+      // ② 游戏基础状态 + 玩家列表
+      setGame(prev => ({
+        ...(prev || {} as GameData),
+        gameId: snap.gameId,
+        roomCode: Taro.getStorageSync('currentRoomCode') || '',
+        status: snap.status,
+        round: snap.round,
+        phase: snap.phase,
+        players: snap.players.map(p => ({
+          playerId: p.playerId,
+          seatNumber: p.seatNumber,
+          username: p.username,
+          avatarUrl: p.avatarUrl,
+          isAi: p.isAi,
+          status: p.status,
+          canSpeak: p.canSpeak,
+          role: p.role,
+        })),
+        myPlayerId: snap.myPlayerId,
+        myRole: snap.myRole,
+        mySeat: snap.mySeat,
+        teammates: snap.teammates || [],
+      }))
+
+      // ③ 阶段时间戳
+      setPhaseEndsAt(snap.phaseEndsAt || 0)
+
+      // ④ 行动锁:用后端 mySubmitted 重建本地锁状态
+      const key = `${snap.phase}:${snap.round}`
+      if (snap.mySubmitted) {
+        submittedPhaseKeyRef.current = key
+        setSubmittedPhaseKey(key)
+        setSubmittedSummary('✅ 已提交(从服务端同步)')
+      } else {
+        submittedPhaseKeyRef.current = null
+        setSubmittedPhaseKey(null)
+        setSubmittedSummary('')
+      }
+
+      // ⑤ 女巫信息 / 猎人开枪
+      if (snap.witchInfo) setWitchInfo(snap.witchInfo)
+      if (snap.canHunterShoot) setCanHunterShoot(true)
+
+      // ⑥ 讨论阶段发言人 + 发言倒计时
+      if (snap.discussion) {
+        setCurrentSpeakerId(snap.discussion.currentSpeakerId)
+        setSpeakEndsAt(snap.discussion.speakEndsAt || 0)
+      } else if (snap.phase !== 'DISCUSSION') {
+        setCurrentSpeakerId(null)
+        setSpeakEndsAt(0)
+      }
+
+      // ⑦ 投票进度
+      if (snap.vote) {
+        const normalized: Record<number, number> = {}
+        Object.keys(snap.vote.votesByVoter).forEach(k => {
+          normalized[Number(k)] = Number(snap.vote!.votesByVoter[k])
+        })
+        setVoteRecords(normalized)
+        setVoteProgress({ voted: snap.vote.votedCount, total: snap.vote.eligibleCount })
+      }
+
+      setLoading(false)
+    } catch (error: any) {
+      console.error('[Snapshot] 拉取失败', error)
+    }
+  }, [])
+
   const connectWebSocket = async (roomCode: string) => {
     try {
       wsManager.on('PHASE_CHANGE', handlePhaseChange)
@@ -194,6 +295,15 @@ export default function GamePlay() {
       wsManager.on('SYSTEM', handleSystemMessage)
       wsManager.on('ERROR', handleWsError)
 
+      // ✨ 重连成功后 — 主动拉取完整快照对齐本地状态
+      wsManager.setOnReconnected(() => {
+        const gid = Number(router.params.gameId || Taro.getStorageSync('currentGameId'))
+        if (gid) {
+          console.log('[WS] 重连成功,拉取游戏快照同步状态')
+          applySnapshot(gid)
+        }
+      })
+
       await wsManager.connect(roomCode)
       console.log('[Game] WebSocket 已连接')
     } catch (error) {
@@ -201,30 +311,54 @@ export default function GamePlay() {
     }
   }
 
+  // ✨ 用 ref 存上一次已处理的 (phase, round),防止重复 PHASE_CHANGE 把已锁定状态误清
+  const lastPhaseKeyRef = useRef<string | null>(null)
+
   const handlePhaseChange = useCallback((message: any) => {
     const data = message.data
-    console.log('[WS] PHASE_CHANGE →', { phase: data.phase, round: data.round, duration: data.duration })
+    const incomingKey = `${data.phase}:${data.round}`
+    // ✨ 重复消息去重:同一 (phase, round) 已处理过则只刷新时间戳,不做副作用
+    if (lastPhaseKeyRef.current === incomingKey) {
+      console.log('[WS] PHASE_CHANGE 重复消息,仅刷新时间戳 →', incomingKey)
+      if (data.serverNow) {
+        serverClockOffsetRef.current = Number(data.serverNow) - Date.now()
+      }
+      if (data.endsAt) setPhaseEndsAt(Number(data.endsAt))
+      return
+    }
+    lastPhaseKeyRef.current = incomingKey
+    console.log('[WS] PHASE_CHANGE →', { phase: data.phase, round: data.round, endsAt: data.endsAt, duration: data.duration })
     setGame(prev => prev ? {
       ...prev,
       phase: data.phase,
       round: data.round || prev.round,
     } : null)
-    if (data.duration) {
-      setPhaseTimeLeft(Math.floor(data.duration / 1000))
+    // ✨ 优先用绝对时间戳;校准时钟偏移
+    if (data.serverNow) {
+      serverClockOffsetRef.current = Number(data.serverNow) - Date.now()
+    }
+    if (data.endsAt) {
+      setPhaseEndsAt(Number(data.endsAt))
+    } else if (data.duration) {
+      // 向后兼容:没有 endsAt 时,用本地时间 + duration 估算
+      setPhaseEndsAt(Date.now() + Number(data.duration))
+    } else {
+      setPhaseEndsAt(0)
     }
     setSelectedTarget(null)
     setSpeakingPlayerIds(new Set())
     setWitchAction('none')
-    // 阶段切换：清除上一阶段的"已提交"锁定
+    // 阶段切换:清除上一阶段的"已提交"锁定
     setSubmittedPhaseKey(null)
     setSubmittedSummary('')
     submittedPhaseKeyRef.current = null
     submittingRef.current = false
-    console.log('[LOCK] 🔓 阶段切换，清除锁定')
+    console.log('[LOCK] 🔓 阶段切换,清除锁定')
     if (data.phase !== 'DISCUSSION') {
       setCurrentSpeakerId(null)
+      setSpeakEndsAt(0)
     }
-    // 进入女巫阶段时不清除 witchInfo（WITCH_INFO 消息可能先到）
+    // 进入女巫阶段时不清除 witchInfo(WITCH_INFO 消息可能先到)
     if (data.phase !== 'WITCH') {
       setWitchInfo(null)
     }
@@ -252,6 +386,12 @@ export default function GamePlay() {
     console.log('[Game] 玩家行动:', message.data)
   }, [])
 
+  // ✨ currentSpeakerId 的 ref 镜像,供 handlePlayerChat 等 useCallback([],...) 中无依赖访问最新值
+  const currentSpeakerIdRef = useRef<number | null>(null)
+  useEffect(() => {
+    currentSpeakerIdRef.current = currentSpeakerId
+  }, [currentSpeakerId])
+
   const handlePlayerChat = useCallback((message: any) => {
     const senderId = message.senderId
     setChatMessages(prev => [...prev, {
@@ -260,7 +400,10 @@ export default function GamePlay() {
       content: message.data?.content || '',
       timestamp: message.timestamp
     }])
-    // 标记发言者高亮
+    // ✨ 仅当前发言人的聊天才触发"刚说话"高亮,避免延迟/异常消息让非当前发言人变绿
+    if (senderId !== currentSpeakerIdRef.current) {
+      return
+    }
     setSpeakingPlayerIds(prev => new Set(prev).add(senderId))
     // 3秒后取消高亮
     setTimeout(() => {
@@ -457,10 +600,22 @@ export default function GamePlay() {
     const data = message.data || {}
     const nextSpeakerId = Number(data.playerId)
     if (!nextSpeakerId) return
-    setCurrentSpeakerId(nextSpeakerId)
-    // 按后端传来的 speakTimeMs 启动倒计时
-    const speakTimeMs = Number(data.speakTimeMs) || 30000
-    setSpeakTimeLeft(Math.ceil(speakTimeMs / 1000))
+    // ✨ 切换发言人时立即清空"刚说话"高亮 Set,避免上一位的残影与新发言人的 active-speaker 同时高亮
+    setSpeakingPlayerIds(new Set())
+    setCurrentSpeakerId(prev => {
+      // 幂等去重:相同发言人重复广播只刷新时间戳,不重渲染
+      if (prev === nextSpeakerId) return prev
+      return nextSpeakerId
+    })
+    // ✨ 校准时钟偏移 + 驱动绝对时间戳倒计时
+    if (data.serverNow) {
+      serverClockOffsetRef.current = Number(data.serverNow) - Date.now()
+    }
+    if (data.endsAt) {
+      setSpeakEndsAt(Number(data.endsAt))
+    } else if (data.speakTimeMs) {
+      setSpeakEndsAt(Date.now() + Number(data.speakTimeMs))
+    }
     setGame(prev => {
       if (!prev) return null
       return {

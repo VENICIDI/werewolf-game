@@ -89,6 +89,18 @@ public class DiscussionManager {
         volatile int currentIndex = 0;
         volatile ScheduledFuture<?> timeoutFuture;
         final AtomicBoolean finished = new AtomicBoolean(false);
+        // ✨ 当前发言人的开始/结束绝对时间戳(epoch ms),供断线重连快照使用
+        volatile long currentSpeakStartedAt = 0L;
+        volatile long currentSpeakEndsAt = 0L;
+        volatile Long currentSpeakerId = null;
+
+        // ✨ 单调递增的回合序号 — 每次成功推进一位发言人 +1
+        // 任何"延迟到达"的推进请求(如已被取消但已入执行队列的 timeoutFuture)
+        // 通过对比自己的 turn 与 ctx 的 turn,识别自己是否过期
+        final java.util.concurrent.atomic.AtomicInteger turn = new java.util.concurrent.atomic.AtomicInteger(0);
+
+        // ✨ 互斥锁:advanceNext / moveToSpeaker 同一时刻只能有一条路径执行
+        final java.util.concurrent.locks.ReentrantLock lock = new java.util.concurrent.locks.ReentrantLock();
 
         DiscussionContext(Long gameId, int speakTimeMs, List<Long> speakOrder) {
             this.gameId = gameId;
@@ -121,26 +133,57 @@ public class DiscussionManager {
 
         log.info("讨论阶段启动 - 游戏: {}, 发言人数: {}, 每人时长: {}ms", gameId, order.size(), speakTimeMs);
 
-        // 从第一个发言
-        moveToSpeaker(ctx, 0);
+        // ✨ 在锁保护下从第一位开始,与并发的 advanceNext 互斥
+        ctx.lock.lock();
+        try {
+            moveToSpeaker(ctx, 0);
+        } finally {
+            ctx.lock.unlock();
+        }
     }
 
     /**
      * 外部触发推进下一位 (真人点"结束发言"按钮 / 真人超时自动切 / AI 生成完)
+     *
+     * @param expectedTurn 期望的 turn(由调用方在注册时捕获的快照);传 -1 表示"无 turn 校验,仅校验 speakerId"
+     * @param reason       推进原因(用于日志)
      */
-    public void advanceNext(Long gameId, Long currentSpeakerId, String reason) {
+    public void advanceNext(Long gameId, Long currentSpeakerId, int expectedTurn, String reason) {
         DiscussionContext ctx = contexts.get(gameId);
         if (ctx == null || ctx.finished.get()) return;
 
-        Long expected = ctx.speakOrder.get(ctx.currentIndex);
-        if (!expected.equals(currentSpeakerId)) {
-            log.debug("忽略非当前发言人的推进请求 - 游戏: {}, 发起者: {}, 当前: {}",
-                    gameId, currentSpeakerId, expected);
-            return;
-        }
+        ctx.lock.lock();
+        try {
+            if (ctx.finished.get()) return;
 
-        log.info("推进讨论发言人 - 游戏: {}, 从 {} 切走 ({})", gameId, currentSpeakerId, reason);
-        moveToSpeaker(ctx, ctx.currentIndex + 1);
+            // ✨ turn 校验 — 过期请求(如已取消但已入队的 timeout)直接丢弃
+            if (expectedTurn >= 0 && expectedTurn != ctx.turn.get()) {
+                log.debug("丢弃过期推进请求 - 游戏: {}, 发起者: {}, 原因: {}, 期望turn={}, 当前turn={}",
+                        gameId, currentSpeakerId, reason, expectedTurn, ctx.turn.get());
+                return;
+            }
+
+            // 兼容性校验:确认推进发起者就是当前发言人
+            Long expected = ctx.speakOrder.get(ctx.currentIndex);
+            if (!expected.equals(currentSpeakerId)) {
+                log.debug("忽略非当前发言人的推进请求 - 游戏: {}, 发起者: {}, 当前: {}, 原因: {}",
+                        gameId, currentSpeakerId, expected, reason);
+                return;
+            }
+
+            log.info("推进讨论发言人 - 游戏: {}, 从 {} 切走 ({}), turn={}",
+                    gameId, currentSpeakerId, reason, ctx.turn.get());
+            moveToSpeaker(ctx, ctx.currentIndex + 1);
+        } finally {
+            ctx.lock.unlock();
+        }
+    }
+
+    /**
+     * 兼容旧签名 — 用于 SKIP_SPEECH WebSocket 入口等无 turn 上下文的场景
+     */
+    public void advanceNext(Long gameId, Long currentSpeakerId, String reason) {
+        advanceNext(gameId, currentSpeakerId, -1, reason);
     }
 
     /**
@@ -164,11 +207,18 @@ public class DiscussionManager {
      */
     public void stopDiscussion(Long gameId) {
         DiscussionContext ctx = contexts.remove(gameId);
-        if (ctx != null) {
+        if (ctx == null) return;
+        ctx.lock.lock();
+        try {
             ctx.finished.set(true);
+            // 推进 turn,使任何残留的 timeout/AI 回调过期
+            ctx.turn.incrementAndGet();
             if (ctx.timeoutFuture != null) {
                 ctx.timeoutFuture.cancel(false);
+                ctx.timeoutFuture = null;
             }
+        } finally {
+            ctx.lock.unlock();
         }
     }
 
@@ -176,9 +226,12 @@ public class DiscussionManager {
 
     /**
      * 切到第 index 位发言人. 如果 index >= 人数 → 讨论结束, 推进到下一阶段.
+     *
+     * ⚠️ 调用者必须持有 ctx.lock,或在初次启动(startDiscussion)时由 contexts.put 后单线程调用
      */
     private void moveToSpeaker(DiscussionContext ctx, int index) {
-        // 取消当前倒计时
+        // 取消当前倒计时(注意 cancel(false) 不会中断已在执行队列中的任务,
+        //  这就是引入 turn 序号的根本原因 — 让"已过期的回调"自动失效)
         if (ctx.timeoutFuture != null) {
             ctx.timeoutFuture.cancel(false);
             ctx.timeoutFuture = null;
@@ -187,7 +240,7 @@ public class DiscussionManager {
         if (index >= ctx.speakOrder.size()) {
             // 最后一人发完 → 讨论结束
             if (!ctx.finished.compareAndSet(false, true)) return;
-            log.info("讨论结束（所有人已发言）- 游戏: {}", ctx.gameId);
+            log.info("讨论结束(所有人已发言) - 游戏: {}", ctx.gameId);
             contexts.remove(ctx.gameId);
 
             // 通知 PhaseScheduler 提前推进
@@ -203,31 +256,41 @@ public class DiscussionManager {
         Long speakerId = ctx.speakOrder.get(index);
         Player speaker = playerRepository.findById(speakerId).orElse(null);
         if (speaker == null || speaker.getStatus() != Player.PlayerStatus.ALIVE) {
-            // 玩家已死亡, 跳过
+            // 玩家已死亡, 跳过(递归仍在锁内,ReentrantLock 允许)
             moveToSpeaker(ctx, index + 1);
             return;
         }
 
-        // 标记 canSpeak
+        // ✨ 推进 turn,使所有"上一位发言人遗留的 timeout/AI 回调"自动作废
+        int myTurn = ctx.turn.incrementAndGet();
+
+        // ✨ 刷新当前发言人的绝对时间戳(供 snapshot 查询)
+        ctx.currentSpeakerId = speakerId;
+        ctx.currentSpeakStartedAt = System.currentTimeMillis();
+        ctx.currentSpeakEndsAt = ctx.currentSpeakStartedAt + ctx.speakTimeMs;
+
+        // 标记 canSpeak (DB 操作放在锁内保证原子性)
         setSingleSpeaker(ctx.gameId, speakerId);
 
         // 广播 SPEAKER_CHANGE
-        broadcastSpeakerChange(ctx.gameId, speaker, ctx.speakTimeMs);
+        broadcastSpeakerChange(ctx.gameId, speaker, ctx.speakTimeMs, ctx.currentSpeakStartedAt, ctx.currentSpeakEndsAt);
 
-        log.info("讨论轮到 - 游戏: {}, 发言人: {}({}号, {}), 时长: {}ms",
+        log.info("讨论轮到 - 游戏: {}, 发言人: {}({}号, {}), 时长: {}ms, turn={}",
                 ctx.gameId, speakerId, speaker.getSeatNumber(),
                 Boolean.TRUE.equals(speaker.getIsAi()) ? "AI" : "真人",
-                ctx.speakTimeMs);
+                ctx.speakTimeMs, myTurn);
 
         if (Boolean.TRUE.equals(speaker.getIsAi())) {
             // AI 发言: 立刻调用 Python LLM, 输出完即推进
-            handleAISpeaker(ctx, speaker);
+            handleAISpeaker(ctx, speaker, myTurn);
         } else {
-            // 真人发言: 设置倒计时, 30s 后自动推进
+            // 真人发言: 设置倒计时, speakTimeMs 后自动推进
+            // 捕获 myTurn 快照,advanceNext 时校验,过期则丢弃
             ctx.timeoutFuture = executor.schedule(() -> {
                 try {
-                    log.info("真人发言超时, 自动推进 - 游戏: {}, 发言人: {}", ctx.gameId, speakerId);
-                    advanceNext(ctx.gameId, speakerId, "timeout");
+                    log.info("真人发言超时, 自动推进 - 游戏: {}, 发言人: {}, turn={}",
+                            ctx.gameId, speakerId, myTurn);
+                    advanceNext(ctx.gameId, speakerId, myTurn, "timeout");
                 } catch (Exception e) {
                     log.error("真人发言超时推进异常 - 游戏: {}", ctx.gameId, e);
                 }
@@ -235,17 +298,18 @@ public class DiscussionManager {
         }
     }
 
-    private void handleAISpeaker(DiscussionContext ctx, Player aiSpeaker) {
-        // 兜底倒计时: 即使 LLM 挂了, 30s 后也自动推进
+    private void handleAISpeaker(DiscussionContext ctx, Player aiSpeaker, int myTurn) {
+        // 兜底倒计时: 即使 LLM 挂了, speakTimeMs 后也自动推进(带 turn 校验)
         ctx.timeoutFuture = executor.schedule(() -> {
-            log.warn("AI 发言超时兜底推进 - 游戏: {}, 发言人: {}", ctx.gameId, aiSpeaker.getId());
-            advanceNext(ctx.gameId, aiSpeaker.getId(), "ai_timeout");
+            log.warn("AI 发言超时兜底推进 - 游戏: {}, 发言人: {}, turn={}",
+                    ctx.gameId, aiSpeaker.getId(), myTurn);
+            advanceNext(ctx.gameId, aiSpeaker.getId(), myTurn, "ai_timeout");
         }, ctx.speakTimeMs, TimeUnit.MILLISECONDS);
 
-        // 异步调 Python LLM, 完成后推进
+        // 异步调 Python LLM, 完成后推进(同样带 turn 校验)
         getAIPlayerBridge().executeAISpeechAndAdvance(ctx.gameId, aiSpeaker, (succeeded) -> {
-            // 回调: 无论成功失败都推进
-            advanceNext(ctx.gameId, aiSpeaker.getId(), succeeded ? "ai_finished" : "ai_failed");
+            // 回调: 无论成功失败都尝试推进,但 turn 过期则自动作废
+            advanceNext(ctx.gameId, aiSpeaker.getId(), myTurn, succeeded ? "ai_finished" : "ai_failed");
         });
     }
 
@@ -260,7 +324,8 @@ public class DiscussionManager {
         }
     }
 
-    private void broadcastSpeakerChange(Long gameId, Player speaker, int speakTimeMs) {
+    private void broadcastSpeakerChange(Long gameId, Player speaker, int speakTimeMs,
+                                        long startedAt, long endsAt) {
         try {
             Game game = getGameService().getGameStatus(gameId);
             Map<String, Object> data = new HashMap<>();
@@ -269,11 +334,35 @@ public class DiscussionManager {
             data.put("username", speaker.getUser() != null ? speaker.getUser().getUsername() : speaker.getAiName());
             data.put("isAi", Boolean.TRUE.equals(speaker.getIsAi()));
             data.put("speakTimeMs", speakTimeMs);
+            // ✨ 绝对时间戳,前端用 (endsAt - now)/1000 计算剩余时间
+            data.put("startedAt", startedAt);
+            data.put("endsAt", endsAt);
+            data.put("serverNow", System.currentTimeMillis());
             data.put("message", "轮到" + speaker.getSeatNumber() + "号玩家发言");
             webSocketHandler.broadcastToRoom(game.getRoom().getRoomCode(),
                     new WebSocketMessage("SPEAKER_CHANGE", data));
         } catch (Exception e) {
             log.warn("广播 SPEAKER_CHANGE 失败 - 游戏: {}", gameId, e);
         }
+    }
+
+    /**
+     * ✨ 获取当前讨论阶段的发言人快照(供 snapshot API 使用)
+     * 返回 null 表示当前不在讨论阶段或讨论已结束
+     */
+    public Map<String, Object> getDiscussionSnapshot(Long gameId) {
+        DiscussionContext ctx = contexts.get(gameId);
+        if (ctx == null || ctx.finished.get() || ctx.currentSpeakerId == null) {
+            return null;
+        }
+        Map<String, Object> data = new HashMap<>();
+        data.put("currentSpeakerId", ctx.currentSpeakerId);
+        data.put("currentIndex", ctx.currentIndex);
+        data.put("totalSpeakers", ctx.speakOrder.size());
+        data.put("speakTimeMs", ctx.speakTimeMs);
+        data.put("speakStartedAt", ctx.currentSpeakStartedAt);
+        data.put("speakEndsAt", ctx.currentSpeakEndsAt);
+        data.put("speakOrder", ctx.speakOrder);
+        return data;
     }
 }

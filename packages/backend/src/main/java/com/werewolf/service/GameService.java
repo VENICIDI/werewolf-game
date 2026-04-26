@@ -1,7 +1,5 @@
 package com.werewolf.service;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.werewolf.config.ConfigLoader;
 import com.werewolf.entity.*;
 import com.werewolf.game.*;
 import com.werewolf.game.action.ActionContext;
@@ -12,8 +10,12 @@ import com.werewolf.websocket.WebSocketMessage;
 import com.werewolf.logging.GameLogger;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.ApplicationContext;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.time.LocalDateTime;
 import java.util.*;
@@ -34,23 +36,49 @@ public class GameService {
     private final RoomMemberRepository roomMemberRepository;
     private final GameLogRepository gameLogRepository;
 
-    private final ConfigLoader configLoader;
     private final RoleAssigner roleAssigner;
-    private final GameStateMachine stateMachine;
     private final PhaseScheduler phaseScheduler;
     private final NightActionStore nightActionStore;
     private final VoteManager voteManager;
     private final ActionDispatcher actionDispatcher;
     private final RoomWebSocketHandler webSocketHandler;
-    private final ObjectMapper objectMapper;
+
+    // 惰性获取 DiscussionManager,避免构造器循环依赖(DiscussionManager 也会反向引用 GameService)
+    @Autowired
+    private ApplicationContext applicationContext;
+    private volatile DiscussionManager discussionManagerCache;
+
+    private DiscussionManager getDiscussionManager() {
+        if (discussionManagerCache == null) {
+            discussionManagerCache = applicationContext.getBean(DiscussionManager.class);
+        }
+        return discussionManagerCache;
+    }
 
     // ✨ FIX #7: 猎人开枪一次性限制
     private final Set<Long> hunterShot = ConcurrentHashMap.newKeySet();
-    
-    // ✨ FIX #6: 投票结算幂等锁
-    private final Set<Long> votingResolved = ConcurrentHashMap.newKeySet();
+
+    // ✨ 投票结算幂等锁已内聚到 VoteSession.resolved (AtomicBoolean),此处不再维护双 Set
 
     // ========================= 统一行动入口 =========================
+
+    /**
+     * ✨ 构建提交锁 key — 统一格式 "round_phase_playerId"
+     *
+     * 设计:
+     *   - 带 round 维度,跨回合天然失效,与前端 lock key (`${phase}:${round}`) 语义一致
+     *   - 新一夜 nightActions.reset() 已清 submittedActions,带 round 是双重防御
+     */
+    private String buildPhaseKey(Game game, Player player) {
+        return game.getCurrentRound() + "_" + game.getCurrentPhase().name() + "_" + player.getId();
+    }
+
+    /**
+     * ✨ 构建快照场景下的 phaseKey(玩家维度) — 与 buildPhaseKey 同源,仅参数不同
+     */
+    private String buildPhaseKey(int round, Game.GamePhase phase, Long playerId) {
+        return round + "_" + phase.name() + "_" + playerId;
+    }
 
     /**
      * 统一行动入口 — 所有游戏行动（夜晚/投票/猎人等）通过此方法分发
@@ -74,7 +102,7 @@ public class GameService {
 
         // 重复提交校验（skip/vote/shoot 不受夜间重复提交限制）
         NightActionStore.RoundActions nightActions = nightActionStore.getOrCreate(gameId);
-        String phaseKey = game.getCurrentPhase().name() + "_" + player.getId();
+        String phaseKey = buildPhaseKey(game, player);
         boolean isNightAction = Set.of("kill", "check", "save", "poison", "guard").contains(action);
         // ✨ 夜间角色阶段的 skip 也应标记为已提交，用于"全员提交即推进"判定
         boolean isNightPhaseSkip = "skip".equals(action) && isNightRoleActionPhase(game.getCurrentPhase())
@@ -125,10 +153,10 @@ public class GameService {
             webSocketHandler.sendToUser(roomCode, userId, confirmMsg);
         }
 
-        // 投票完成后自动结算（幂等）
+        // 投票完成后自动结算(幂等:通过 VoteSession.tryMarkResolved 抢占)
         if ("vote".equals(action)) {
             VoteManager.VoteSession session = voteManager.getVoteSession(gameId);
-            if (session != null && session.isAllVoted() && votingResolved.add(gameId)) {
+            if (session != null && session.isAllVoted() && session.tryMarkResolved()) {
                 resolveVoting(gameId);
             }
         }
@@ -138,8 +166,8 @@ public class GameService {
             checkWinCondition(gameId);
         }
 
-        // ✨ 全员提交即推进：夜间角色阶段或投票阶段有人提交后，尝试提前结束
-        phaseScheduler.advanceIfAllActed(gameId);
+        // ✨ 全员提交即推进 — 在事务提交后执行,避免事务回滚时已广播/已推进阶段
+        advanceAfterCommit(gameId);
 
         return result;
     }
@@ -177,7 +205,7 @@ public class GameService {
 
         // 重复提交校验
         NightActionStore.RoundActions nightActions = nightActionStore.getOrCreate(gameId);
-        String phaseKey = game.getCurrentPhase().name() + "_" + player.getId();
+        String phaseKey = buildPhaseKey(game, player);
         boolean isNightAction = Set.of("kill", "check", "save", "poison", "guard").contains(action);
         boolean isNightPhaseSkip = "skip".equals(action) && isNightRoleActionPhase(game.getCurrentPhase())
                 && isRolePhaseActor(player, game.getCurrentPhase());
@@ -218,10 +246,10 @@ public class GameService {
                 "AI {}号({}) 执行: action={}, target={}",
                 player.getSeatNumber(), player.getRole(), action, targetId);
 
-        // 投票完成后自动结算（幂等）
+        // 投票完成后自动结算(幂等:通过 VoteSession.tryMarkResolved 抢占)
         if ("vote".equals(action)) {
             VoteManager.VoteSession session = voteManager.getVoteSession(gameId);
-            if (session != null && session.isAllVoted() && votingResolved.add(gameId)) {
+            if (session != null && session.isAllVoted() && session.tryMarkResolved()) {
                 resolveVoting(gameId);
             }
         }
@@ -231,8 +259,8 @@ public class GameService {
             checkWinCondition(gameId);
         }
 
-        // ✨ 全员提交即推进
-        phaseScheduler.advanceIfAllActed(gameId);
+        // ✨ 全员提交即推进 — 在事务提交后执行
+        advanceAfterCommit(gameId);
 
         return result;
     }
@@ -470,7 +498,13 @@ public class GameService {
     }
 
     /**
-     * ✨ FIX #3: 女巫阶段通知被杀者信息
+     * ✨ FIX #3: 女巫阶段通知被杀者信息 + 自动跳过无意义场景
+     *
+     * 自动跳过规则:女巫"完全无可行动选项"时,直接预提交 skip 推进阶段:
+     *   - 解药已用完 (无 save 选项)
+     *   - 且当前没人被杀 (即使有解药也没目标可救) 或 解药已用完
+     *   - 且毒药已用完 (无 poison 选项)
+     * 这避免了平安夜或女巫两药都用完时,她必须手动点"不使用"才能推进。
      */
     public void notifyWitchKillTarget(Long gameId) {
         Game game = getGameStatus(gameId);
@@ -483,7 +517,26 @@ public class GameService {
                 .filter(p -> p.getRole() == Player.Role.WITCH)
                 .toList();
 
+        // 判断本夜女巫是否完全无可行动选项
+        boolean canSave = !actions.isWitchSaveUsed() && killTarget != null;
+        boolean canPoison = !actions.isWitchPoisonUsed();
+        boolean noActionPossible = !canSave && !canPoison;
+
         for (Player witch : witches) {
+            // ✨ 完全无可行动选项 → 预提交 skip 让阶段尽快推进
+            if (noActionPossible) {
+                String key = buildPhaseKey(game, witch);
+                if (!actions.isActionSubmitted(key)) {
+                    actions.markActionSubmitted(key);
+                    log.info("女巫 {}号 本夜无可行动选项(killTarget={}, saveUsed={}, poisonUsed={}),自动跳过",
+                            witch.getSeatNumber(), killTarget,
+                            actions.isWitchSaveUsed(), actions.isWitchPoisonUsed());
+                }
+                // 推进可能由此触发
+                advanceAfterCommit(gameId);
+                continue;
+            }
+
             Map<String, Object> witchData = new HashMap<>();
             witchData.put("hasSave", !actions.isWitchSaveUsed());
             witchData.put("hasPoison", !actions.isWitchPoisonUsed());
@@ -559,9 +612,7 @@ public class GameService {
                 .collect(Collectors.toSet());
 
         voteManager.startVote(gameId, voterIds);
-        // 新一轮投票：清理两边的幂等锁
-        votingResolved.remove(gameId);
-        phaseScheduler.resetVotingLock(gameId);
+        // 新一轮投票:幂等标志由新 VoteSession 的 AtomicBoolean(false) 自动重置,无需外部干预
 
         String roomCode = game.getRoom().getRoomCode();
         List<Map<String, Object>> candidates = alivePlayers.stream().map(p -> {
@@ -647,7 +698,7 @@ public class GameService {
                 new WebSocketMessage(WebSocketMessage.Type.VOTE_RESULT, data));
 
         voteManager.clearVote(gameId);
-        votingResolved.remove(gameId); // 清理幂等锁以备下一轮
+        // 幂等标志随 session 一起被 clearVote 清除,下一轮投票的新 session 会重置
         log.info("投票结算 - 游戏: {}, 平票: {}, 处决: {}, 明细: {}",
                 gameId, result.isTie(), result.getEliminatedPlayerId(), result.getVotesByVoter());
         GameLogger.room(roomCode, gameId, "投票结算: 平票={}, 处决={}",
@@ -663,88 +714,9 @@ public class GameService {
         Game game = getGameStatus(gameId);
         game.setCurrentPhase(phase);
         gameRepository.save(game);
-        if (phase == Game.GamePhase.DISCUSSION) {
-            initDiscussionSpeaker(game);
-        }
-        // 注意：不在此处广播 PHASE_CHANGE，由 PhaseScheduler.executePhaseStart() 统一广播（带 duration）
-    }
-
-    @Transactional
-    public void advanceDiscussionSpeaker(Long gameId, Long currentSpeakerId) {
-        Game game = getGameStatus(gameId);
-        if (game.getCurrentPhase() != Game.GamePhase.DISCUSSION) {
-            return;
-        }
-
-        List<Player> alivePlayers = playerRepository.findByGameIdAndStatus(gameId, Player.PlayerStatus.ALIVE)
-                .stream()
-                .sorted(Comparator.comparing(Player::getSeatNumber))
-                .toList();
-        if (alivePlayers.isEmpty()) {
-            return;
-        }
-
-        int currentIdx = -1;
-        for (int i = 0; i < alivePlayers.size(); i++) {
-            if (alivePlayers.get(i).getId().equals(currentSpeakerId)) {
-                currentIdx = i;
-                break;
-            }
-        }
-        if (currentIdx < 0) {
-            return;
-        }
-
-        Player nextSpeaker = pickNextDiscussionSpeaker(alivePlayers, currentIdx);
-        setSingleSpeaker(alivePlayers, nextSpeaker.getId());
-        broadcastSpeakerChange(game, nextSpeaker);
-    }
-
-    private void initDiscussionSpeaker(Game game) {
-        List<Player> alivePlayers = playerRepository.findByGameIdAndStatus(game.getId(), Player.PlayerStatus.ALIVE)
-                .stream()
-                .sorted(Comparator.comparing(Player::getSeatNumber))
-                .toList();
-        if (alivePlayers.isEmpty()) {
-            return;
-        }
-
-        Player firstSpeaker = alivePlayers.get(0);
-        setSingleSpeaker(alivePlayers, firstSpeaker.getId());
-        broadcastSpeakerChange(game, firstSpeaker);
-    }
-
-    private void setSingleSpeaker(List<Player> alivePlayers, Long speakerPlayerId) {
-        for (Player player : alivePlayers) {
-            player.setCanSpeak(player.getId().equals(speakerPlayerId));
-            playerRepository.save(player);
-        }
-    }
-
-    private Player pickNextDiscussionSpeaker(List<Player> alivePlayers, int currentIdx) {
-        Player defaultNext = alivePlayers.get((currentIdx + 1) % alivePlayers.size());
-        if (!Boolean.TRUE.equals(defaultNext.getIsAi())) {
-            return defaultNext;
-        }
-
-        // 若下一位是 AI，优先切到后续真人，避免无人可发言卡住讨论流程
-        for (int i = 1; i <= alivePlayers.size(); i++) {
-            Player candidate = alivePlayers.get((currentIdx + i) % alivePlayers.size());
-            if (!Boolean.TRUE.equals(candidate.getIsAi())) {
-                return candidate;
-            }
-        }
-        return defaultNext;
-    }
-
-    private void broadcastSpeakerChange(Game game, Player speaker) {
-        Map<String, Object> data = new HashMap<>();
-        data.put("playerId", speaker.getId());
-        data.put("seatNumber", speaker.getSeatNumber());
-        data.put("username", speaker.getUser() != null ? speaker.getUser().getUsername() : speaker.getAiName());
-        data.put("message", "轮到" + speaker.getSeatNumber() + "号玩家发言");
-        webSocketHandler.broadcastToRoom(game.getRoom().getRoomCode(),
-                new WebSocketMessage("SPEAKER_CHANGE", data));
+        // ✨ 讨论阶段的发言人初始化与轮转,由 DiscussionManager.startDiscussion 统一管理
+        // (PhaseScheduler.executePhaseStart 会在 DISCUSSION 阶段开始时调用)
+        // 注意:不在此处广播 PHASE_CHANGE,由 PhaseScheduler.executePhaseStart() 统一广播(带 endsAt)
     }
 
     @Transactional
@@ -766,11 +738,184 @@ public class GameService {
                 new WebSocketMessage(type, data));
     }
 
+    /**
+     * ✨ 事务安全地触发 PhaseScheduler.advanceIfAllActed
+     *
+     * - 若当前调用处于活跃事务中,注册为 afterCommit 回调(事务回滚则不会执行);
+     * - 若无事务(如 AI 直接调用),立即执行。
+     *
+     * 解决原实现的风险:在 @Transactional 内直接调 advanceIfAllActed 会在事务回滚时
+     * 仍然广播 PHASE_ADVANCE / 提交异步推进任务,造成状态不一致。
+     */
+    private void advanceAfterCommit(Long gameId) {
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    try {
+                        phaseScheduler.advanceIfAllActed(gameId);
+                    } catch (Exception e) {
+                        log.warn("afterCommit advanceIfAllActed 失败 - gameId={}", gameId, e);
+                    }
+                }
+            });
+        } else {
+            phaseScheduler.advanceIfAllActed(gameId);
+        }
+    }
+
     // ========================= 查询 =========================
 
     public Game getGameStatus(Long gameId) {
         return gameRepository.findById(gameId)
                 .orElseThrow(() -> new RuntimeException("游戏不存在"));
+    }
+
+    /**
+     * ✨ 构建完整游戏快照 — 供前端断线重连/首次进入时同步状态
+     *
+     * 返回包含:
+     *   - 游戏基本状态 (status/round/phase)
+     *   - 阶段绝对时间戳 (startedAt/endsAt/serverNow) — 用于前端自愈倒计时
+     *   - 玩家列表 (status/canSpeak)
+     *   - 当前用户私有状态:
+     *       * myPlayerId, myRole, teammates
+     *       * mySubmitted (本阶段本回合是否已提交行动)
+     *       * witchInfo (若是女巫)
+     *       * canHunterShoot (若是已死的猎人)
+     *   - 讨论阶段:currentSpeakerId + speakEndsAt
+     *   - 投票阶段:voteRecords + voteProgress
+     *
+     * 设计原则:
+     *   - 所有时间用绝对 epoch ms,避免客户端-服务端时钟漂移
+     *   - 私有字段按 userId 权限过滤(不泄露其他玩家角色)
+     */
+    @Transactional(readOnly = true)
+    public Map<String, Object> buildGameSnapshot(Long gameId, Long userId) {
+        Game game = getGameStatus(gameId);
+        Map<String, Object> snapshot = new HashMap<>();
+        long serverNow = System.currentTimeMillis();
+
+        // --- 基本状态 ---
+        snapshot.put("gameId", game.getId());
+        snapshot.put("status", game.getStatus().name());
+        snapshot.put("round", game.getCurrentRound());
+        snapshot.put("phase", game.getCurrentPhase().name());
+        snapshot.put("winner", game.getWinner() != null ? game.getWinner().name() : null);
+        snapshot.put("serverNow", serverNow);
+
+        // --- 阶段绝对时间戳 ---
+        PhaseScheduler.PhaseContext pctx = phaseScheduler.getActivePhase(gameId);
+        if (pctx != null) {
+            snapshot.put("phaseStartedAt", pctx.getPhaseStartedAt());
+            snapshot.put("phaseEndsAt", pctx.getPhaseEndsAt());
+            snapshot.put("phaseRemainingMs", Math.max(0, pctx.getPhaseEndsAt() - serverNow));
+            snapshot.put("isNight", pctx.isNight());
+        }
+
+        // --- 玩家列表 (带存活/可发言状态,不含角色) ---
+        List<Player> players = playerRepository.findByGameId(gameId);
+        boolean isFinished = game.getStatus() == Game.GameStatus.FINISHED;
+        Player myPlayer = players.stream()
+                .filter(p -> p.getUser() != null && p.getUser().getId().equals(userId))
+                .findFirst().orElse(null);
+
+        List<Map<String, Object>> playerInfos = players.stream().map(p -> {
+            Map<String, Object> info = new HashMap<>();
+            info.put("playerId", p.getId());
+            info.put("seatNumber", p.getSeatNumber());
+            info.put("username", p.getUser() != null ? p.getUser().getUsername() : p.getAiName());
+            info.put("avatarUrl", p.getUser() != null ? p.getUser().getAvatarUrl() : null);
+            info.put("isAi", Boolean.TRUE.equals(p.getIsAi()));
+            info.put("status", p.getStatus().name());
+            info.put("canSpeak", Boolean.TRUE.equals(p.getCanSpeak()));
+            // 角色仅对本人/游戏结束后可见
+            if (isFinished || (myPlayer != null && p.getId().equals(myPlayer.getId()))) {
+                info.put("role", p.getRole().name());
+            } else {
+                info.put("role", "UNKNOWN");
+            }
+            return info;
+        }).collect(Collectors.toList());
+        snapshot.put("players", playerInfos);
+
+        // --- 个人私有状态 ---
+        if (myPlayer != null) {
+            snapshot.put("myPlayerId", myPlayer.getId());
+            snapshot.put("myRole", myPlayer.getRole().name());
+            snapshot.put("mySeat", myPlayer.getSeatNumber());
+
+            // 狼人队友
+            if (myPlayer.getRole() == Player.Role.WEREWOLF) {
+                List<Long> teammates = players.stream()
+                        .filter(p -> p.getRole() == Player.Role.WEREWOLF)
+                        .filter(p -> !p.getId().equals(myPlayer.getId()))
+                        .map(Player::getId)
+                        .collect(Collectors.toList());
+                snapshot.put("teammates", teammates);
+            }
+
+            // 本阶段本回合是否已提交行动
+            NightActionStore.RoundActions actions = nightActionStore.getOrCreate(gameId);
+            String phaseKey = buildPhaseKey(game, myPlayer);
+            snapshot.put("mySubmitted", actions.isActionSubmitted(phaseKey));
+
+            // 猎人可开枪状态
+            if (myPlayer.getRole() == Player.Role.HUNTER
+                    && myPlayer.getStatus() == Player.PlayerStatus.DEAD
+                    && !hunterShot.contains(myPlayer.getId())) {
+                snapshot.put("canHunterShoot", true);
+            }
+
+            // 女巫阶段 — 把被杀信息包进快照
+            if (myPlayer.getRole() == Player.Role.WITCH
+                    && myPlayer.getStatus() == Player.PlayerStatus.ALIVE
+                    && game.getCurrentPhase() == Game.GamePhase.WITCH) {
+                Map<String, Object> witchInfo = new HashMap<>();
+                witchInfo.put("hasSave", !actions.isWitchSaveUsed());
+                witchInfo.put("hasPoison", !actions.isWitchPoisonUsed());
+                Long killTarget = actions.getWerewolfKillTarget();
+                if (killTarget != null) {
+                    Player killed = playerRepository.findById(killTarget).orElse(null);
+                    if (killed != null) {
+                        witchInfo.put("killTargetId", killTarget);
+                        witchInfo.put("killTargetSeat", killed.getSeatNumber());
+                        witchInfo.put("killTargetName",
+                                killed.getUser() != null ? killed.getUser().getUsername() : killed.getAiName());
+                    }
+                }
+                snapshot.put("witchInfo", witchInfo);
+            }
+        }
+
+        // --- 讨论阶段快照 ---
+        if (game.getCurrentPhase() == Game.GamePhase.DISCUSSION) {
+            try {
+                Map<String, Object> discussion = getDiscussionManager().getDiscussionSnapshot(gameId);
+                if (discussion != null) {
+                    snapshot.put("discussion", discussion);
+                }
+            } catch (Exception ignored) {}
+        }
+
+        // --- 投票阶段快照 ---
+        if (game.getCurrentPhase() == Game.GamePhase.VOTING
+                || game.getCurrentPhase() == Game.GamePhase.EXECUTION) {
+            VoteManager.VoteSession session = voteManager.getVoteSession(gameId);
+            if (session != null) {
+                Map<String, Object> voteData = new HashMap<>();
+                Map<String, Long> votesByVoter = new HashMap<>();
+                for (Map.Entry<Long, Long> e : session.snapshotVotes().entrySet()) {
+                    votesByVoter.put(String.valueOf(e.getKey()), e.getValue());
+                }
+                voteData.put("votesByVoter", votesByVoter);
+                voteData.put("votedCount", session.getVotedCount());
+                voteData.put("eligibleCount", session.getEligibleCount());
+                snapshot.put("vote", voteData);
+            }
+        }
+
+        return snapshot;
     }
 
     public Optional<Game> getGameByRoomId(Long roomId) {
@@ -852,7 +997,7 @@ public class GameService {
             if (expected.isEmpty()) return false;
             NightActionStore.RoundActions actions = nightActionStore.getOrCreate(gameId);
             for (Player p : expected) {
-                String key = phase.name() + "_" + p.getId();
+                String key = buildPhaseKey(game.getCurrentRound(), phase, p.getId());
                 if (!actions.isActionSubmitted(key)) {
                     return false;
                 }

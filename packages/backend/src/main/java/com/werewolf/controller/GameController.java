@@ -173,6 +173,35 @@ public class GameController {
     }
 
     /**
+     * ✨ 获取完整游戏快照 — 用于断线重连或首次进入时同步状态
+     * GET /api/games/{gameId}/snapshot
+     *
+     * 返回字段示例:
+     *   {
+     *     gameId, status, round, phase, winner, serverNow,
+     *     phaseStartedAt, phaseEndsAt, phaseRemainingMs, isNight,
+     *     players: [...],
+     *     myPlayerId, myRole, mySeat, teammates, mySubmitted,
+     *     witchInfo, canHunterShoot,
+     *     discussion: { currentSpeakerId, speakEndsAt, ... },
+     *     vote: { votesByVoter, votedCount, eligibleCount }
+     *   }
+     */
+    @GetMapping("/{gameId}/snapshot")
+    public ResponseEntity<ApiResponse<?>> getGameSnapshot(
+            @PathVariable Long gameId,
+            @RequestAttribute("userId") Long userId) {
+        try {
+            Map<String, Object> snapshot = gameService.buildGameSnapshot(gameId, userId);
+            return ResponseEntity.ok(ApiResponse.success(snapshot));
+        } catch (Exception e) {
+            log.warn("[SNAPSHOT-FAIL] gameId={}, userId={}, error={}", gameId, userId, e.getMessage());
+            return ResponseEntity.badRequest()
+                    .body(ApiResponse.badRequest(e.getMessage()));
+        }
+    }
+
+    /**
      * 获取游戏日志
      * GET /api/games/{gameId}/logs
      */

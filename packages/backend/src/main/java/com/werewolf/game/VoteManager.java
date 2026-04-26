@@ -6,6 +6,7 @@ import org.springframework.stereotype.Component;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * 投票管理器 - 管理白天投票阶段
@@ -51,8 +52,26 @@ public class VoteManager {
         // 投票记录: voterId -> targetId (0 = 弃票)
         private final Map<Long, Long> votes = new ConcurrentHashMap<>();
 
+        // ✨ 结算幂等标志 — 任何路径(HTTP 全员提交 / 倒计时到 / advanceIfAllActed)
+        //    都通过 tryMarkResolved 抢占,保证 resolveVoting 只执行一次
+        private final AtomicBoolean resolved = new AtomicBoolean(false);
+
         public VoteSession(Set<Long> eligibleVoterIds) {
             this.eligibleVoterIds = eligibleVoterIds;
+        }
+
+        /**
+         * ✨ 尝试抢占结算权 — 返回 true 表示当前调用者应执行 resolveVoting,false 表示已有人抢过
+         */
+        public boolean tryMarkResolved() {
+            return resolved.compareAndSet(false, true);
+        }
+
+        /**
+         * 查询是否已结算
+         */
+        public boolean isResolved() {
+            return resolved.get();
         }
 
         /**

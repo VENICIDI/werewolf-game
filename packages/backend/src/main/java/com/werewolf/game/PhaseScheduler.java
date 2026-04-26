@@ -13,7 +13,6 @@ import org.springframework.stereotype.Component;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.*;
 
 /**
@@ -31,8 +30,7 @@ public class PhaseScheduler {
     // 存储正在运行的游戏任务
     private final Map<Long, ScheduledFuture<?>> gameTasks = new ConcurrentHashMap<>();
 
-    // 投票结算幂等锁 (防止双重触发)
-    private final Set<Long> votingResolved = ConcurrentHashMap.newKeySet();
+    // ✨ 投票结算幂等标志已内聚到 VoteSession.resolved,此处不再维护 Set
 
     // 存储游戏模式（用于夜晚结束后重新进入）
     private final Map<Long, GameConfig.GameMode> gameModes = new ConcurrentHashMap<>();
@@ -42,20 +40,34 @@ public class PhaseScheduler {
 
     /**
      * 阶段运行上下文
+     * 包含绝对时间戳,供断线重连/快照同步使用,避免前端本地计时漂移
+     *
+     * public 可见度以便 GameService (com.werewolf.service) 通过 getActivePhase 读取
      */
-    private static class PhaseContext {
+    public static class PhaseContext {
         final GameConfig.GameMode gameMode;
         final GameConfig.PhaseConfig phase;
         final int phaseIndex;
         final boolean isNight;
         final java.util.concurrent.atomic.AtomicBoolean advanced = new java.util.concurrent.atomic.AtomicBoolean(false);
+        /** 阶段开始绝对时间(epoch ms) */
+        final long phaseStartedAt;
+        /** 阶段预计结束绝对时间(epoch ms) = phaseStartedAt + duration */
+        final long phaseEndsAt;
 
         PhaseContext(GameConfig.GameMode gameMode, GameConfig.PhaseConfig phase, int phaseIndex, boolean isNight) {
             this.gameMode = gameMode;
             this.phase = phase;
             this.phaseIndex = phaseIndex;
             this.isNight = isNight;
+            this.phaseStartedAt = System.currentTimeMillis();
+            this.phaseEndsAt = this.phaseStartedAt + Math.max(phase.getDuration(), 1000);
         }
+
+        public GameConfig.PhaseConfig getPhase() { return phase; }
+        public long getPhaseStartedAt() { return phaseStartedAt; }
+        public long getPhaseEndsAt() { return phaseEndsAt; }
+        public boolean isNight() { return isNight; }
     }
 
     // GameService 延迟获取
@@ -66,6 +78,9 @@ public class PhaseScheduler {
 
     // DiscussionManager 延迟获取
     private DiscussionManager discussionManager;
+
+    // VoteManager 延迟获取(用于投票结算幂等判定)
+    private VoteManager voteManager;
 
     public PhaseScheduler(ConfigLoader configLoader, ApplicationContext applicationContext) {
         this.configLoader = configLoader;
@@ -91,6 +106,13 @@ public class PhaseScheduler {
             discussionManager = applicationContext.getBean(DiscussionManager.class);
         }
         return discussionManager;
+    }
+
+    private VoteManager getVoteManager() {
+        if (voteManager == null) {
+            voteManager = applicationContext.getBean(VoteManager.class);
+        }
+        return voteManager;
     }
 
     /**
@@ -187,9 +209,10 @@ public class PhaseScheduler {
             try {
                 executePhaseEnd(gameId, phase);
 
-                // 特殊处理：投票阶段结束时强制结算（幂等）
+                // 特殊处理:投票阶段结束时强制结算(通过 VoteSession.tryMarkResolved 保证幂等)
                 if ("voting".equals(phase.getPhase())) {
-                    if (votingResolved.add(gameId)) {
+                    VoteManager.VoteSession session = getVoteManager().getVoteSession(gameId);
+                    if (session != null && session.tryMarkResolved()) {
                         getGameService().resolveVoting(gameId);
                     }
                 }
@@ -247,9 +270,10 @@ public class PhaseScheduler {
             try {
                 executePhaseEnd(gameId, ctx.phase);
 
-                // 特殊处理：投票阶段结束时强制结算（幂等）
+                // 特殊处理:投票阶段结束时强制结算(通过 VoteSession.tryMarkResolved 保证幂等)
                 if ("voting".equals(ctx.phase.getPhase())) {
-                    if (votingResolved.add(gameId)) {
+                    VoteManager.VoteSession session = getVoteManager().getVoteSession(gameId);
+                    if (session != null && session.tryMarkResolved()) {
                         getGameService().resolveVoting(gameId);
                     }
                 }
@@ -281,12 +305,19 @@ public class PhaseScheduler {
                     "▶ 阶段开始: {} (第{}回合)", phase.getPhase(), game.getCurrentRound());
         } catch (Exception ignored) {}
 
-        // 广播阶段消息（所有阶段都发 PHASE_CHANGE，确保前端收到 phase + duration）
+        // 广播阶段消息（所有阶段都发 PHASE_CHANGE，确保前端收到 phase + duration + endsAt）
         {
             Map<String, Object> data = new HashMap<>();
             data.put("phase", gamePhase != null ? gamePhase.name() : phase.getPhase());
-            data.put("duration", phase.getDuration());
+            data.put("duration", phase.getDuration());   // 向后兼容
             data.put("round", getGameService().getGameStatus(gameId).getCurrentRound());
+            // ✨ 绝对时间戳,避免客户端本地 setInterval 漂移;前端用 (endsAt - now)/1000 自愈
+            PhaseContext ctxForTs = activePhase.get(gameId);
+            if (ctxForTs != null) {
+                data.put("startedAt", ctxForTs.phaseStartedAt);
+                data.put("endsAt", ctxForTs.phaseEndsAt);
+                data.put("serverNow", System.currentTimeMillis());
+            }
             if (phase.getBroadcast() != null) {
                 data.put("message", phase.getBroadcast());
             }
@@ -396,6 +427,14 @@ public class PhaseScheduler {
     }
 
     /**
+     * 获取当前阶段上下文快照(供 snapshot API 使用)
+     * 注意:返回的 PhaseContext 字段为 final,外部只读,无需防御性拷贝
+     */
+    public PhaseContext getActivePhase(Long gameId) {
+        return activePhase.get(gameId);
+    }
+
+    /**
      * 停止游戏调度
      */
     public void stopGame(Long gameId) {
@@ -405,7 +444,7 @@ public class PhaseScheduler {
         }
         gameModes.remove(gameId);
         activePhase.remove(gameId);
-        votingResolved.remove(gameId);
+        // ✨ 投票幂等标志随 VoteSession 在 GameService.endGame → voteManager.clearVote 一并清理
         try {
             getDiscussionManager().stopDiscussion(gameId);
         } catch (Exception ignored) {}
@@ -413,10 +452,14 @@ public class PhaseScheduler {
     }
 
     /**
-     * 重置投票幂等锁（供新一轮投票开始时调用）
+     * 重置投票幂等锁
+     *
+     * @deprecated 幂等标志已内聚到 VoteSession.resolved,
+     *             由 GameService.startVoting 通过 voteManager.startVote(新 session) 隐式重置
      */
+    @Deprecated
     public void resetVotingLock(Long gameId) {
-        votingResolved.remove(gameId);
+        // no-op: 已由新建 VoteSession 的 AtomicBoolean(false) 隐式完成
     }
 
     /**

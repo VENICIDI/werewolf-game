@@ -24,6 +24,10 @@ class WebSocketManager {
   private onOpenCallback: (() => void) | null = null
   private onCloseCallback: (() => void) | null = null
   private onErrorCallback: ((error: any) => void) | null = null
+  // ✨ 重连成功回调 — 业务层用它触发状态快照拉取
+  private onReconnectedCallback: (() => void) | null = null
+  // 标记本次 connectSocket 是初次还是重连
+  private isReconnecting: boolean = false
 
   // 连接 WebSocket（兼容微信小程序和 H5）
   connect(roomCode: string): Promise<void> {
@@ -62,10 +66,15 @@ class WebSocketManager {
           this.socketTask = task
 
           task.onOpen(() => {
-            console.log('[WS] 连接已建立')
+            console.log('[WS] 连接已建立', this.isReconnecting ? '(重连)' : '(首次)')
             this.state = WebSocketState.OPEN
             this.reconnectAttempts = 0
             this.startHeartbeat()
+            if (this.isReconnecting) {
+              // ✨ 重连成功 — 业务层应在此处拉取完整快照同步状态
+              if (this.onReconnectedCallback) this.onReconnectedCallback()
+              this.isReconnecting = false
+            }
             if (this.onOpenCallback) this.onOpenCallback()
             resolve()
           })
@@ -185,6 +194,11 @@ class WebSocketManager {
     this.onErrorCallback = callback
   }
 
+  // ✨ 设置重连成功回调 — 在重连后业务层应拉取完整状态快照同步
+  setOnReconnected(callback: () => void): void {
+    this.onReconnectedCallback = callback
+  }
+
   // 获取连接状态
   getState(): WebSocketState {
     return this.state
@@ -235,9 +249,13 @@ class WebSocketManager {
     if (this.reconnectAttempts < this.maxReconnectAttempts) {
       this.reconnectAttempts++
       console.log(`[WS] 尝试重连... (${this.reconnectAttempts}/${this.maxReconnectAttempts})`)
-      
+
       setTimeout(() => {
-        this.connect(roomCode).catch(() => {})
+        // ✨ 标记本次连接为"重连",供 onOpen 里触发 onReconnectedCallback
+        this.isReconnecting = true
+        this.connect(roomCode).catch(() => {
+          this.isReconnecting = false
+        })
       }, this.reconnectInterval)
     } else {
       console.error('[WS] 重连次数已达上限')
