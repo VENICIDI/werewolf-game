@@ -5,11 +5,13 @@ import com.werewolf.entity.Game;
 import com.werewolf.entity.Player;
 import com.werewolf.entity.Room;
 import com.werewolf.entity.User;
+import com.werewolf.game.DiscussionManager;
 import com.werewolf.repository.GameRepository;
 import com.werewolf.repository.PlayerRepository;
 import com.werewolf.service.RoomService;
 import com.werewolf.service.UserService;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationContext;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.CloseStatus;
 import org.springframework.web.socket.TextMessage;
@@ -17,9 +19,6 @@ import org.springframework.web.socket.WebSocketSession;
 import org.springframework.web.socket.handler.TextWebSocketHandler;
 
 import java.io.IOException;
-import java.util.Comparator;
-import java.util.List;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -38,18 +37,31 @@ public class RoomWebSocketHandler extends TextWebSocketHandler {
     private final UserService userService;
     private final GameRepository gameRepository;
     private final PlayerRepository playerRepository;
-    
+    private final ApplicationContext applicationContext;
+
+    // 延迟注入 (避免循环依赖)
+    private DiscussionManager discussionManager;
+
     public RoomWebSocketHandler(
             ObjectMapper objectMapper,
             RoomService roomService,
             UserService userService,
             GameRepository gameRepository,
-            PlayerRepository playerRepository) {
+            PlayerRepository playerRepository,
+            ApplicationContext applicationContext) {
         this.objectMapper = objectMapper;
         this.roomService = roomService;
         this.userService = userService;
         this.gameRepository = gameRepository;
         this.playerRepository = playerRepository;
+        this.applicationContext = applicationContext;
+    }
+
+    private DiscussionManager getDiscussionManager() {
+        if (discussionManager == null) {
+            discussionManager = applicationContext.getBean(DiscussionManager.class);
+        }
+        return discussionManager;
     }
     
     @Override
@@ -99,6 +111,10 @@ public class RoomWebSocketHandler extends TextWebSocketHandler {
                     
                 case WebSocketMessage.Type.HEARTBEAT:
                     handleHeartbeat(session);
+                    break;
+
+                case WebSocketMessage.Type.SKIP_SPEECH:
+                    handleSkipSpeech(roomCode, userId);
                     break;
                     
                 default:
@@ -156,21 +172,25 @@ public class RoomWebSocketHandler extends TextWebSocketHandler {
     
     // 处理聊天消息
     private void handleChatMessage(String roomCode, Long userId, String username, WebSocketMessage message) {
+        log.info("[CHAT-IN] roomCode={}, userId={}, content={}", roomCode, userId, extractContent(message));
         Room room = roomService.findByRoomCode(roomCode).orElse(null);
         if (room != null) {
             Game game = gameRepository.findByRoomId(room.getId()).orElse(null);
             if (game != null && game.getStatus() == Game.GameStatus.RUNNING) {
                 if (game.getCurrentPhase() != Game.GamePhase.DISCUSSION) {
+                    log.warn("[CHAT-REJECT] 阶段不对: phase={}, userId={}", game.getCurrentPhase(), userId);
                     sendToUser(roomCode, userId, new WebSocketMessage(WebSocketMessage.Type.ERROR, "当前阶段禁止发言"));
                     return;
                 }
 
                 Player player = playerRepository.findByGameIdAndUserId(game.getId(), userId).orElse(null);
                 if (player == null || player.getStatus() != Player.PlayerStatus.ALIVE) {
+                    log.warn("[CHAT-REJECT] 玩家死亡或不存在: userId={}", userId);
                     sendToUser(roomCode, userId, new WebSocketMessage(WebSocketMessage.Type.ERROR, "你已死亡，不能发言"));
                     return;
                 }
                 if (!Boolean.TRUE.equals(player.getCanSpeak())) {
+                    log.warn("[CHAT-REJECT] 还没轮到: userId={}, playerId={}, canSpeak=false", userId, player.getId());
                     sendToUser(roomCode, userId, new WebSocketMessage(WebSocketMessage.Type.ERROR, "还没轮到你发言"));
                     return;
                 }
@@ -182,66 +202,72 @@ public class RoomWebSocketHandler extends TextWebSocketHandler {
         message.setRoomCode(roomCode);
         broadcastToRoom(roomCode, message);
 
+        // 讨论阶段: 不再"发一次即切人", 改为记录发言到所有 AI 的记忆
         if (room != null) {
             Game game = gameRepository.findByRoomId(room.getId()).orElse(null);
             if (game != null && game.getStatus() == Game.GameStatus.RUNNING
                     && game.getCurrentPhase() == Game.GamePhase.DISCUSSION) {
                 Player speaker = playerRepository.findByGameIdAndUserId(game.getId(), userId).orElse(null);
                 if (speaker != null) {
-                    advanceDiscussionSpeaker(game, speaker.getId());
+                    // 提取内容
+                    String content = extractContent(message);
+                    if (content != null && !content.isBlank()) {
+                        log.info("[CHAT-PUSH-AI] gameId={}, speakerId={}, content={}",
+                                game.getId(), speaker.getId(),
+                                content.length() > 50 ? content.substring(0, 50) + "..." : content);
+                        try {
+                            getDiscussionManager().onHumanChat(game.getId(), speaker.getId(), content);
+                        } catch (Exception e) {
+                            log.warn("推送真人发言到 AI 记忆失败: {}", e.getMessage());
+                        }
+                    }
                 }
             }
         }
     }
 
-    private void advanceDiscussionSpeaker(Game game, Long currentSpeakerId) {
-        List<Player> alivePlayers = playerRepository.findByGameIdAndStatus(game.getId(), Player.PlayerStatus.ALIVE)
-                .stream()
-                .sorted(Comparator.comparing(Player::getSeatNumber))
-                .toList();
-        if (alivePlayers.size() <= 1) {
-            return;
+    /**
+     * 从 PLAYER_CHAT 消息提取发言内容
+     */
+    @SuppressWarnings("unchecked")
+    private String extractContent(WebSocketMessage message) {
+        Object data = message.getData();
+        if (data instanceof String) return (String) data;
+        if (data instanceof Map) {
+            Object c = ((Map<String, Object>) data).get("content");
+            if (c != null) return c.toString();
         }
-
-        int currentIdx = -1;
-        for (int i = 0; i < alivePlayers.size(); i++) {
-            if (alivePlayers.get(i).getId().equals(currentSpeakerId)) {
-                currentIdx = i;
-                break;
-            }
-        }
-        if (currentIdx < 0) {
-            return;
-        }
-
-        Player nextSpeaker = pickNextDiscussionSpeaker(alivePlayers, currentIdx);
-        for (Player p : alivePlayers) {
-            p.setCanSpeak(p.getId().equals(nextSpeaker.getId()));
-            playerRepository.save(p);
-        }
-
-        Map<String, Object> data = new HashMap<>();
-        data.put("playerId", nextSpeaker.getId());
-        data.put("seatNumber", nextSpeaker.getSeatNumber());
-        data.put("username", nextSpeaker.getUser() != null ? nextSpeaker.getUser().getUsername() : nextSpeaker.getAiName());
-        data.put("message", "轮到" + nextSpeaker.getSeatNumber() + "号玩家发言");
-        broadcastToRoom(game.getRoom().getRoomCode(), new WebSocketMessage("SPEAKER_CHANGE", data));
+        return null;
     }
 
-    private Player pickNextDiscussionSpeaker(List<Player> alivePlayers, int currentIdx) {
-        Player defaultNext = alivePlayers.get((currentIdx + 1) % alivePlayers.size());
-        if (!Boolean.TRUE.equals(defaultNext.getIsAi())) {
-            return defaultNext;
-        }
-
-        for (int i = 1; i <= alivePlayers.size(); i++) {
-            Player candidate = alivePlayers.get((currentIdx + i) % alivePlayers.size());
-            if (!Boolean.TRUE.equals(candidate.getIsAi())) {
-                return candidate;
+    /**
+     * 处理"结束发言"按钮: 真人主动跳过剩余发言时间
+     */
+    private void handleSkipSpeech(String roomCode, Long userId) {
+        try {
+            Room room = roomService.findByRoomCode(roomCode).orElse(null);
+            if (room == null) return;
+            Game game = gameRepository.findByRoomId(room.getId()).orElse(null);
+            if (game == null || game.getStatus() != Game.GameStatus.RUNNING
+                    || game.getCurrentPhase() != Game.GamePhase.DISCUSSION) {
+                sendToUser(roomCode, userId, new WebSocketMessage(WebSocketMessage.Type.ERROR, "当前阶段不能结束发言"));
+                return;
             }
+            Player speaker = playerRepository.findByGameIdAndUserId(game.getId(), userId).orElse(null);
+            if (speaker == null || speaker.getStatus() != Player.PlayerStatus.ALIVE) {
+                return;
+            }
+            if (!Boolean.TRUE.equals(speaker.getCanSpeak())) {
+                sendToUser(roomCode, userId, new WebSocketMessage(WebSocketMessage.Type.ERROR, "还没轮到你发言"));
+                return;
+            }
+            getDiscussionManager().advanceNext(game.getId(), speaker.getId(), "skip_button");
+        } catch (Exception e) {
+            log.error("handleSkipSpeech 异常: {}", e.getMessage(), e);
         }
-        return defaultNext;
     }
+
+    // ✨ 讨论阶段的"切换发言人"逻辑已迁移到 DiscussionManager, 此处旧实现已移除
     
     // 处理准备消息
     private void handleReadyMessage(String roomCode, Long userId, String username, WebSocketMessage message) {

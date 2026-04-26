@@ -136,6 +136,11 @@ class WebSocketManager {
     this.send('PLAYER_CHAT', { content })
   }
 
+  // 结束当前讨论阶段发言 (跳过剩余时间)
+  sendSkipSpeech(): void {
+    this.send('SKIP_SPEECH', {})
+  }
+
   // 发送准备状态
   sendReady(ready: boolean): void {
     this.send('PLAYER_READY', ready)

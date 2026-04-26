@@ -151,8 +151,9 @@ public class AIPlayerBridge {
             log.info("游戏 {} 阶段 {} 有 {} 个 AI 玩家需要行动", gameId, phase, aiPlayers.size());
 
             if (phase == Game.GamePhase.DISCUSSION) {
-                // 讨论阶段：AI 玩家依次发言，模拟自然发言间隔
-                scheduleAISpeeches(gameId, aiPlayers);
+                // 讨论阶段: 由 DiscussionManager 按序驱动, 这里不需要做任何事
+                // (轮到 AI 时 DiscussionManager 会主动调 executeAISpeechAndAdvance)
+                log.debug("游戏 {} 讨论阶段由 DiscussionManager 驱动, 跳过 AIPlayerBridge 批量调度", gameId);
             } else if (phase == Game.GamePhase.WEREWOLF) {
                 // 狼人阶段：AI 狼人等待真人狼行动后跟随
                 scheduleAIWerewolfActions(gameId, aiPlayers);
@@ -358,49 +359,160 @@ public class AIPlayerBridge {
     }
 
     /**
-     * 执行 AI 发言并广播到聊天
+     * AI 发言 + 异步推进讨论
+     * 
+     * 由 DiscussionManager 在"轮到 AI 发言"时调用:
+     * 1. 调 Python LLM 生成发言内容
+     * 2. 广播为 PLAYER_CHAT
+     * 3. 推送 PLAYER_SPEECH 事件给所有 AI (更新记忆)
+     * 4. 回调 onFinished(true/false) 通知 DiscussionManager 推进
+     *
+     * @param gameId     游戏 id
+     * @param aiPlayer   AI 玩家
+     * @param onFinished 完成回调 (true=成功, false=失败)
      */
-    private void executeAISpeech(Long gameId, Player aiPlayer) {
+    public void executeAISpeechAndAdvance(Long gameId, Player aiPlayer, java.util.function.Consumer<Boolean> onFinished) {
+        CompletableFuture.runAsync(() -> {
+            boolean ok = false;
+            try {
+                ok = doExecuteAISpeech(gameId, aiPlayer);
+            } catch (Exception e) {
+                log.error("AI 玩家 {} 发言执行异常", aiPlayer.getId(), e);
+            } finally {
+                try {
+                    onFinished.accept(ok);
+                } catch (Exception ignored) {}
+            }
+        });
+    }
+
+    /**
+     * 推送真人发言的 PLAYER_SPEECH 事件给所有 AI Agent, 用于更新 AI 记忆
+     *
+     * @param gameId          游戏 id
+     * @param speakerPlayerId 发言玩家 Player.id
+     * @param content         发言内容
+     */
+    public void pushSpeechEventToAllAIs(Long gameId, Long speakerPlayerId, String content) {
+        if (content == null || content.isBlank()) return;
+
         try {
-            log.info("AI 玩家 {} ({}号) 开始生成发言", aiPlayer.getId(), aiPlayer.getSeatNumber());
-
-            Map<String, Object> gameState = buildGameState(gameId);
-            Map<String, Object> speechResult = callAISpeech(gameId, aiPlayer.getId(), gameState);
-
-            String content = (String) speechResult.get("content");
-            if (content == null || content.isBlank()) {
-                log.warn("AI 玩家 {} 发言内容为空，跳过", aiPlayer.getId());
+            Player speaker = playerRepository.findById(speakerPlayerId).orElse(null);
+            if (speaker == null || speaker.getSeatNumber() == null) {
+                log.warn("pushSpeechEventToAllAIs: 玩家不存在 - id={}", speakerPlayerId);
                 return;
             }
+            Integer speakerSeat = speaker.getSeatNumber();
 
-            // 通过 WebSocket 广播 AI 发言（与真人聊天消息格式一致）
+            // 找出所有 AI 玩家(存活或死亡都推, 保持记忆完整)
+            List<Player> aiPlayers = playerRepository.findByGameId(gameId).stream()
+                    .filter(p -> Boolean.TRUE.equals(p.getIsAi()))
+                    .toList();
+            if (aiPlayers.isEmpty()) return;
+
             Game game = gameService.getGameStatus(gameId);
-            String roomCode = game.getRoom().getRoomCode();
-            String aiName = aiPlayer.getSeatNumber() + "号 " + 
-                            (aiPlayer.getAiName() != null ? aiPlayer.getAiName() : "AI");
+            int round = game.getCurrentRound();
+            String phase = game.getCurrentPhase().name();
 
-            Map<String, Object> chatData = new HashMap<>();
-            chatData.put("content", content);
+            log.info("[SPEECH-EVENT] 推送 PLAYER_SPEECH: speaker座位={}, AI数量={}, content={}",
+                    speakerSeat, aiPlayers.size(),
+                    content.length() > 40 ? content.substring(0, 40) + "..." : content);
 
-            WebSocketMessage chatMsg = new WebSocketMessage(
-                    WebSocketMessage.Type.PLAYER_CHAT,
-                    aiPlayer.getId(),
-                    aiName,
-                    chatData,
-                    roomCode
-            );
-            webSocketHandler.broadcastToRoom(roomCode, chatMsg);
-            if (game.getCurrentPhase() == Game.GamePhase.DISCUSSION) {
-                gameService.advanceDiscussionSpeaker(gameId, aiPlayer.getId());
+            // 并发推送
+            for (Player ai : aiPlayers) {
+                CompletableFuture.runAsync(() -> {
+                    try {
+                        pushSpeechEvent(gameId, ai.getSeatNumber(), speakerSeat, content, round, phase);
+                    } catch (Exception e) {
+                        log.warn("推送 PLAYER_SPEECH 给 AI {} 失败: {}", ai.getId(), e.getMessage());
+                    }
+                });
             }
-
-            log.info("AI 玩家 {} ({}号) 发言成功: {}...", 
-                aiPlayer.getId(), aiPlayer.getSeatNumber(), 
-                content.length() > 30 ? content.substring(0, 30) : content);
-
         } catch (Exception e) {
-            log.error("AI 玩家 {} 发言执行异常", aiPlayer.getId(), e);
+            log.error("pushSpeechEventToAllAIs 异常 - gameId={}", gameId, e);
         }
+    }
+
+    /**
+     * 向单个 AI 推送 PLAYER_SPEECH 事件
+     */
+    private void pushSpeechEvent(Long gameId, Integer targetAiSeat, Integer speakerSeat,
+                                 String content, int round, String phase) {
+        String url = aiServiceUrl + "/api/agents/event";
+
+        Map<String, Object> eventData = new HashMap<>();
+        eventData.put("player_id", speakerSeat);    // 发言者座位号
+        eventData.put("speaker_id", speakerSeat);
+        eventData.put("content", content);
+
+        Map<String, Object> request = new HashMap<>();
+        request.put("game_id", String.valueOf(gameId));
+        request.put("player_id", targetAiSeat);     // 接收事件的 AI 座位号
+        request.put("event_type", "PLAYER_SPEECH");
+        request.put("event_data", eventData);
+        request.put("round", round);
+        request.put("phase", phase);
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        HttpEntity<Map<String, Object>> entity = new HttpEntity<>(request, headers);
+        try {
+            restTemplate.postForEntity(url, entity, Map.class);
+        } catch (Exception e) {
+            log.debug("推送 PLAYER_SPEECH 给 AI 座位{} 失败: {}", targetAiSeat, e.getMessage());
+        }
+    }
+
+    /**
+     * 内部: 执行 AI 发言 (调 Python + 广播 + 推 event), 返回是否成功
+     */
+    private boolean doExecuteAISpeech(Long gameId, Player aiPlayer) {
+        log.info("AI 玩家 {} ({}号) 开始生成发言", aiPlayer.getId(), aiPlayer.getSeatNumber());
+
+        Map<String, Object> gameState = buildGameState(gameId);
+        Long aiSeatAsPlayerId = aiPlayer.getSeatNumber().longValue();
+        Map<String, Object> speechResult = callAISpeech(gameId, aiSeatAsPlayerId, gameState);
+
+        String content = (String) speechResult.get("content");
+        if (content == null || content.isBlank()) {
+            log.warn("AI 玩家 {} 发言内容为空", aiPlayer.getId());
+            return false;
+        }
+
+        // 广播 AI 发言 (与真人聊天消息格式一致)
+        Game game = gameService.getGameStatus(gameId);
+        String roomCode = game.getRoom().getRoomCode();
+        String aiName = aiPlayer.getSeatNumber() + "号 " +
+                (aiPlayer.getAiName() != null ? aiPlayer.getAiName() : "AI");
+
+        Map<String, Object> chatData = new HashMap<>();
+        chatData.put("content", content);
+
+        WebSocketMessage chatMsg = new WebSocketMessage(
+                WebSocketMessage.Type.PLAYER_CHAT,
+                aiPlayer.getId(),
+                aiName,
+                chatData,
+                roomCode
+        );
+        webSocketHandler.broadcastToRoom(roomCode, chatMsg);
+
+        // 推送 PLAYER_SPEECH 给所有 AI (含自己, 用于记忆一致性)
+        pushSpeechEventToAllAIs(gameId, aiPlayer.getId(), content);
+
+        log.info("AI 玩家 {} ({}号) 发言成功: {}...",
+                aiPlayer.getId(), aiPlayer.getSeatNumber(),
+                content.length() > 30 ? content.substring(0, 30) : content);
+        return true;
+    }
+
+    /**
+     * @deprecated 讨论阶段已由 DiscussionManager 驱动, 此方法不再使用
+     */
+    @Deprecated
+    @SuppressWarnings("unused")
+    private void executeAISpeech(Long gameId, Player aiPlayer) {
+        doExecuteAISpeech(gameId, aiPlayer);
     }
 
     /**

@@ -64,6 +64,9 @@ public class PhaseScheduler {
     // AIPlayerBridge 延迟获取
     private AIPlayerBridge aiPlayerBridge;
 
+    // DiscussionManager 延迟获取
+    private DiscussionManager discussionManager;
+
     public PhaseScheduler(ConfigLoader configLoader, ApplicationContext applicationContext) {
         this.configLoader = configLoader;
         this.applicationContext = applicationContext;
@@ -81,6 +84,13 @@ public class PhaseScheduler {
             aiPlayerBridge = applicationContext.getBean(AIPlayerBridge.class);
         }
         return aiPlayerBridge;
+    }
+
+    private DiscussionManager getDiscussionManager() {
+        if (discussionManager == null) {
+            discussionManager = applicationContext.getBean(DiscussionManager.class);
+        }
+        return discussionManager;
     }
 
     /**
@@ -300,7 +310,44 @@ public class PhaseScheduler {
                 // ✨ FIX #3: 女巫阶段发送被杀者信息
                 getGameService().notifyWitchKillTarget(gameId);
                 break;
+            case "discussion":
+                // ✨ 交给 DiscussionManager 按"每人独立时长"轮流发言
+                int speakTimeMs = phase.getSpeakTime() != null ? phase.getSpeakTime() : 30000;
+                getDiscussionManager().startDiscussion(gameId, speakTimeMs);
+                break;
         }
+    }
+
+    /**
+     * ✨ 讨论阶段"所有人发完" → 提前推进
+     * 由 DiscussionManager 在最后一位发完后回调
+     */
+    public void advanceDiscussionPhase(Long gameId) {
+        PhaseContext ctx = activePhase.get(gameId);
+        if (ctx == null) return;
+        if (!"discussion".equals(ctx.phase.getPhase())) return;
+        if (!ctx.advanced.compareAndSet(false, true)) return;
+
+        log.info("✅ 讨论已全员发言完毕, 提前推进 - 游戏: {}", gameId);
+
+        ScheduledFuture<?> future = gameTasks.remove(gameId);
+        if (future != null) future.cancel(false);
+
+        try {
+            Map<String, Object> data = new HashMap<>();
+            data.put("phase", ctx.phase.getPhase());
+            data.put("reason", "all_spoken");
+            getGameService().broadcastToGame(gameId, "PHASE_ADVANCE", data);
+        } catch (Exception ignored) {}
+
+        executor.execute(() -> {
+            try {
+                executePhaseEnd(gameId, ctx.phase);
+                scheduleNextPhase(gameId, ctx.gameMode, ctx.phaseIndex + 1, ctx.isNight);
+            } catch (Exception e) {
+                log.error("讨论阶段推进失败 - 游戏: {}", gameId, e);
+            }
+        });
     }
     
     /**
@@ -359,6 +406,9 @@ public class PhaseScheduler {
         gameModes.remove(gameId);
         activePhase.remove(gameId);
         votingResolved.remove(gameId);
+        try {
+            getDiscussionManager().stopDiscussion(gameId);
+        } catch (Exception ignored) {}
         log.info("停止游戏调度 - 游戏ID: {}", gameId);
     }
 

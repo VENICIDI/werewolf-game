@@ -46,6 +46,8 @@ export default function GamePlay() {
   const [chatInput, setChatInput] = useState('')
   const [speakingPlayerIds, setSpeakingPlayerIds] = useState<Set<number>>(new Set())
   const [currentSpeakerId, setCurrentSpeakerId] = useState<number | null>(null)
+  // 当前发言人的剩余秒数 (仅 DISCUSSION 阶段有意义)
+  const [speakTimeLeft, setSpeakTimeLeft] = useState(0)
   const [selectedTarget, setSelectedTarget] = useState<number | null>(null)
   const [phaseTimeLeft, setPhaseTimeLeft] = useState(0)
   const [showRoleModal, setShowRoleModal] = useState(false)
@@ -109,6 +111,15 @@ export default function GamePlay() {
     }, 1000)
     return () => clearInterval(timer)
   }, [phaseTimeLeft])
+
+  // ✨ 讨论阶段每位发言人 30s 倒计时 (speakTimeLeft)
+  useEffect(() => {
+    if (speakTimeLeft <= 0) return
+    const timer = setInterval(() => {
+      setSpeakTimeLeft(prev => Math.max(0, prev - 1))
+    }, 1000)
+    return () => clearInterval(timer)
+  }, [speakTimeLeft])
 
   // ✨ 调试：监控关键状态变化
   useEffect(() => {
@@ -447,6 +458,9 @@ export default function GamePlay() {
     const nextSpeakerId = Number(data.playerId)
     if (!nextSpeakerId) return
     setCurrentSpeakerId(nextSpeakerId)
+    // 按后端传来的 speakTimeMs 启动倒计时
+    const speakTimeMs = Number(data.speakTimeMs) || 30000
+    setSpeakTimeLeft(Math.ceil(speakTimeMs / 1000))
     setGame(prev => {
       if (!prev) return null
       return {
@@ -848,6 +862,16 @@ export default function GamePlay() {
     if (!chatInput.trim()) return
     wsManager.sendChat(chatInput)
     setChatInput('')
+  }
+
+  // ✨ 结束发言 — 主动跳过剩余时间
+  const handleSkipSpeech = () => {
+    if (!canChat()) {
+      Taro.showToast({ title: '当前不是你的发言时段', icon: 'none' })
+      return
+    }
+    wsManager.sendSkipSpeech()
+    setSpeakTimeLeft(0)
   }
 
   const currentSpeaker = game?.players.find(p => p.playerId === currentSpeakerId)
@@ -1497,13 +1521,16 @@ export default function GamePlay() {
           <View className='chat-input-row'>
             <Input
               className='chat-input'
-              placeholder={phaseTimeLeft > 0 ? `发言倒计时 ${phaseTimeLeft}s，发表你的看法...` : '发表你的看法...'}
+              placeholder={speakTimeLeft > 0 ? `还剩 ${speakTimeLeft}s，发表你的看法...` : '发表你的看法...'}
               value={chatInput}
               onInput={(e) => setChatInput(e.detail.value)}
               onConfirm={handleSendChat}
             />
             <Button className='chat-send-btn' onClick={handleSendChat}>
               发送
+            </Button>
+            <Button className='chat-skip-btn' onClick={handleSkipSpeech}>
+              结束发言
             </Button>
           </View>
         ) : (

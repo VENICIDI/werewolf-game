@@ -704,6 +704,23 @@
       &::after { border: none; }
       &:active { background: #4caf50; }
     }
+
+    .chat-skip-btn {
+      width: 72px;
+      height: 36px;
+      margin-left: 8px;
+      background: linear-gradient(180deg, rgba(255, 152, 0, 0.8) 0%, rgba(230, 126, 34, 0.9) 100%);
+      border: 1px solid rgba(255, 152, 0, 0.6);
+      border-radius: 18px;
+      color: #fff;
+      font-size: 12px;
+      font-weight: 600;
+      line-height: 36px;
+      flex-shrink: 0;
+
+      &::after { border: none; }
+      &:active { background: #e67e22; }
+    }
   }
 
   .chat-input-disabled {

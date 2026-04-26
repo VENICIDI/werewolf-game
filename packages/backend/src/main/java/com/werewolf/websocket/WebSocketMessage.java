@@ -58,6 +58,7 @@ public class WebSocketMessage {
         // 玩家状态
         public static final String PLAYER_READY = "PLAYER_READY";
         public static final String PLAYER_CHAT = "PLAYER_CHAT";
+        public static final String SKIP_SPEECH = "SKIP_SPEECH";     // 结束发言按钮
         
         // 游戏消息
         public static final String GAME_START = "GAME_START";
