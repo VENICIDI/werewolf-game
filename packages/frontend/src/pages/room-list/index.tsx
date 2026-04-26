@@ -89,13 +89,37 @@ export default function RoomList() {
     setSelectedRoom(null)
   }
 
-  const handleJoinByCode = () => {
+  const handleJoinByCode = async () => {
     if (!checkLogin({ message: '加入房间需要先登录，去亮明你的猎人身份吧' })) return
-    if (!joinCode.trim()) {
+    const code = joinCode.trim().toUpperCase()
+    if (!code) {
       Taro.showToast({ title: '请输入房间号', icon: 'none' })
       return
     }
-    Taro.navigateTo({ url: `/pages/room/index?code=${joinCode.toUpperCase()}` })
+    // 房间码格式校验：6 位字母数字，且字符集为 ABCDEFGHJKLMNPQRSTUVWXYZ23456789（无 I/O/0/1）
+    const ROOM_CODE_REGEX = /^[ABCDEFGHJKLMNPQRSTUVWXYZ23456789]{6}$/
+    if (!ROOM_CODE_REGEX.test(code)) {
+      Taro.showToast({
+        title: '房间号格式错误（6 位大写字母+数字，不含 I/O/0/1）',
+        icon: 'none',
+        duration: 2500,
+      })
+      return
+    }
+    // 必须先调用 joinRoom 入房，再跳转到房间页
+    try {
+      Taro.showLoading({ title: '加入中...' })
+      await joinRoom(code)
+      Taro.hideLoading()
+      Taro.navigateTo({ url: `/pages/room/index?code=${code}` })
+      setJoinCode('')
+    } catch (error: any) {
+      Taro.hideLoading()
+      const msg = error?.data?.message || error?.message || '加入失败：房间不存在或已满'
+      setTimeout(() => {
+        Taro.showToast({ title: msg, icon: 'none', duration: 2500 })
+      }, 100)
+    }
   }
 
   const getStatusLabel = (status: string) => {

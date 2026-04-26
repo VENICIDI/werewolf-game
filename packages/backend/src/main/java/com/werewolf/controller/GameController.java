@@ -7,6 +7,7 @@ import com.werewolf.entity.Player;
 import com.werewolf.service.GameService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -18,6 +19,7 @@ import java.util.stream.Collectors;
 @RestController
 @RequestMapping("/api/games")
 @RequiredArgsConstructor
+@Slf4j
 @CrossOrigin(origins = "*")
 public class GameController {
 
@@ -67,12 +69,17 @@ public class GameController {
             @PathVariable Long gameId,
             @Valid @RequestBody GameActionRequest request,
             @RequestAttribute("userId") Long userId) {
+        log.info("[ACTION-IN] gameId={}, userId={}, action={}, targetId={}",
+                gameId, userId, request.getAction(), request.getTargetId());
         try {
             Map<String, Object> result = gameService.executeAction(
                     gameId, userId, request.getAction(), request.getTargetId());
-
+            log.info("[ACTION-OK] gameId={}, userId={}, action={}",
+                    gameId, userId, request.getAction());
             return ResponseEntity.ok(ApiResponse.success("行动成功", result));
         } catch (Exception e) {
+            log.warn("[ACTION-FAIL] gameId={}, userId={}, action={}, targetId={}, 原因: {}",
+                    gameId, userId, request.getAction(), request.getTargetId(), e.getMessage());
             return ResponseEntity.badRequest()
                     .body(ApiResponse.badRequest(e.getMessage()));
         }

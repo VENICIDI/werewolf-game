@@ -70,6 +70,18 @@ export default function Room() {
     if (action === 'create') {
       setIsCreating(true)
     } else if (roomCode) {
+      // 路由参数兜底校验：避免非法 code（如纯数字 "123321"）发出无效请求
+      const ROOM_CODE_REGEX = /^[ABCDEFGHJKLMNPQRSTUVWXYZ23456789]{6}$/
+      if (!ROOM_CODE_REGEX.test(roomCode)) {
+        console.warn('[Room] 非法房间号 code=', roomCode)
+        Taro.showToast({
+          title: '房间号格式错误',
+          icon: 'none',
+          duration: 2000,
+        })
+        setTimeout(() => Taro.navigateBack(), 1500)
+        return
+      }
       fetchRoomDetail(roomCode)
       connectWebSocket(roomCode)
       

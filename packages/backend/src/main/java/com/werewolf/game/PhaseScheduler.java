@@ -37,6 +37,27 @@ public class PhaseScheduler {
     // 存储游戏模式（用于夜晚结束后重新进入）
     private final Map<Long, GameConfig.GameMode> gameModes = new ConcurrentHashMap<>();
 
+    // ✨ 当前阶段的上下文 (gameId -> PhaseContext)，用于"全员提交即推进"
+    private final Map<Long, PhaseContext> activePhase = new ConcurrentHashMap<>();
+
+    /**
+     * 阶段运行上下文
+     */
+    private static class PhaseContext {
+        final GameConfig.GameMode gameMode;
+        final GameConfig.PhaseConfig phase;
+        final int phaseIndex;
+        final boolean isNight;
+        final java.util.concurrent.atomic.AtomicBoolean advanced = new java.util.concurrent.atomic.AtomicBoolean(false);
+
+        PhaseContext(GameConfig.GameMode gameMode, GameConfig.PhaseConfig phase, int phaseIndex, boolean isNight) {
+            this.gameMode = gameMode;
+            this.phase = phase;
+            this.phaseIndex = phaseIndex;
+            this.isNight = isNight;
+        }
+    }
+
     // GameService 延迟获取
     private GameService gameService;
     
@@ -137,6 +158,10 @@ public class PhaseScheduler {
         log.info("调度阶段 - 游戏: {}, 阶段: {}, 时长: {}ms, 夜晚: {}",
                 gameId, phase.getPhase(), durationMs, isNight);
 
+        // ✨ 记录阶段上下文（用于"全员提交即推进"）
+        PhaseContext ctx = new PhaseContext(gameMode, phase, phaseIndex, isNight);
+        activePhase.put(gameId, ctx);
+
         // 立即执行阶段开始
         executor.execute(() -> {
             try {
@@ -148,6 +173,7 @@ public class PhaseScheduler {
 
         // 定时执行阶段结束，进入下一阶段
         ScheduledFuture<?> future = executor.schedule(() -> {
+            if (!ctx.advanced.compareAndSet(false, true)) return; // 已被提前推进
             try {
                 executePhaseEnd(gameId, phase);
 
@@ -166,6 +192,80 @@ public class PhaseScheduler {
         }, durationMs, TimeUnit.MILLISECONDS);
 
         gameTasks.put(gameId, future);
+    }
+
+    /**
+     * ✨ 全员提交即推进 — 由 GameService 在每次行动提交后调用
+     * 若当前阶段全部应行动玩家都已提交，则取消倒计时立即进入下一阶段
+     *
+     * ⚠️ 仅当该阶段包含"真人行动者"时才启用提前推进：
+     *   - 全是 AI 的阶段 → 按配置时长走完，保留夜晚氛围 & 避免闪现
+     *   - 有真人行动者 → 真人提交后立刻推进，避免无意义等待
+     * VOTING 阶段默认有真人参与，也启用提前推进。
+     */
+    public void advanceIfAllActed(Long gameId) {
+        PhaseContext ctx = activePhase.get(gameId);
+        if (ctx == null) return;
+
+        try {
+            GameService gameService = getGameService();
+            // 1. 仅在"全员已提交"时继续
+            if (!gameService.isPhaseAllSubmitted(gameId)) return;
+
+            // 2. 判断该阶段是否存在"真人行动者"
+            com.werewolf.entity.Game game = gameService.getGameStatus(gameId);
+            com.werewolf.entity.Game.GamePhase currentPhase = game.getCurrentPhase();
+            List<com.werewolf.entity.Player> expected = gameService.getExpectedActors(gameId, currentPhase);
+            boolean hasHumanActor = expected.stream()
+                    .anyMatch(p -> !Boolean.TRUE.equals(p.getIsAi()));
+
+            // 全 AI 阶段：走完倒计时，不提前推进（保留夜晚节奏 & AI 决策时间）
+            if (!hasHumanActor) {
+                log.debug("阶段 {} 全是 AI 行动者，跳过提前推进 - 游戏: {}", ctx.phase.getPhase(), gameId);
+                return;
+            }
+        } catch (Exception e) {
+            log.warn("检查阶段提交状态失败 - 游戏: {}", gameId, e);
+            return;
+        }
+
+        // CAS 幂等：若倒计时已触发或已提前推进则放弃
+        if (!ctx.advanced.compareAndSet(false, true)) return;
+
+        log.info("✅ 全员已提交（含真人），提前推进阶段 - 游戏: {}, 阶段: {}", gameId, ctx.phase.getPhase());
+
+        // 取消当前阶段的倒计时 future
+        ScheduledFuture<?> future = gameTasks.remove(gameId);
+        if (future != null) {
+            future.cancel(false);
+        }
+
+        // 广播"阶段已提前结束"提示（可选）
+        try {
+            Map<String, Object> data = new HashMap<>();
+            data.put("phase", ctx.phase.getPhase());
+            data.put("reason", "all_submitted");
+            getGameService().broadcastToGame(gameId, "PHASE_ADVANCE", data);
+        } catch (Exception ignored) {}
+
+        // 异步执行结束逻辑，避免阻塞调用方事务
+        executor.execute(() -> {
+            try {
+                executePhaseEnd(gameId, ctx.phase);
+
+                // 特殊处理：投票阶段结束时强制结算（幂等）
+                if ("voting".equals(ctx.phase.getPhase())) {
+                    if (votingResolved.add(gameId)) {
+                        getGameService().resolveVoting(gameId);
+                    }
+                }
+
+                // 推进下一阶段
+                scheduleNextPhase(gameId, ctx.gameMode, ctx.phaseIndex + 1, ctx.isNight);
+            } catch (Exception e) {
+                log.error("提前推进阶段失败 - 游戏: {}, 阶段: {}", gameId, ctx.phase.getPhase(), e);
+            }
+        });
     }
 
     /**
@@ -273,7 +373,16 @@ public class PhaseScheduler {
             future.cancel(false);
         }
         gameModes.remove(gameId);
+        activePhase.remove(gameId);
+        votingResolved.remove(gameId);
         log.info("停止游戏调度 - 游戏ID: {}", gameId);
+    }
+
+    /**
+     * 重置投票幂等锁（供新一轮投票开始时调用）
+     */
+    public void resetVotingLock(Long gameId) {
+        votingResolved.remove(gameId);
     }
 
     /**

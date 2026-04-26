@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import Taro, { useRouter } from '@tarojs/taro'
 import { View, Text, Button, ScrollView, Input } from '@tarojs/components'
 import { getGameStatus, GamePhase, GameStatus, Role } from '../../../api/game'
@@ -60,6 +60,12 @@ export default function GamePlay() {
   // ✨ 投票实时快照: voterId -> targetId（0=弃票）
   const [voteRecords, setVoteRecords] = useState<Record<number, number>>({})
   const [voteProgress, setVoteProgress] = useState<{ voted: number, total: number }>({ voted: 0, total: 0 })
+  // ✨ 本阶段是否已提交行动（按 "phase:round" 维度，阶段切换后自动失效）
+  const [submittedPhaseKey, setSubmittedPhaseKey] = useState<string | null>(null)
+  const [submittedSummary, setSubmittedSummary] = useState<string>('')
+  // ✨ 同步锁：防止 React setState 异步导致的短时间连续点击提交多次
+  const submittedPhaseKeyRef = useRef<string | null>(null)
+  const submittingRef = useRef<boolean>(false)
   // ✨ 投票最终结果（处决面板）
   const [voteResult, setVoteResult] = useState<{
     votesByVoter: Record<number, number>   // voterId -> targetId
@@ -73,6 +79,7 @@ export default function GamePlay() {
 
   // 初始化：通过 API 获取游戏状态
   useEffect(() => {
+    console.log('%c[VERSION] GamePlay v2 - 锁定+全员推进', 'color:#4caf50;font-weight:bold;font-size:14px')
     const gameId = router.params.gameId || Taro.getStorageSync('currentGameId')
     const roomCode = router.params.roomCode || Taro.getStorageSync('currentRoomCode')
 
@@ -102,6 +109,22 @@ export default function GamePlay() {
     }, 1000)
     return () => clearInterval(timer)
   }, [phaseTimeLeft])
+
+  // ✨ 调试：监控关键状态变化
+  useEffect(() => {
+    if (!game) return
+    console.log('[STATE] 游戏状态更新', {
+      phase: game.phase,
+      round: game.round,
+      myRole: game.myRole,
+      canAct: canAct(),
+      isActionLocked: isActionLocked(),
+      submittedPhaseKey,
+      submittedPhaseKeyRef: submittedPhaseKeyRef.current,
+      selectedTarget,
+      witchAction,
+    })
+  }, [game?.phase, game?.round, submittedPhaseKey, selectedTarget, witchAction])
 
   const fetchGameData = async (gameId: number) => {
     try {
@@ -143,6 +166,7 @@ export default function GamePlay() {
   const connectWebSocket = async (roomCode: string) => {
     try {
       wsManager.on('PHASE_CHANGE', handlePhaseChange)
+      wsManager.on('PHASE_ADVANCE', handlePhaseAdvance)
       wsManager.on('PLAYER_ACTION', handlePlayerAction)
       wsManager.on('PLAYER_CHAT', handlePlayerChat)
       wsManager.on('GAME_OVER', handleGameOver)
@@ -168,7 +192,7 @@ export default function GamePlay() {
 
   const handlePhaseChange = useCallback((message: any) => {
     const data = message.data
-    console.log('[Game] 阶段切换:', data.phase)
+    console.log('[WS] PHASE_CHANGE →', { phase: data.phase, round: data.round, duration: data.duration })
     setGame(prev => prev ? {
       ...prev,
       phase: data.phase,
@@ -180,6 +204,12 @@ export default function GamePlay() {
     setSelectedTarget(null)
     setSpeakingPlayerIds(new Set())
     setWitchAction('none')
+    // 阶段切换：清除上一阶段的"已提交"锁定
+    setSubmittedPhaseKey(null)
+    setSubmittedSummary('')
+    submittedPhaseKeyRef.current = null
+    submittingRef.current = false
+    console.log('[LOCK] 🔓 阶段切换，清除锁定')
     if (data.phase !== 'DISCUSSION') {
       setCurrentSpeakerId(null)
     }
@@ -198,6 +228,13 @@ export default function GamePlay() {
     if (data.message) {
       Taro.showToast({ title: data.message, icon: 'none', duration: 2000 })
     }
+  }, [])
+
+  // ✨ 后端"全员提交即推进"的广播
+  const handlePhaseAdvance = useCallback((message: any) => {
+    const data = message?.data || {}
+    console.log('[WS] PHASE_ADVANCE →', data)
+    Taro.showToast({ title: '全员已行动，进入下一阶段', icon: 'none', duration: 1200 })
   }, [])
 
   const handlePlayerAction = useCallback((message: any) => {
@@ -268,10 +305,17 @@ export default function GamePlay() {
 
   const handleVoteStart = useCallback((message: any) => {
     const data = message?.data || {}
-    // 进入新一轮投票 → 清空上一轮的快照与结果面板
+    console.log('[WS] VOTE_START →', data)
+    // 进入新一轮投票 → 清空上一轮的快照、结果面板以及"已提交"锁定
     setVoteRecords({})
     setVoteResult(null)
     setVoteProgress({ voted: 0, total: Number(data.eligibleCount) || 0 })
+    setSubmittedPhaseKey(null)
+    setSubmittedSummary('')
+    submittedPhaseKeyRef.current = null
+    submittingRef.current = false
+    setSelectedTarget(null)
+    console.log('[LOCK] 🔓 VOTE_START 清除锁定')
     Taro.showToast({ title: '投票阶段开始', icon: 'none' })
   }, [])
 
@@ -334,6 +378,16 @@ export default function GamePlay() {
   }, [])
 
   const handleActionConfirm = useCallback((message: any) => {
+    const data = message?.data || {}
+    const phase = data.phase
+    const round = data.round
+    console.log('[WS] ACTION_CONFIRM →', { phase, round, action: data.action, data })
+    if (phase && round != null) {
+      const key = `${phase}:${round}`
+      submittedPhaseKeyRef.current = key
+      setSubmittedPhaseKey(key)
+      console.log('[LOCK] 🔒 WS 触发锁定 key=', key)
+    }
     Taro.showToast({ title: '行动已确认', icon: 'success' })
   }, [])
 
@@ -451,6 +505,9 @@ export default function GamePlay() {
     const myPlayer = game.players.find(p => p.playerId === game.myPlayerId)
     if (!myPlayer || myPlayer.status !== 'ALIVE') return false
 
+    // ✨ 本阶段已提交 → 锁定，不可再行动
+    if (isActionLocked()) return false
+
     switch (game.phase) {
       case 'WEREWOLF': return game.myRole === 'WEREWOLF'
       case 'SEER': return game.myRole === 'SEER'
@@ -476,31 +533,178 @@ export default function GamePlay() {
     }
   }
 
-  const handleAction = async () => {
+  // 本阶段是否已提交（阶段 + 回合维度，切阶段或下一轮自动失效）
+  const isActionLocked = (): boolean => {
+    if (!game) return false
+    const expected = `${game.phase}:${game.round}`
+    // 优先读 ref（同步）；setState 的值用于 UI，ref 用于事件处理
+    const lockedKey = submittedPhaseKeyRef.current || submittedPhaseKey
+    return lockedKey === expected
+  }
+
+  // 标记已提交（HTTP 成功后立刻调用，不等 WebSocket 兜底）
+  const markSubmitted = (summary: string) => {
     if (!game) return
+    const key = `${game.phase}:${game.round}`
+    submittedPhaseKeyRef.current = key
+    setSubmittedPhaseKey(key)
+    setSubmittedSummary(summary)
+    console.log('[LOCK] 🔒 markSubmitted key=', key, 'summary=', summary)
+  }
+
+  // 女巫救人：先二次确认
+  const handleWitchSave = async () => {
+    console.log('[BTN] 💊 使用解药按钮触发', {
+      phase: game?.phase, round: game?.round,
+      isActionLocked: isActionLocked(),
+      submitting: submittingRef.current,
+      submittedPhaseKeyRef: submittedPhaseKeyRef.current,
+      witchInfo,
+    })
+    if (!game) return
+    if (isActionLocked() || submittingRef.current) {
+      console.log('[BTN] ❌ 解药被拦截：已锁定或正在提交')
+      return
+    }
+    const targetSeat = witchInfo?.killTargetSeat
+    const targetName = witchInfo?.killTargetName
+    const confirmText = targetSeat
+      ? `确定要使用【解药】救活 ${targetSeat}号 ${targetName || ''} 吗？\n\n⚠️ 解药整局仅一次，使用后不可撤销。`
+      : `确定要使用【解药】吗？\n\n⚠️ 解药整局仅一次，使用后不可撤销。`
+    const res = await Taro.showModal({
+      title: '💊 使用解药确认',
+      content: confirmText,
+      confirmText: '确认救人',
+      confirmColor: '#2e7d32',
+      cancelText: '再想想',
+    })
+    console.log('[BTN] 解药 Modal 结果:', res.confirm)
+    if (!res.confirm) return
+    if (isActionLocked() || submittingRef.current) {
+      console.log('[BTN] ❌ 解药 Modal 确认后再次检查被拦截')
+      return
+    }
+    submittingRef.current = true
+    console.log('[BTN] 🔒 开始发送解药请求')
+    try {
+      await post(`/games/${game.gameId}/action`, { action: 'save' })
+      markSubmitted(`💊 已使用解药救 ${targetSeat || ''}号`)
+      setWitchAction('none')
+      Taro.showToast({ title: '💊 已使用解药', icon: 'none' })
+      console.log('[BTN] ✅ 解药请求成功')
+    } catch (error: any) {
+      console.warn('[Game] 解药行动失败:', error?.message, error)
+    } finally {
+      submittingRef.current = false
+      console.log('[BTN] 🔓 解药请求结束，释放 submittingRef')
+    }
+  }
+
+  // 女巫毒人：先二次确认
+  const handleWitchPoison = async () => {
+    console.log('[BTN] ☠️ 使用毒药按钮触发', {
+      phase: game?.phase, round: game?.round,
+      isActionLocked: isActionLocked(),
+      submitting: submittingRef.current,
+      selectedTarget,
+    })
+    if (!game) return
+    if (isActionLocked() || submittingRef.current) {
+      console.log('[BTN] ❌ 毒药被拦截：已锁定或正在提交')
+      return
+    }
+    if (!selectedTarget) {
+      Taro.showToast({ title: '请选择毒杀目标', icon: 'none' })
+      console.log('[BTN] ❌ 毒药未选中目标')
+      return
+    }
+    const target = game.players.find(p => p.playerId === selectedTarget)
+    const confirmText = target
+      ? `确定要使用【毒药】毒杀 ${target.seatNumber}号 ${target.username || ''} 吗？\n\n⚠️ 毒药整局仅一次，使用后不可撤销。\n⚠️ 误毒好人将大幅增加狼人胜率。`
+      : `确定要使用【毒药】吗？\n\n⚠️ 毒药整局仅一次，使用后不可撤销。`
+    const res = await Taro.showModal({
+      title: '☠️ 使用毒药确认',
+      content: confirmText,
+      confirmText: '确认毒杀',
+      confirmColor: '#d32f2f',
+      cancelText: '再想想',
+    })
+    console.log('[BTN] 毒药 Modal 结果:', res.confirm)
+    if (!res.confirm) return
+    if (isActionLocked() || submittingRef.current) {
+      console.log('[BTN] ❌ 毒药 Modal 确认后再次检查被拦截')
+      return
+    }
+    submittingRef.current = true
+    console.log('[BTN] 🔒 开始发送毒药请求 target=', selectedTarget)
+    try {
+      await post(`/games/${game.gameId}/action`, {
+        action: 'poison',
+        targetId: selectedTarget,
+      })
+      markSubmitted(`☠️ 已毒杀 ${target?.seatNumber || ''}号 ${target?.username || ''}`)
+      setWitchAction('none')
+      Taro.showToast({ title: '☠️ 已使用毒药', icon: 'none' })
+      console.log('[BTN] ✅ 毒药请求成功')
+    } catch (error: any) {
+      console.warn('[Game] 毒药行动失败:', error?.message, error)
+    } finally {
+      submittingRef.current = false
+      console.log('[BTN] 🔓 毒药请求结束')
+    }
+  }
+
+  const handleAction = async () => {
+    console.log('[BTN] 🎯 确认行动按钮触发', {
+      phase: game?.phase, round: game?.round,
+      myRole: game?.myRole,
+      actionType: getActionType(),
+      selectedTarget,
+      isActionLocked: isActionLocked(),
+      submitting: submittingRef.current,
+      submittedPhaseKeyRef: submittedPhaseKeyRef.current,
+      submittedPhaseKey,
+    })
+    if (!game) return
+    if (isActionLocked() || submittingRef.current) {
+      console.log('[BTN] ❌ 确认行动被拦截：已锁定或正在提交')
+      return
+    }
     const actionType = getActionType()
 
-    // 女巫救人不需要选目标
+    // 女巫救人：走专用确认流程
     if (actionType === 'save') {
-      try {
-        await post(`/games/${game.gameId}/action`, { action: 'save' })
-        setWitchAction('none')
-        setWitchInfo(null)
-      } catch (error: any) {
-        Taro.showToast({ title: error.message || '行动失败', icon: 'none' })
-      }
+      await handleWitchSave()
+      return
+    }
+    // 女巫毒人：走专用确认流程
+    if (actionType === 'poison') {
+      await handleWitchPoison()
       return
     }
 
     if (!selectedTarget) {
       Taro.showToast({ title: '请选择目标', icon: 'none' })
+      console.log('[BTN] ❌ 确认行动未选中目标')
       return
     }
+    submittingRef.current = true
+    console.log(`[BTN] 🔒 开始发送 ${actionType} 请求 target=${selectedTarget}`)
     try {
       const res: any = await post(`/games/${game.gameId}/action`, {
         action: actionType,
         targetId: selectedTarget
       })
+      const target = game.players.find(p => p.playerId === selectedTarget)
+      const actionLabel: Record<string, string> = {
+        kill: '🐺 已选择击杀',
+        check: '🔮 已查验',
+        guard: '🛡️ 已守护',
+        vote: '🗳️ 已投票给',
+        shoot: '🎯 已开枪击毙',
+      }
+      markSubmitted(`${actionLabel[actionType] || '✅ 已行动'} ${target?.seatNumber || ''}号 ${target?.username || ''}`)
+      console.log(`[BTN] ✅ ${actionType} 请求成功，锁定 key=${game.phase}:${game.round}`)
       // 预言家查验：直接从 HTTP 响应弹出结果（不依赖 WebSocket SEER_RESULT）
       if (actionType === 'check' && res) {
         const isWolf = res.isWerewolf
@@ -514,22 +718,68 @@ export default function GamePlay() {
       if (actionType === 'shoot') {
         setCanHunterShoot(false)
       }
-      if (actionType === 'poison') {
-        setWitchAction('none')
-        setWitchInfo(null)
-      }
     } catch (error: any) {
-      Taro.showToast({ title: error.message || '行动失败', icon: 'none' })
+      console.warn(`[Game] ${actionType} 行动失败:`, error?.message, error)
+    } finally {
+      submittingRef.current = false
+      console.log('[BTN] 🔓 行动请求结束')
+    }
+  }
+
+  // 女巫"不使用"的二次确认
+  const handleWitchSkip = async () => {
+    console.log('[BTN] 🌙 女巫不使用按钮触发', {
+      isActionLocked: isActionLocked(),
+      submitting: submittingRef.current,
+    })
+    if (!game) return
+    if (isActionLocked() || submittingRef.current) {
+      console.log('[BTN] ❌ 女巫跳过被拦截')
+      return
+    }
+    const res = await Taro.showModal({
+      title: '🌙 确认放弃用药',
+      content: '确定本轮不使用解药和毒药吗？\n\n⚠️ 本轮放弃后，今晚被狼人刀到的玩家将死亡。',
+      confirmText: '确认放弃',
+      confirmColor: '#8a7a68',
+      cancelText: '再想想',
+    })
+    if (!res.confirm) return
+    if (isActionLocked() || submittingRef.current) return
+    submittingRef.current = true
+    try {
+      await post(`/games/${game.gameId}/action`, { action: 'skip' })
+      markSubmitted('🌙 本轮已放弃用药')
+      Taro.showToast({ title: '已跳过', icon: 'none' })
+      console.log('[BTN] ✅ 女巫跳过成功')
+    } catch (error: any) {
+      console.warn('[Game] 女巫跳过失败:', error?.message, error)
+    } finally {
+      submittingRef.current = false
     }
   }
 
   const handleSkip = async () => {
+    console.log('[BTN] ⏭️ 跳过按钮触发', {
+      phase: game?.phase, round: game?.round,
+      isActionLocked: isActionLocked(),
+      submitting: submittingRef.current,
+    })
     if (!game) return
+    if (isActionLocked() || submittingRef.current) {
+      console.log('[BTN] ❌ 跳过被拦截')
+      return
+    }
+    submittingRef.current = true
     try {
       await post(`/games/${game.gameId}/action`, { action: 'skip' })
+      markSubmitted('🌙 已跳过本轮行动')
       Taro.showToast({ title: '已跳过', icon: 'none' })
+      console.log('[BTN] ✅ 跳过成功')
     } catch (error: any) {
-      Taro.showToast({ title: error.message || '操作失败', icon: 'none' })
+      console.warn('[Game] 跳过失败:', error?.message, error)
+    } finally {
+      submittingRef.current = false
     }
   }
 
@@ -699,9 +949,31 @@ export default function GamePlay() {
                 key={player.playerId}
                 className={`player-card ${player.status} ${selectedTarget === player.playerId ? 'selected' : ''} ${speakingPlayerIds.has(player.playerId) ? 'speaking' : ''} ${isTeammate ? 'werewolf-teammate' : ''} ${highlight.className} ${isEliminated ? 'eliminated' : ''}`}
                 onClick={() => {
-                  if (!canAct() || player.status !== 'ALIVE') return
+                  console.log('[BTN] 点击玩家卡片 →', {
+                    seat: player.seatNumber,
+                    playerId: player.playerId,
+                    status: player.status,
+                    isMe,
+                    isTeammate,
+                    phase: game?.phase,
+                    round: game?.round,
+                    myRole: game?.myRole,
+                    canAct: canAct(),
+                    isActionLocked: isActionLocked(),
+                    submitting: submittingRef.current,
+                    submittedPhaseKeyRef: submittedPhaseKeyRef.current,
+                    submittedPhaseKey,
+                  })
+                  if (!canAct() || player.status !== 'ALIVE') {
+                    console.log('[BTN] ❌ 玩家卡片点击被拦截 (canAct=false 或 玩家已死亡)')
+                    return
+                  }
                   // 狼人阶段不能选自己和队友
-                  if (game?.phase === 'WEREWOLF' && (isTeammate || isMe)) return
+                  if (game?.phase === 'WEREWOLF' && (isTeammate || isMe)) {
+                    console.log('[BTN] ❌ 狼人阶段不能选自己/队友')
+                    return
+                  }
+                  console.log('[BTN] ✅ 选中目标 seat=', player.seatNumber)
                   setSelectedTarget(player.playerId)
                 }}
               >
@@ -939,6 +1211,42 @@ export default function GamePlay() {
         )
       })()}
 
+      {/* ✨ 已提交行动：锁定提示（仅当前阶段我本应能行动时展示） */}
+      {(() => {
+        if (!game || !isActionLocked()) return null
+        // 仅当角色/阶段匹配时展示"已锁定"，避免旁观者看到
+        const myPlayer = game.players.find(p => p.playerId === game.myPlayerId)
+        if (!myPlayer || myPlayer.status !== 'ALIVE') return null
+        const roleActivePhases: Record<string, string> = {
+          WEREWOLF: 'WEREWOLF', SEER: 'SEER', WITCH: 'WITCH', GUARD: 'GUARD',
+        }
+        const isMyActingPhase =
+          roleActivePhases[game.myRole || ''] === game.phase || game.phase === 'VOTING'
+        if (!isMyActingPhase) return null
+        return (
+          <View className='action-section' style={{ opacity: 0.92 }}>
+            <View style={{
+              padding: '14px 12px',
+              background: 'linear-gradient(180deg, rgba(76,175,80,0.16) 0%, rgba(46,125,50,0.10) 100%)',
+              borderRadius: '10px',
+              border: '2px solid rgba(76,175,80,0.55)',
+              textAlign: 'center',
+            }}>
+              <Text style={{ fontSize: '24px', display: 'block', marginBottom: '4px' }}>🔒</Text>
+              <Text style={{ color: '#a5d6a7', fontSize: '12px', display: 'block', marginBottom: '4px' }}>
+                — 本阶段行动已锁定 —
+              </Text>
+              <Text style={{ color: '#e8f5e9', fontSize: '14px', fontWeight: 'bold', display: 'block' }}>
+                {submittedSummary || '已提交'}
+              </Text>
+              <Text style={{ color: '#81c784', fontSize: '11px', display: 'block', marginTop: '6px' }}>
+                等待其他玩家完成行动…
+              </Text>
+            </View>
+          </View>
+        )
+      })()}
+
       {/* 行动按钮 */}
       {canAct() && (
         <View className='action-section'>
@@ -976,22 +1284,29 @@ export default function GamePlay() {
               )}
 
               {/* 行动按钮组 */}
-              <View style={{ display: 'flex', gap: '8px', justifyContent: 'center', flexWrap: 'wrap' }}>
+              <View style={{ display: 'flex', gap: '10px', justifyContent: 'center', flexWrap: 'wrap' }}>
                 {/* 解药按钮 - 只有有人死且有解药时才显示 */}
                 {witchInfo?.hasSave && witchInfo?.killTargetSeat && (
                   <Button
                     className='action-btn'
                     style={{
                       background: witchAction === 'save'
-                        ? 'linear-gradient(180deg, rgba(76,175,80,0.95) 0%, rgba(46,125,50,0.95) 100%)'
-                        : 'rgba(76,175,80,0.4)',
-                      border: witchAction === 'save' ? '2px solid #4caf50' : '1.5px solid rgba(76,175,80,0.4)',
-                      flex: '1', minWidth: '90px', maxWidth: '130px'
+                        ? 'linear-gradient(180deg, rgba(76,175,80,1) 0%, rgba(27,94,32,1) 100%)'
+                        : 'linear-gradient(180deg, rgba(76,175,80,0.25) 0%, rgba(46,125,50,0.25) 100%)',
+                      border: witchAction === 'save' ? '3px solid #4caf50' : '2px solid rgba(76,175,80,0.5)',
+                      color: witchAction === 'save' ? '#fff' : '#a5d6a7',
+                      fontWeight: 'bold',
+                      flex: '1', minWidth: '100px', maxWidth: '150px',
+                      boxShadow: witchAction === 'save' ? '0 0 12px rgba(76,175,80,0.6)' : 'none',
                     }}
                     onClick={() => { setWitchAction('save'); setSelectedTarget(null) }}
                   >
-                    💊 使用解药
+                    💊 解药·救人
                   </Button>
+                )}
+                {/* 中间分隔 */}
+                {witchInfo?.hasSave && witchInfo?.killTargetSeat && witchInfo?.hasPoison && (
+                  <View style={{ width: '2px', background: 'rgba(138,122,104,0.3)', margin: '0 2px' }} />
                 )}
                 {/* 毒药按钮 */}
                 {witchInfo?.hasPoison && (
@@ -999,48 +1314,112 @@ export default function GamePlay() {
                     className='action-btn'
                     style={{
                       background: witchAction === 'poison'
-                        ? 'linear-gradient(180deg, rgba(156,39,176,0.95) 0%, rgba(106,27,154,0.95) 100%)'
-                        : 'rgba(156,39,176,0.4)',
-                      border: witchAction === 'poison' ? '2px solid #9c27b0' : '1.5px solid rgba(156,39,176,0.4)',
-                      flex: '1', minWidth: '90px', maxWidth: '130px'
+                        ? 'linear-gradient(180deg, rgba(211,47,47,1) 0%, rgba(106,27,154,1) 100%)'
+                        : 'linear-gradient(180deg, rgba(156,39,176,0.25) 0%, rgba(106,27,154,0.25) 100%)',
+                      border: witchAction === 'poison' ? '3px solid #d32f2f' : '2px solid rgba(156,39,176,0.5)',
+                      color: witchAction === 'poison' ? '#fff' : '#ce93d8',
+                      fontWeight: 'bold',
+                      flex: '1', minWidth: '100px', maxWidth: '150px',
+                      boxShadow: witchAction === 'poison' ? '0 0 12px rgba(211,47,47,0.6)' : 'none',
                     }}
                     onClick={() => { setWitchAction('poison'); setSelectedTarget(null) }}
                   >
-                    ☠️ 使用毒药
+                    ☠️ 毒药·毒人
                   </Button>
                 )}
                 {/* 跳过 */}
                 <Button
                   className='action-btn'
-                  style={{ background: 'rgba(30,26,22,0.9)', border: '1.5px solid rgba(74,61,48,0.4)', boxShadow: 'none', flex: '1', minWidth: '90px', maxWidth: '130px' }}
-                  onClick={handleSkip}
+                  style={{ background: 'rgba(30,26,22,0.9)', border: '1.5px solid rgba(74,61,48,0.4)', boxShadow: 'none', flex: '1', minWidth: '100px', maxWidth: '150px', color: '#8a7a68' }}
+                  onClick={handleWitchSkip}
                 >
                   🌙 不使用
                 </Button>
               </View>
 
-              {/* 解药确认 */}
+              {/* 解药确认面板 - 整体绿色强视觉 */}
               {witchAction === 'save' && (
-                <View style={{ marginTop: '10px', textAlign: 'center', padding: '8px', background: 'rgba(76,175,80,0.1)', borderRadius: '6px', border: '1px solid rgba(76,175,80,0.3)' }}>
-                  <Text style={{ color: '#4caf50', fontSize: '14px', fontWeight: 'bold', display: 'block' }}>
-                    💊 将使用解药救活 {witchInfo?.killTargetSeat}号 {witchInfo?.killTargetName}
+                <View style={{
+                  marginTop: '14px',
+                  textAlign: 'center',
+                  padding: '14px 12px',
+                  background: 'linear-gradient(180deg, rgba(76,175,80,0.18) 0%, rgba(46,125,50,0.12) 100%)',
+                  borderRadius: '10px',
+                  border: '2.5px solid #4caf50',
+                  boxShadow: '0 0 16px rgba(76,175,80,0.35)',
+                }}>
+                  <Text style={{ fontSize: '28px', display: 'block', marginBottom: '4px' }}>💊</Text>
+                  <Text style={{ color: '#a5d6a7', fontSize: '12px', display: 'block', marginBottom: '4px' }}>
+                    — 解药行动 —
                   </Text>
-                  <Button className='action-btn' style={{ marginTop: '8px', background: 'linear-gradient(180deg, rgba(76,175,80,0.9) 0%, rgba(46,125,50,0.95) 100%)' }} onClick={handleAction}>
-                    ◈ 确认救人 ◈
+                  <Text style={{ color: '#e8f5e9', fontSize: '15px', fontWeight: 'bold', display: 'block' }}>
+                    救活 {witchInfo?.killTargetSeat}号 {witchInfo?.killTargetName}
+                  </Text>
+                  <Text style={{ color: '#81c784', fontSize: '11px', display: 'block', marginTop: '4px' }}>
+                    整局仅一次 · 点击下方按钮二次确认
+                  </Text>
+                  <Button
+                    className='action-btn'
+                    style={{
+                      marginTop: '10px',
+                      background: 'linear-gradient(180deg, #4caf50 0%, #2e7d32 100%)',
+                      color: '#fff',
+                      fontWeight: 'bold',
+                      border: '2px solid #a5d6a7',
+                      fontSize: '15px',
+                    }}
+                    onClick={handleAction}
+                  >
+                    ✅ 确认救 {witchInfo?.killTargetSeat}号
                   </Button>
                 </View>
               )}
 
-              {/* 毒药确认 - 需要选择目标 */}
+              {/* 毒药确认面板 - 整体红紫色强视觉 */}
               {witchAction === 'poison' && (
-                <View style={{ marginTop: '10px', textAlign: 'center', padding: '8px', background: 'rgba(156,39,176,0.1)', borderRadius: '6px', border: '1px solid rgba(156,39,176,0.3)' }}>
-                  <Text style={{ color: '#9c27b0', fontSize: '14px', fontWeight: 'bold', display: 'block' }}>
-                    {selectedTarget
-                      ? `☠️ 将使用毒药毒杀 ${game?.players.find(p => p.playerId === selectedTarget)?.seatNumber}号 ${game?.players.find(p => p.playerId === selectedTarget)?.username}`
-                      : '☝️ 请在上方玩家列表中选择毒杀目标'}
+                <View style={{
+                  marginTop: '14px',
+                  textAlign: 'center',
+                  padding: '14px 12px',
+                  background: 'linear-gradient(180deg, rgba(211,47,47,0.18) 0%, rgba(106,27,154,0.14) 100%)',
+                  borderRadius: '10px',
+                  border: '2.5px solid #d32f2f',
+                  boxShadow: '0 0 16px rgba(211,47,47,0.35)',
+                }}>
+                  <Text style={{ fontSize: '28px', display: 'block', marginBottom: '4px' }}>☠️</Text>
+                  <Text style={{ color: '#ef9a9a', fontSize: '12px', display: 'block', marginBottom: '4px' }}>
+                    — 毒药行动 · 危险 —
                   </Text>
-                  <Button className='action-btn' style={{ marginTop: '8px', background: 'linear-gradient(180deg, rgba(156,39,176,0.9) 0%, rgba(106,27,154,0.95) 100%)' }} onClick={handleAction} disabled={!selectedTarget}>
-                    ◈ 确认毒人 ◈
+                  {selectedTarget ? (
+                    <Text style={{ color: '#ffebee', fontSize: '15px', fontWeight: 'bold', display: 'block' }}>
+                      毒杀 {game?.players.find(p => p.playerId === selectedTarget)?.seatNumber}号 {game?.players.find(p => p.playerId === selectedTarget)?.username}
+                    </Text>
+                  ) : (
+                    <Text style={{ color: '#ffcdd2', fontSize: '14px', fontWeight: 'bold', display: 'block' }}>
+                      ☝️ 请在上方玩家列表中选择毒杀目标
+                    </Text>
+                  )}
+                  <Text style={{ color: '#ef9a9a', fontSize: '11px', display: 'block', marginTop: '4px' }}>
+                    整局仅一次 · 误毒好人会让狼人获胜
+                  </Text>
+                  <Button
+                    className='action-btn'
+                    style={{
+                      marginTop: '10px',
+                      background: selectedTarget
+                        ? 'linear-gradient(180deg, #d32f2f 0%, #6a1b9a 100%)'
+                        : 'rgba(90,60,90,0.5)',
+                      color: '#fff',
+                      fontWeight: 'bold',
+                      border: '2px solid #ef9a9a',
+                      fontSize: '15px',
+                    }}
+                    onClick={handleAction}
+                    disabled={!selectedTarget}
+                  >
+                    {selectedTarget
+                      ? `☠️ 确认毒 ${game?.players.find(p => p.playerId === selectedTarget)?.seatNumber}号`
+                      : '请先选择目标'}
                   </Button>
                 </View>
               )}

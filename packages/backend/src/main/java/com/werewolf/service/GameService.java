@@ -76,7 +76,10 @@ public class GameService {
         NightActionStore.RoundActions nightActions = nightActionStore.getOrCreate(gameId);
         String phaseKey = game.getCurrentPhase().name() + "_" + player.getId();
         boolean isNightAction = Set.of("kill", "check", "save", "poison", "guard").contains(action);
-        if (isNightAction && nightActions.isActionSubmitted(phaseKey)) {
+        // ✨ 夜间角色阶段的 skip 也应标记为已提交，用于"全员提交即推进"判定
+        boolean isNightPhaseSkip = "skip".equals(action) && isNightRoleActionPhase(game.getCurrentPhase())
+                && isRolePhaseActor(player, game.getCurrentPhase());
+        if ((isNightAction || isNightPhaseSkip) && nightActions.isActionSubmitted(phaseKey)) {
             throw new RuntimeException("您已提交过行动");
         }
 
@@ -100,8 +103,8 @@ public class GameService {
         // 通过行动分发器执行：validate + execute
         Map<String, Object> result = actionDispatcher.dispatch(action, context);
 
-        // 夜间行动标记已提交
-        if (isNightAction) {
+        // 夜间行动标记已提交（含夜间阶段的 skip）
+        if (isNightAction || isNightPhaseSkip) {
             nightActions.markActionSubmitted(phaseKey);
         }
 
@@ -113,8 +116,12 @@ public class GameService {
         // WebSocket 确认（仅给操作者本人，check 除外因已发 SEER_RESULT）
         if (!"check".equals(action)) {
             String roomCode = game.getRoom().getRoomCode();
+            Map<String, Object> confirmData = new HashMap<>(result != null ? result : Map.of());
+            confirmData.put("action", action);
+            confirmData.put("phase", game.getCurrentPhase().name());
+            confirmData.put("round", game.getCurrentRound());
             WebSocketMessage confirmMsg = new WebSocketMessage(
-                    WebSocketMessage.Type.ACTION_CONFIRM, result);
+                    WebSocketMessage.Type.ACTION_CONFIRM, confirmData);
             webSocketHandler.sendToUser(roomCode, userId, confirmMsg);
         }
 
@@ -130,6 +137,9 @@ public class GameService {
         if ("shoot".equals(action)) {
             checkWinCondition(gameId);
         }
+
+        // ✨ 全员提交即推进：夜间角色阶段或投票阶段有人提交后，尝试提前结束
+        phaseScheduler.advanceIfAllActed(gameId);
 
         return result;
     }
@@ -169,7 +179,9 @@ public class GameService {
         NightActionStore.RoundActions nightActions = nightActionStore.getOrCreate(gameId);
         String phaseKey = game.getCurrentPhase().name() + "_" + player.getId();
         boolean isNightAction = Set.of("kill", "check", "save", "poison", "guard").contains(action);
-        if (isNightAction && nightActions.isActionSubmitted(phaseKey)) {
+        boolean isNightPhaseSkip = "skip".equals(action) && isNightRoleActionPhase(game.getCurrentPhase())
+                && isRolePhaseActor(player, game.getCurrentPhase());
+        if ((isNightAction || isNightPhaseSkip) && nightActions.isActionSubmitted(phaseKey)) {
             log.warn("AI 玩家 {} 已提交过行动，跳过", playerId);
             return Map.of("message", "已提交过行动");
         }
@@ -189,8 +201,8 @@ public class GameService {
         // 执行行动
         Map<String, Object> result = actionDispatcher.dispatch(action, context);
 
-        // 夜间行动标记已提交
-        if (isNightAction) {
+        // 夜间行动标记已提交（含夜间阶段的 skip）
+        if (isNightAction || isNightPhaseSkip) {
             nightActions.markActionSubmitted(phaseKey);
         }
 
@@ -218,6 +230,9 @@ public class GameService {
         if ("shoot".equals(action)) {
             checkWinCondition(gameId);
         }
+
+        // ✨ 全员提交即推进
+        phaseScheduler.advanceIfAllActed(gameId);
 
         return result;
     }
@@ -539,6 +554,9 @@ public class GameService {
                 .collect(Collectors.toSet());
 
         voteManager.startVote(gameId, voterIds);
+        // 新一轮投票：清理两边的幂等锁
+        votingResolved.remove(gameId);
+        phaseScheduler.resetVotingLock(gameId);
 
         String roomCode = game.getRoom().getRoomCode();
         List<Map<String, Object>> candidates = alivePlayers.stream().map(p -> {
@@ -768,6 +786,83 @@ public class GameService {
 
     public List<GameLog> getGameLogs(Long gameId) {
         return gameLogRepository.findByGameIdOrderByCreatedAtAsc(gameId);
+    }
+
+    // ========================= 阶段行动者辅助 =========================
+
+    /**
+     * 该阶段是否属于"夜间特定角色行动阶段"（WEREWOLF/SEER/WITCH/GUARD）
+     */
+    public boolean isNightRoleActionPhase(Game.GamePhase phase) {
+        return phase == Game.GamePhase.WEREWOLF
+                || phase == Game.GamePhase.SEER
+                || phase == Game.GamePhase.WITCH
+                || phase == Game.GamePhase.GUARD;
+    }
+
+    /**
+     * 玩家是否是该阶段的行动者（按角色匹配）
+     */
+    public boolean isRolePhaseActor(Player player, Game.GamePhase phase) {
+        if (player == null || player.getStatus() != Player.PlayerStatus.ALIVE) return false;
+        return switch (phase) {
+            case WEREWOLF -> player.getRole() == Player.Role.WEREWOLF;
+            case SEER -> player.getRole() == Player.Role.SEER;
+            case WITCH -> player.getRole() == Player.Role.WITCH;
+            case GUARD -> player.getRole() == Player.Role.GUARD;
+            default -> false;
+        };
+    }
+
+    /**
+     * 返回当前阶段应行动的全部玩家（含 AI 与真人）
+     * - 夜间角色阶段：该角色的存活玩家
+     * - 投票阶段：所有存活且有投票权的玩家
+     * - 其他阶段：空列表
+     */
+    public List<Player> getExpectedActors(Long gameId, Game.GamePhase phase) {
+        List<Player> alive = playerRepository.findByGameIdAndStatus(gameId, Player.PlayerStatus.ALIVE);
+        if (isNightRoleActionPhase(phase)) {
+            return alive.stream()
+                    .filter(p -> isRolePhaseActor(p, phase))
+                    .collect(Collectors.toList());
+        }
+        if (phase == Game.GamePhase.VOTING) {
+            return alive.stream()
+                    .filter(p -> Boolean.TRUE.equals(p.getCanVote()))
+                    .collect(Collectors.toList());
+        }
+        return List.of();
+    }
+
+    /**
+     * 当前阶段是否已全员提交
+     */
+    public boolean isPhaseAllSubmitted(Long gameId) {
+        Game game = getGameStatus(gameId);
+        Game.GamePhase phase = game.getCurrentPhase();
+
+        if (isNightRoleActionPhase(phase)) {
+            List<Player> expected = getExpectedActors(gameId, phase);
+            if (expected.isEmpty()) return false;
+            NightActionStore.RoundActions actions = nightActionStore.getOrCreate(gameId);
+            for (Player p : expected) {
+                String key = phase.name() + "_" + p.getId();
+                if (!actions.isActionSubmitted(key)) {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        if (phase == Game.GamePhase.VOTING) {
+            VoteManager.VoteSession session = voteManager.getVoteSession(gameId);
+            // session 已被 clearVote 清理 → 说明已经结算完（等价于"全员提交"），允许推进
+            if (session == null) return true;
+            return session.isAllVoted();
+        }
+
+        return false;
     }
 
     // ========================= 胜负判定 =========================

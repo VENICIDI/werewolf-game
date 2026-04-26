@@ -23,6 +23,7 @@ const request = (options: any) => {
         ...options.header
       },
       success: (res) => {
+        console.log(`[Request] ← ${options.method || 'GET'} ${options.url} status=${res.statusCode}`, res.data)
         if (res.statusCode >= 200 && res.statusCode < 300) {
           const data = res.data
           if (data.code === 200) {
@@ -44,6 +45,13 @@ const request = (options: any) => {
               : '该操作需要登录，请先登录后再试'
           })
           reject(res)
+        } else if (res.statusCode >= 400 && res.statusCode < 500) {
+          // 业务错误：优先展示后端的具体 message
+          const bizMsg = (res.data && (res.data.message || res.data.msg)) || '请求失败'
+          console.warn(`[Request] 业务错误 ${res.statusCode}: ${bizMsg}`, res.data)
+          Taro.showToast({ title: bizMsg, icon: 'none' })
+          // reject 时把 message 挂到错误对象上，调用方也能拿到
+          reject({ ...(res.data || {}), statusCode: res.statusCode, message: bizMsg })
         } else {
           Taro.showToast({
             title: '网络错误',
@@ -53,6 +61,7 @@ const request = (options: any) => {
         }
       },
       fail: (err) => {
+        console.warn(`[Request] ✗ ${options.method || 'GET'} ${options.url} fail`, err)
         Taro.showToast({
           title: '网络请求失败',
           icon: 'none'
