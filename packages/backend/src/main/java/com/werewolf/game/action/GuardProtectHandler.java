@@ -44,7 +44,18 @@ public class GuardProtectHandler implements GameActionHandler {
 
         context.getNightActions().setGuardProtectTarget(targetId);
 
-        log.info("守卫守护 {}号", target.getSeatNumber());
+        log.info("守卫 {}号 守护 {}号",
+                context.getPlayer().getSeatNumber(), target.getSeatNumber());
+
+        // ✨ AI 守卫:私有事件推送
+        Player guard = context.getPlayer();
+        if (Boolean.TRUE.equals(guard.getIsAi()) && context.getAiPlayerBridge() != null) {
+            Map<String, Object> eventData = new HashMap<>();
+            eventData.put("target_id", target.getSeatNumber());
+            eventData.put("guard_seat", guard.getSeatNumber());
+            context.getAiPlayerBridge().pushPrivateEventToAI(
+                    context.getGame().getId(), guard, "GUARD_PROTECT_USED", eventData);
+        }
 
         Map<String, Object> result = new HashMap<>();
         result.put("message", "守护目标已选定");

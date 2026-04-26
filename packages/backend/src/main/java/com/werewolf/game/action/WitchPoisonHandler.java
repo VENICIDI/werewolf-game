@@ -49,7 +49,18 @@ public class WitchPoisonHandler implements GameActionHandler {
         context.getNightActions().setWitchPoisonTarget(targetId);
         context.getNightActions().setWitchPoisonUsed(true);
 
-        log.info("女巫使用毒药毒 {}号", target.getSeatNumber());
+        log.info("女巫 {}号 使用毒药毒 {}号",
+                context.getPlayer().getSeatNumber(), target.getSeatNumber());
+
+        // ✨ AI 女巫:私有事件推送
+        Player witch = context.getPlayer();
+        if (Boolean.TRUE.equals(witch.getIsAi()) && context.getAiPlayerBridge() != null) {
+            Map<String, Object> eventData = new HashMap<>();
+            eventData.put("target_id", target.getSeatNumber());
+            eventData.put("witch_seat", witch.getSeatNumber());
+            context.getAiPlayerBridge().pushPrivateEventToAI(
+                    context.getGame().getId(), witch, "WITCH_POISON_USED", eventData);
+        }
 
         Map<String, Object> result = new HashMap<>();
         result.put("message", "已使用毒药");

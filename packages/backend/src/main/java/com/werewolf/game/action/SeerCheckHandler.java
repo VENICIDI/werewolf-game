@@ -51,10 +51,26 @@ public class SeerCheckHandler implements GameActionHandler {
                 target.getSeatNumber(), isWerewolf ? "狼人" : "好人"));
 
         String roomCode = context.getGame().getRoom().getRoomCode();
-        context.getWebSocketHandler().sendToUser(roomCode, player.getUser().getId(),
-                new WebSocketMessage(WebSocketMessage.Type.SEER_RESULT, result));
 
-        log.info("预言家查验 {}号 => {}", target.getSeatNumber(), isWerewolf ? "狼人" : "好人");
+        // 真人预言家:通过 WebSocket 即时推送结果
+        if (player.getUser() != null) {
+            context.getWebSocketHandler().sendToUser(roomCode, player.getUser().getId(),
+                    new WebSocketMessage(WebSocketMessage.Type.SEER_RESULT, result));
+        }
+
+        // ✨ AI 预言家:通过 SEER_CHECK_RESULT 事件推到 Python Agent 的记忆系统
+        // 这样下一回合发言/投票时,该预言家的 Prompt 中就会包含 "1号:狼人" 等历史查验
+        if (Boolean.TRUE.equals(player.getIsAi()) && context.getAiPlayerBridge() != null) {
+            Map<String, Object> eventData = new HashMap<>();
+            eventData.put("target_id", target.getSeatNumber());      // 用座位号(对齐 Python Agent)
+            eventData.put("result", isWerewolf ? "WEREWOLF" : "GOOD");
+            eventData.put("seer_seat", player.getSeatNumber());
+            context.getAiPlayerBridge().pushPrivateEventToAI(
+                    context.getGame().getId(), player, "SEER_CHECK_RESULT", eventData);
+        }
+
+        log.info("预言家 {}号 查验 {}号 => {}",
+                player.getSeatNumber(), target.getSeatNumber(), isWerewolf ? "狼人" : "好人");
         return result;
     }
 }

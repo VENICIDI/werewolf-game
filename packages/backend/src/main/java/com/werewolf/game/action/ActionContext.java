@@ -1,5 +1,6 @@
 package com.werewolf.game.action;
 
+import com.werewolf.ai.AIPlayerBridge;
 import com.werewolf.entity.Game;
 import com.werewolf.entity.Player;
 import com.werewolf.game.NightActionStore;
@@ -36,4 +37,6 @@ public class ActionContext {
     private PlayerRepository playerRepository;
     /** WebSocket 处理器 */
     private RoomWebSocketHandler webSocketHandler;
+    /** ✨ AI 桥接器 — 用于在动作发生后推送私有/公共事件给 AI 玩家的记忆系统 */
+    private AIPlayerBridge aiPlayerBridge;
 }

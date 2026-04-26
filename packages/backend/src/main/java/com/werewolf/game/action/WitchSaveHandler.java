@@ -42,7 +42,22 @@ public class WitchSaveHandler implements GameActionHandler {
         context.getNightActions().setWitchSaveTarget(killTarget);
         context.getNightActions().setWitchSaveUsed(true);
 
-        log.info("女巫使用解药");
+        log.info("女巫 {}号 使用解药救 {}", context.getPlayer().getSeatNumber(), killTarget);
+
+        // ✨ AI 女巫:私有事件推送,记住自己用了解药 + 救了谁
+        Player witch = context.getPlayer();
+        if (Boolean.TRUE.equals(witch.getIsAi()) && context.getAiPlayerBridge() != null) {
+            Map<String, Object> eventData = new HashMap<>();
+            // killTarget 是数据库 Player.id,需换算为座位号
+            Player saved = killTarget != null
+                    ? context.getPlayerRepository().findById(killTarget).orElse(null) : null;
+            if (saved != null) {
+                eventData.put("target_id", saved.getSeatNumber());
+            }
+            eventData.put("witch_seat", witch.getSeatNumber());
+            context.getAiPlayerBridge().pushPrivateEventToAI(
+                    context.getGame().getId(), witch, "WITCH_SAVE_USED", eventData);
+        }
 
         Map<String, Object> result = new HashMap<>();
         result.put("message", "已使用解药");

@@ -323,6 +323,17 @@ public class PhaseScheduler {
             }
             getGameService().broadcastToGame(gameId, "PHASE_CHANGE", data);
         }
+
+        // ✨ 公共事件:推 PHASE_CHANGE 给所有 AI,同步其工作记忆的 round/phase
+        try {
+            int round = getGameService().getGameStatus(gameId).getCurrentRound();
+            Map<String, Object> aiEventData = new HashMap<>();
+            aiEventData.put("phase", gamePhase != null ? gamePhase.name() : phase.getPhase());
+            aiEventData.put("round", round);
+            getAIPlayerBridge().pushPublicEventToAllAIs(gameId, "PHASE_CHANGE", aiEventData);
+        } catch (Exception e) {
+            log.warn("推送 PHASE_CHANGE 给 AI 失败 - gameId={}", gameId, e);
+        }
         
         // ✨ AI 集成点: 触发 AI 玩家决策
         if (gamePhase != null && needsPlayerAction(gamePhase)) {

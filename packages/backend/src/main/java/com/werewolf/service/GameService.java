@@ -47,12 +47,21 @@ public class GameService {
     @Autowired
     private ApplicationContext applicationContext;
     private volatile DiscussionManager discussionManagerCache;
+    private volatile com.werewolf.ai.AIPlayerBridge aiPlayerBridgeCache;
 
     private DiscussionManager getDiscussionManager() {
         if (discussionManagerCache == null) {
             discussionManagerCache = applicationContext.getBean(DiscussionManager.class);
         }
         return discussionManagerCache;
+    }
+
+    /** 惰性获取 AIPlayerBridge — 用于 ActionContext 注入,避免循环依赖 */
+    private com.werewolf.ai.AIPlayerBridge getAIPlayerBridge() {
+        if (aiPlayerBridgeCache == null) {
+            aiPlayerBridgeCache = applicationContext.getBean(com.werewolf.ai.AIPlayerBridge.class);
+        }
+        return aiPlayerBridgeCache;
     }
 
     // ✨ FIX #7: 猎人开枪一次性限制
@@ -126,6 +135,7 @@ public class GameService {
                 .roleAssigner(roleAssigner)
                 .playerRepository(playerRepository)
                 .webSocketHandler(webSocketHandler)
+                .aiPlayerBridge(getAIPlayerBridge())
                 .build();
 
         // 通过行动分发器执行：validate + execute
@@ -224,6 +234,7 @@ public class GameService {
                 .roleAssigner(roleAssigner)
                 .playerRepository(playerRepository)
                 .webSocketHandler(webSocketHandler)
+                .aiPlayerBridge(getAIPlayerBridge())
                 .build();
 
         // 执行行动
@@ -462,6 +473,20 @@ public class GameService {
 
         webSocketHandler.broadcastToRoom(roomCode,
                 new WebSocketMessage(WebSocketMessage.Type.DEATH_ANNOUNCE, data));
+
+        // ✨ 公共事件:逐个玩家死亡推送给所有 AI 的记忆系统
+        // 用座位号(对齐 Python Agent 的 player_id),按"PLAYER_DIED"事件类型分发
+        try {
+            for (Player dead : deadPlayers) {
+                Map<String, Object> eventData = new HashMap<>();
+                eventData.put("player_id", dead.getSeatNumber());
+                eventData.put("cause", "killed");  // 当前未细分被杀/被毒,后续可扩展
+                getAIPlayerBridge().pushPublicEventToAllAIs(
+                        game.getId(), "PLAYER_DIED", eventData);
+            }
+        } catch (Exception e) {
+            log.warn("推送死亡事件给 AI 失败 - gameId={}", game.getId(), e);
+        }
     }
 
     private void notifyHunterCanShoot(Game game, Player hunter) {
@@ -696,6 +721,37 @@ public class GameService {
 
         webSocketHandler.broadcastToRoom(roomCode,
                 new WebSocketMessage(WebSocketMessage.Type.VOTE_RESULT, data));
+
+        // ✨ 公共事件:把投票结果推给所有 AI 的记忆系统
+        // 关键转换:Java 端用 Player.id,Python 端 Agent 用座位号 → 这里做映射
+        try {
+            // Player.id → seatNumber 映射(只查一次)
+            Map<Long, Integer> idToSeat = new HashMap<>();
+            for (Player p : playerRepository.findByGameId(gameId)) {
+                if (p.getSeatNumber() != null) {
+                    idToSeat.put(p.getId(), p.getSeatNumber());
+                }
+            }
+
+            Map<String, Integer> votesBySeat = new HashMap<>();
+            for (Map.Entry<Long, Long> e : result.getVotesByVoter().entrySet()) {
+                Integer voterSeat = idToSeat.get(e.getKey());
+                Integer targetSeat = (e.getValue() != null && e.getValue() > 0)
+                        ? idToSeat.get(e.getValue()) : 0;
+                if (voterSeat != null) {
+                    votesBySeat.put(String.valueOf(voterSeat), targetSeat == null ? 0 : targetSeat);
+                }
+            }
+
+            Map<String, Object> aiEventData = new HashMap<>();
+            aiEventData.put("votes", votesBySeat);
+            aiEventData.put("eliminated_player",
+                    result.getEliminatedPlayerId() != null ? idToSeat.get(result.getEliminatedPlayerId()) : null);
+            aiEventData.put("is_tie", result.isTie());
+            getAIPlayerBridge().pushPublicEventToAllAIs(gameId, "VOTE_RESULT", aiEventData);
+        } catch (Exception e) {
+            log.warn("推送 VOTE_RESULT 给 AI 失败 - gameId={}", gameId, e);
+        }
 
         voteManager.clearVote(gameId);
         // 幂等标志随 session 一起被 clearVote 清除,下一轮投票的新 session 会重置

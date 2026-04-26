@@ -438,17 +438,129 @@ public class AIPlayerBridge {
      */
     private void pushSpeechEvent(Long gameId, Integer targetAiSeat, Integer speakerSeat,
                                  String content, int round, String phase) {
-        String url = aiServiceUrl + "/api/agents/event";
-
         Map<String, Object> eventData = new HashMap<>();
         eventData.put("player_id", speakerSeat);    // 发言者座位号
         eventData.put("speaker_id", speakerSeat);
         eventData.put("content", content);
+        pushEventInternal(gameId, targetAiSeat, "PLAYER_SPEECH", eventData, round, phase);
+    }
+
+    // ============================================================
+    // ✨ 通用事件推送 API — 让所有 AI 拥有真正的"私有 + 公共"记忆通道
+    // ============================================================
+
+    /**
+     * 推送私有事件给特定 AI (按座位号定位)
+     *
+     * 适用场景:
+     *   - 预言家查验结果 (SEER_CHECK_RESULT) → 仅该预言家
+     *   - 女巫救/毒信息 (WITCH_SAVE_USED / WITCH_POISON_USED) → 仅该女巫
+     *   - 守卫守人 (GUARD_PROTECT_USED) → 仅该守卫
+     *   - 狼人队友互见的击杀投票 (WEREWOLF_KILL_VOTE) → 仅狼队
+     *
+     * 异常吞掉,Python 服务不可用不影响主游戏流程
+     */
+    public void pushPrivateEventToAI(Long gameId, Player targetAi,
+                                     String eventType, Map<String, Object> eventData) {
+        if (targetAi == null || targetAi.getSeatNumber() == null) return;
+        if (!Boolean.TRUE.equals(targetAi.getIsAi())) return;  // 真人玩家走 WebSocket,不走这里
+
+        try {
+            Game game = gameService.getGameStatus(gameId);
+            int round = game.getCurrentRound();
+            String phase = game.getCurrentPhase().name();
+
+            log.info("[PRIVATE-EVENT] 推送 {} → AI 座位{} (gameId={}): {}",
+                    eventType, targetAi.getSeatNumber(), gameId, eventData);
+
+            CompletableFuture.runAsync(() -> {
+                try {
+                    pushEventInternal(gameId, targetAi.getSeatNumber(), eventType, eventData, round, phase);
+                } catch (Exception e) {
+                    log.warn("推送私有事件 {} 给 AI {} 失败: {}", eventType, targetAi.getId(), e.getMessage());
+                }
+            });
+        } catch (Exception e) {
+            log.error("pushPrivateEventToAI 异常 - gameId={}, eventType={}", gameId, eventType, e);
+        }
+    }
+
+    /**
+     * 推送公共事件给该局所有 AI (含死亡的,保持记忆完整)
+     *
+     * 适用场景:
+     *   - 死亡公告 (PLAYER_DIED)
+     *   - 投票结果 (VOTE_RESULT)
+     *   - 阶段变化 (PHASE_CHANGE)
+     */
+    public void pushPublicEventToAllAIs(Long gameId, String eventType, Map<String, Object> eventData) {
+        try {
+            List<Player> aiPlayers = playerRepository.findByGameId(gameId).stream()
+                    .filter(p -> Boolean.TRUE.equals(p.getIsAi()))
+                    .toList();
+            if (aiPlayers.isEmpty()) return;
+
+            Game game = gameService.getGameStatus(gameId);
+            int round = game.getCurrentRound();
+            String phase = game.getCurrentPhase().name();
+
+            log.info("[PUBLIC-EVENT] 推送 {} 给 {} 个 AI (gameId={}): {}",
+                    eventType, aiPlayers.size(), gameId, eventData);
+
+            for (Player ai : aiPlayers) {
+                CompletableFuture.runAsync(() -> {
+                    try {
+                        pushEventInternal(gameId, ai.getSeatNumber(), eventType, eventData, round, phase);
+                    } catch (Exception e) {
+                        log.warn("推送公共事件 {} 给 AI {} 失败: {}", eventType, ai.getId(), e.getMessage());
+                    }
+                });
+            }
+        } catch (Exception e) {
+            log.error("pushPublicEventToAllAIs 异常 - gameId={}, eventType={}", gameId, eventType, e);
+        }
+    }
+
+    /**
+     * 推送公共事件给指定的多个 AI (例如:仅推给所有狼人 AI)
+     */
+    public void pushEventToAIs(Long gameId, List<Player> targetAis,
+                               String eventType, Map<String, Object> eventData) {
+        if (targetAis == null || targetAis.isEmpty()) return;
+        try {
+            Game game = gameService.getGameStatus(gameId);
+            int round = game.getCurrentRound();
+            String phase = game.getCurrentPhase().name();
+
+            log.info("[GROUP-EVENT] 推送 {} 给 {} 个 AI (gameId={}): {}",
+                    eventType, targetAis.size(), gameId, eventData);
+
+            for (Player ai : targetAis) {
+                if (!Boolean.TRUE.equals(ai.getIsAi()) || ai.getSeatNumber() == null) continue;
+                CompletableFuture.runAsync(() -> {
+                    try {
+                        pushEventInternal(gameId, ai.getSeatNumber(), eventType, eventData, round, phase);
+                    } catch (Exception e) {
+                        log.warn("推送组事件 {} 给 AI {} 失败: {}", eventType, ai.getId(), e.getMessage());
+                    }
+                });
+            }
+        } catch (Exception e) {
+            log.error("pushEventToAIs 异常 - gameId={}, eventType={}", gameId, eventType, e);
+        }
+    }
+
+    /**
+     * 底层共用:向 Python AI Service 推送一条事件
+     */
+    private void pushEventInternal(Long gameId, Integer targetAiSeat, String eventType,
+                                   Map<String, Object> eventData, int round, String phase) {
+        String url = aiServiceUrl + "/api/agents/event";
 
         Map<String, Object> request = new HashMap<>();
         request.put("game_id", String.valueOf(gameId));
         request.put("player_id", targetAiSeat);     // 接收事件的 AI 座位号
-        request.put("event_type", "PLAYER_SPEECH");
+        request.put("event_type", eventType);
         request.put("event_data", eventData);
         request.put("round", round);
         request.put("phase", phase);
@@ -459,7 +571,8 @@ public class AIPlayerBridge {
         try {
             restTemplate.postForEntity(url, entity, Map.class);
         } catch (Exception e) {
-            log.debug("推送 PLAYER_SPEECH 给 AI 座位{} 失败: {}", targetAiSeat, e.getMessage());
+            // Agent 可能不存在(真人玩家 / 未注册座位),静默
+            log.debug("推送事件 {} 给 AI 座位{} 失败: {}", eventType, targetAiSeat, e.getMessage());
         }
     }
 

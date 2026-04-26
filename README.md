@@ -271,5 +271,11 @@ public void init() {
 
 ## 开发文档
 
+- [系统架构总览（最新）](docs/architecture.md) ← Source of Truth
+- [游戏状态机（函数级）](docs/game-state-machine.md)
+- [AI Agent 设计稿](docs/ai-agent-design.md)
+- [AI Agent 记忆系统实现](docs/ai-agent-memory-implementation.md)
+- [游戏流程](docs/game-flow.md)
 - [API 文档](docs/api.md)
 - [数据库设计](docs/database.md)
+- [前端 UX 优化记录](docs/frontend-ux-optimization.md)

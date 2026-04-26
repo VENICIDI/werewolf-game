@@ -1,5 +1,14 @@
 # 狼人杀 AI Agent 系统设计文档
 
+> ⚠️ **本文为设计稿（Design）**，记录 AI Agent 子系统的初始设计与关键决策。
+> 当前**实现现状**请以 [`architecture.md`](./architecture.md) 为准；与本设计稿存在的主要演进：
+> - LLM 服务从「裸 httpx」已重构为 **LangChain ChatOpenAI**（OpenAI 兼容端，DeepSeek）。
+> - Agent API 路径已收敛到 `/api/agents/*`（旧 `/api/agent/*` 仍兼容）。
+> - 新增 **AI 事件总线**（`AIPlayerBridge.pushPrivate/Public/EventToAIs` + 8 个推送点），跨回合记忆通过统一事件路径，无需对预言家等角色做特例（详见 `architecture.md` §9）。
+> - 状态机协同（绝对时间戳 / snapshot / 投票幂等 / 讨论锁）相关修复见 `game-state-machine.md` 与 `architecture.md` §8、§12。
+>
+> 设计稿其余章节（多 Agent 体系、记忆系统、RAG、推理引擎、Prompt 工程）仍然反映项目核心思路，可继续作为详细设计与扩展依据。
+
 ## 目录
 
 - [1. 设计目标](#1-设计目标)
