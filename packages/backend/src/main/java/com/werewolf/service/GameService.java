@@ -498,8 +498,10 @@ public class GameService {
             }
 
             if (Boolean.TRUE.equals(witch.getIsAi())) {
-                // AI 女巫：简单逻辑 — 有解药且有人被杀就救，否则跳过
-                handleAIWitch(gameId, witch, actions, killTarget);
+                // AI 女巫: 不在这里硬编码决策, 交由 AIPlayerBridge.scheduleAIActions
+                // 异步调用 Python LLM 完成 (见 PhaseScheduler.executePhaseStart)
+                // 这里仅记录被杀目标信息供 Python 侧参考 (目前通过 game_state 传递)
+                log.debug("AI 女巫 {}号 将由 Python LLM 决策", witch.getSeatNumber());
             } else if (witch.getUser() != null) {
                 log.info("女巫阶段-发送WITCH_INFO给真人女巫 {}号(userId={}) data={}",
                         witch.getSeatNumber(), witch.getUser().getId(), witchData);
@@ -510,8 +512,11 @@ public class GameService {
     }
 
     /**
-     * ✨ FIX #12: AI 女巫决策（简单逻辑：有解药且有人被杀→50%概率救；有毒药→30%概率毒随机人）
+     * @deprecated AI 女巫决策已迁移到 Python ActionPlanner (LLM + RAG)
+     *             保留此方法作为"Python 服务不可用时"的兜底, 但 AIPlayerBridge 默认走 Python。
      */
+    @Deprecated
+    @SuppressWarnings("unused")
     private void handleAIWitch(Long gameId, Player witch, NightActionStore.RoundActions actions, Long killTarget) {
         java.util.Random rand = new java.util.Random();
         try {

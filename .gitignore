@@ -70,5 +70,6 @@ logs/
 # Python
 packages/ai-service/venv/
 packages/ai-service/.env
+packages/ai-service/chroma_db/
 __pycache__/
 *.pyc

@@ -25,6 +25,7 @@ from agents.persona.persona_profiles import get_persona, PersonaProfile
 from agents.reasoning.bayesian_reasoner import BayesianReasoner
 from agents.reasoning.evidence_analyzer import EvidenceAnalyzer
 from agents.planning.speech_generator import SpeechGenerator
+from agents.planning.action_planner import ActionPlanner
 
 logger = logging.getLogger(__name__)
 
@@ -76,9 +77,10 @@ class WerewolfAgent:
         self.reasoner = BayesianReasoner(my_player_id=player_id)
         self.evidence_analyzer = EvidenceAnalyzer(my_player_id=player_id)
         
-        # LLM 发言生成器
+        # LLM 发言生成器 + 行动规划器
         self.speech_generator: Optional[SpeechGenerator] = None
-        self._init_speech_generator()
+        self.action_planner: Optional[ActionPlanner] = None
+        self._init_llm_components()
         
         logger.info(
             f"Agent 创建: Game={game_id}, Player={player_id}, "
@@ -86,18 +88,34 @@ class WerewolfAgent:
             f"Strategy={self.strategy.role_name}"
         )
     
-    def _init_speech_generator(self):
-        """初始化 LLM 发言生成器"""
+    def _init_llm_components(self):
+        """初始化 LLM 发言生成器 + 行动规划器"""
+        if self.llm_service is None:
+            logger.warning(f"[Agent {self.player_id}] LLMService 未注入, 全部使用规则/模板降级")
+            return
         try:
             llm = self.llm_service.get_llm()
             self.speech_generator = SpeechGenerator(
                 llm=llm,
-                rag_service=self.rag_service
+                rag_service=self.rag_service,
             )
             logger.info(f"[Agent {self.player_id}] LLM 发言生成器初始化成功")
         except Exception as e:
-            logger.warning(f"[Agent {self.player_id}] LLM 不可用，降级为模板发言: {e}")
+            logger.warning(f"[Agent {self.player_id}] LLM 发言生成器初始化失败, 降级模板: {e}")
             self.speech_generator = None
+
+        try:
+            llm = self.llm_service.get_llm()
+            json_llm = self.llm_service.get_json_llm()
+            self.action_planner = ActionPlanner(
+                llm=llm,
+                json_llm=json_llm,
+                rag_service=self.rag_service,
+            )
+            logger.info(f"[Agent {self.player_id}] LLM 行动规划器初始化成功")
+        except Exception as e:
+            logger.warning(f"[Agent {self.player_id}] LLM 行动规划器初始化失败, 降级规则: {e}")
+            self.action_planner = None
     
     def init_game(self, player_ids: List[int], seat_map: Optional[Dict[int, int]] = None):
         """游戏开始时初始化记忆和推理引擎"""
@@ -194,7 +212,7 @@ class WerewolfAgent:
         return None
     
     async def decide_night_action(self, game_state: GameState) -> NightActionDecision:
-        """夜间行动决策"""
+        """夜间行动决策 (LLM 优先, 失败降级规则)"""
         logger.info(f"[Agent {self.player_id}] 夜间行动决策 ({self.strategy.role_name})")
         glog = get_game_logger(self.game_id)
         
@@ -206,15 +224,21 @@ class WerewolfAgent:
         )
         self.reasoner.sync_to_semantic(self.memory.semantic)
         
-        decision = self.strategy.plan_night_action(self, game_state)
+        # 优先 LLM 决策
+        if self.action_planner:
+            decision = await self.action_planner.decide_night_action(self, game_state)
+            source = "LLM"
+        else:
+            decision = self.strategy.plan_night_action(self, game_state)
+            source = "Rule"
         
         glog.info(
-            f"[Agent {self.player_id}] 夜间决策: action={decision.action}, "
+            f"[Agent {self.player_id}] 夜间决策[{source}]: action={decision.action}, "
             f"target={decision.target_id}, confidence={decision.confidence:.2f}, "
             f"reason={decision.reason}"
         )
         logger.info(
-            f"[Agent {self.player_id}] 决策: {decision.reason}, "
+            f"[Agent {self.player_id}] 决策[{source}]: {decision.reason}, "
             f"target={decision.target_id}, confidence={decision.confidence:.2f}"
         )
         return decision
@@ -326,19 +350,24 @@ class WerewolfAgent:
         return mentioned
     
     async def decide_vote(self, game_state: GameState) -> VoteDecision:
-        """投票决策"""
+        """投票决策 (LLM 优先, 失败降级规则)"""
         logger.info(f"[Agent {self.player_id}] 投票决策")
         glog = get_game_logger(self.game_id)
         self.memory.working.update_phase(game_state.round, "VOTING")
         
-        decision = self.strategy.plan_vote(self, game_state)
+        if self.action_planner:
+            decision = await self.action_planner.decide_vote(self, game_state)
+            source = "LLM"
+        else:
+            decision = self.strategy.plan_vote(self, game_state)
+            source = "Rule"
         
         glog.info(
-            f"[Agent {self.player_id}] 投票: target={decision.target_id}, "
+            f"[Agent {self.player_id}] 投票[{source}]: target={decision.target_id}, "
             f"reason={decision.reason}"
         )
         logger.info(
-            f"[Agent {self.player_id}] 投票: target={decision.target_id}, "
+            f"[Agent {self.player_id}] 投票[{source}]: target={decision.target_id}, "
             f"reason={decision.reason}"
         )
         return decision
@@ -354,6 +383,7 @@ class WerewolfAgent:
             "seat_number": self.seat_number,
             "teammates": self.teammates,
             "llm_available": self.speech_generator is not None,
+            "action_planner_available": self.action_planner is not None,
             "memory": self.memory.get_info(),
         }
     

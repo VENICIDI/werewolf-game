@@ -85,6 +85,41 @@ class LLMService:
             raise RuntimeError("LLM not initialized")
         return self.llm
     
+    def get_json_llm(self, temperature: Optional[float] = None) -> BaseChatModel:
+        """
+        获取强制 JSON 输出的 LLM 实例 (DeepSeek/OpenAI 兼容 response_format)
+        
+        适用场景:
+        - 夜间行动决策 (需要结构化 target_id/reason/confidence)
+        - 投票决策
+        
+        注意:
+        - DeepSeek JSON mode 要求 prompt 中必须包含 "json" 字样
+        - Ollama 本地模型直接返回普通 LLM (需自行约束输出)
+        
+        Args:
+            temperature: 覆盖默认温度, None 则使用环境变量配置
+        
+        Returns:
+            BaseChatModel: 绑定了 response_format=json_object 的 LLM
+        """
+        if self.llm is None:
+            raise RuntimeError("LLM not initialized")
+        
+        # Ollama 不支持 OpenAI 风格的 response_format, 直接返回原 LLM
+        if self.use_local:
+            return self.llm
+        
+        # OpenAI / DeepSeek 兼容格式启用 JSON 模式
+        kwargs = {"response_format": {"type": "json_object"}}
+        bound = self.llm.bind(**kwargs)
+        
+        if temperature is not None:
+            # ChatOpenAI.bind 不能直接覆盖 temperature, 通过 with_config 覆盖
+            bound = bound.bind(temperature=temperature)
+        
+        return bound
+    
     async def test_connection(self) -> bool:
         """
         测试 LLM 连接

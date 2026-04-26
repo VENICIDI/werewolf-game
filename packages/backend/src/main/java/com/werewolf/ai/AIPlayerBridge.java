@@ -68,18 +68,19 @@ public class AIPlayerBridge {
             return;
         }
 
-        // 构建座位映射和玩家 ID 列表
+        // Agent 侧统一使用"座位号"作为玩家标识 (与 alive_players / LLM Prompt 一致)
+        // seat_map: {数据库ID -> 座位号}, player_ids: 所有座位号列表
         Map<String, Integer> seatMap = new HashMap<>();
         List<Integer> playerIds = new java.util.ArrayList<>();
         for (Player p : allPlayers) {
             seatMap.put(String.valueOf(p.getId()), p.getSeatNumber());
-            playerIds.add(p.getId().intValue());
+            playerIds.add(p.getSeatNumber());
         }
 
-        // 找出狼人队友
-        List<Integer> werewolfIds = allPlayers.stream()
+        // 找出狼人队友 (座位号)
+        List<Integer> werewolfSeats = allPlayers.stream()
                 .filter(p -> p.getRole() == Player.Role.WEREWOLF)
-                .map(p -> p.getId().intValue())
+                .map(Player::getSeatNumber)
                 .toList();
 
         int successCount = 0;
@@ -87,17 +88,18 @@ public class AIPlayerBridge {
             try {
                 Map<String, Object> request = new HashMap<>();
                 request.put("game_id", String.valueOf(gameId));
-                request.put("player_id", aiPlayer.getId().intValue());
+                // player_id 用座位号, 与 buildGameState / alive_players 保持一致
+                request.put("player_id", aiPlayer.getSeatNumber());
                 request.put("role", aiPlayer.getRole().name());
                 request.put("persona", randomPersona());
                 request.put("seat_number", aiPlayer.getSeatNumber());
                 request.put("player_ids", playerIds);
                 request.put("seat_map", seatMap);
 
-                // 狼人需要知道队友
+                // 狼人需要知道队友 (座位号)
                 if (aiPlayer.getRole() == Player.Role.WEREWOLF) {
-                    List<Integer> teammates = werewolfIds.stream()
-                            .filter(id -> !id.equals(aiPlayer.getId().intValue()))
+                    List<Integer> teammates = werewolfSeats.stream()
+                            .filter(seat -> !seat.equals(aiPlayer.getSeatNumber()))
                             .toList();
                     request.put("teammates", teammates);
                 }
@@ -175,8 +177,12 @@ public class AIPlayerBridge {
 
     /**
      * 狼人阶段：AI 狼人行动
-     * - 全是 AI 狼：随机选一个非狼存活玩家击杀
-     * - 有真人狼：等待真人选目标后跟随
+     * 
+     * 策略:
+     * - 有真人狼 → 等待真人选目标后 AI 跟随（真人狼担任队长）
+     * - 全是 AI 狼 → 推选第一个 AI 狼调用 Python LLM 决策,
+     *                其余狼跟随同一目标（保证狼队一致）
+     *                LLM 失败时降级为随机选非狼目标
      */
     private void scheduleAIWerewolfActions(Long gameId, List<Player> aiWolves) {
         List<Player> allAlive = playerRepository.findByGameIdAndStatus(gameId, Player.PlayerStatus.ALIVE);
@@ -193,17 +199,8 @@ public class AIPlayerBridge {
                 .anyMatch(p -> !Boolean.TRUE.equals(p.getIsAi()));
 
         if (!hasHumanWolf) {
-            // 全是 AI 狼 → 随机选一个目标，所有狼统一击杀
-            Player randomTarget = targets.get(ThreadLocalRandom.current().nextInt(targets.size()));
-            for (Player aiWolf : aiWolves) {
-                try {
-                    gameService.executeAIAction(gameId, aiWolf.getId(), "kill", randomTarget.getId());
-                    log.info("AI 狼人 {} ({}号) 随机击杀: {}号", 
-                        aiWolf.getId(), aiWolf.getSeatNumber(), randomTarget.getSeatNumber());
-                } catch (Exception e) {
-                    log.error("AI 狼人 {} 击杀异常", aiWolf.getId(), e);
-                }
-            }
+            // 全是 AI 狼 → 推选"队长"调用 Python LLM, 其余狼跟随
+            scheduleAllAIWolvesWithLLM(gameId, aiWolves, targets);
             return;
         }
 
@@ -233,23 +230,101 @@ public class AIPlayerBridge {
                     waited += 500;
                 }
 
-                // 超时 → 随机选目标
-                Player randomTarget = targets.get(ThreadLocalRandom.current().nextInt(targets.size()));
-                for (Player aiWolf : aiWolves) {
-                    try {
-                        gameService.executeAIAction(gameId, aiWolf.getId(), "kill", randomTarget.getId());
-                        log.info("AI 狼人 {} ({}号) 超时随机击杀: {}号", 
-                            aiWolf.getId(), aiWolf.getSeatNumber(), randomTarget.getSeatNumber());
-                    } catch (Exception e) {
-                        log.error("AI 狼人 {} 超时击杀异常", aiWolf.getId(), e);
-                    }
-                }
+                // 超时 → 降级: 让 AI 狼队长走 LLM 决策
+                log.warn("游戏 {} 真人狼超时未行动, AI 狼降级 LLM 决策", gameId);
+                scheduleAllAIWolvesWithLLM(gameId, aiWolves, targets);
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
             } catch (Exception e) {
                 log.error("AI 狼人跟随逻辑异常 - 游戏: {}", gameId, e);
             }
         });
+    }
+
+    /**
+     * 全 AI 狼场景:
+     * - 按座位号排序, 推选首位 AI 狼调用 Python LLM 决策
+     * - 其余 AI 狼跟随同一目标
+     * - LLM 失败/非法目标 → 随机选非狼目标
+     */
+    private void scheduleAllAIWolvesWithLLM(Long gameId, List<Player> aiWolves, List<Player> targets) {
+        CompletableFuture.runAsync(() -> {
+            try {
+                // 按座位号排序, 推选"队长"
+                List<Player> sorted = aiWolves.stream()
+                        .sorted(java.util.Comparator.comparingInt(p ->
+                                p.getSeatNumber() == null ? Integer.MAX_VALUE : p.getSeatNumber()))
+                        .toList();
+                Player captain = sorted.get(0);
+
+                log.info("全 AI 狼队长: {} ({}号), 调用 Python LLM 决策", 
+                        captain.getId(), captain.getSeatNumber());
+
+                // 队长调用 Python LLM (player_id 用座位号, 与 Agent 注册一致)
+                Map<String, Object> gameState = buildGameState(gameId);
+                Map<String, Object> decision = callAINightAction(gameId, captain.getSeatNumber().longValue(), gameState);
+
+                Long targetPlayerId = resolveKillTarget(decision, targets);
+
+                if (targetPlayerId == null) {
+                    // 降级: 随机
+                    Player random = targets.get(ThreadLocalRandom.current().nextInt(targets.size()));
+                    targetPlayerId = random.getId();
+                    log.warn("狼队长 LLM 决策未返回合法目标, 降级随机: {}号", random.getSeatNumber());
+                }
+
+                // 所有 AI 狼提交同一目标
+                for (Player aiWolf : aiWolves) {
+                    try {
+                        gameService.executeAIAction(gameId, aiWolf.getId(), "kill", targetPlayerId);
+                        log.info("AI 狼人 {} ({}号) 击杀(队长LLM决策): {}", 
+                                aiWolf.getId(), aiWolf.getSeatNumber(), targetPlayerId);
+                    } catch (Exception e) {
+                        log.error("AI 狼人 {} 击杀提交异常", aiWolf.getId(), e);
+                    }
+                }
+            } catch (Exception e) {
+                log.error("全 AI 狼 LLM 决策异常 - 游戏: {}, 降级随机", gameId, e);
+                // 最兜底: 全狼随机投同一目标
+                Player random = targets.get(ThreadLocalRandom.current().nextInt(targets.size()));
+                for (Player aiWolf : aiWolves) {
+                    try {
+                        gameService.executeAIAction(gameId, aiWolf.getId(), "kill", random.getId());
+                        log.info("AI 狼人 {} ({}号) 兜底随机击杀: {}号", 
+                                aiWolf.getId(), aiWolf.getSeatNumber(), random.getSeatNumber());
+                    } catch (Exception ex) {
+                        log.error("AI 狼人 {} 兜底击杀异常", aiWolf.getId(), ex);
+                    }
+                }
+            }
+        });
+    }
+
+    /**
+     * 解析 Python LLM 返回的 target_id (座位号) → Player.id (数据库主键)
+     * 
+     * Python Agent 侧基于座位号决策, 这里需要把座位号换算回 Player.id。
+     * 目标必须在 targets (非狼存活玩家) 列表中。
+     */
+    private Long resolveKillTarget(Map<String, Object> decision, List<Player> targets) {
+        if (decision == null) return null;
+        Object targetObj = decision.get("target_id");
+        if (targetObj == null) return null;
+
+        int targetSeat;
+        try {
+            targetSeat = ((Number) targetObj).intValue();
+        } catch (ClassCastException e) {
+            return null;
+        }
+
+        if (targetSeat <= 0) return null;
+
+        return targets.stream()
+                .filter(p -> p.getSeatNumber() != null && p.getSeatNumber() == targetSeat)
+                .map(Player::getId)
+                .findFirst()
+                .orElse(null);
     }
 
     /**
@@ -330,34 +405,67 @@ public class AIPlayerBridge {
 
     /**
      * 执行 AI 夜间/投票决策
+     * 
+     * 注意: Python AI Service 返回的 target_id 是"座位号", 
+     * 这里需要换算成 Player.id 后再交给 GameService.executeAIAction。
      */
     private void executeAIDecision(Long gameId, Player aiPlayer, Game.GamePhase phase) {
         try {
             log.info("AI 玩家 {} ({}号) 开始决策", aiPlayer.getId(), aiPlayer.getSeatNumber());
 
             Map<String, Object> gameState = buildGameState(gameId);
+            // Python Agent 侧以"座位号"作为 player_id
+            Long aiSeatAsPlayerId = aiPlayer.getSeatNumber().longValue();
 
             Map<String, Object> decision;
             String action;
             if (phase == Game.GamePhase.VOTING) {
-                decision = callAIVoteDecision(gameId, aiPlayer.getId(), gameState);
+                decision = callAIVoteDecision(gameId, aiSeatAsPlayerId, gameState);
                 action = "vote";  // 投票接口不返回 action 字段
             } else {
-                decision = callAINightAction(gameId, aiPlayer.getId(), gameState);
+                decision = callAINightAction(gameId, aiSeatAsPlayerId, gameState);
                 action = (String) decision.get("action");
                 if (action == null) action = "skip";
             }
-            Object targetIdObj = decision.get("target_id");
-            Long targetId = targetIdObj != null ? ((Number) targetIdObj).longValue() : null;
+
+            // Python 返回的是座位号, 需换算为 Player.id
+            Long targetId = resolveTargetIdFromSeat(gameId, decision.get("target_id"));
 
             gameService.executeAIAction(gameId, aiPlayer.getId(), action, targetId);
 
-            log.info("AI 玩家 {} ({}号) 决策执行成功: action={}, target={}",
+            log.info("AI 玩家 {} ({}号) 决策执行成功: action={}, targetPlayerId={}",
                 aiPlayer.getId(), aiPlayer.getSeatNumber(), action, targetId);
 
         } catch (Exception e) {
             log.error("AI 玩家 {} 决策执行异常", aiPlayer.getId(), e);
         }
+    }
+
+    /**
+     * 将 Python 返回的座位号换算为数据库 Player.id
+     * 
+     * - 座位号 = 0 或 null → 返回 null (表示弃票/不行动)
+     * - 找不到对应存活玩家 → 返回 null
+     * - 否则返回对应 Player.id
+     */
+    private Long resolveTargetIdFromSeat(Long gameId, Object targetIdObj) {
+        if (targetIdObj == null) return null;
+        int seat;
+        try {
+            seat = ((Number) targetIdObj).intValue();
+        } catch (ClassCastException e) {
+            log.warn("AI 返回的 target_id 格式非法: {}", targetIdObj);
+            return null;
+        }
+        if (seat <= 0) return null;
+
+        // 从所有玩家(含死亡)中找, 上层会再做存活校验
+        List<Player> allPlayers = playerRepository.findByGameId(gameId);
+        return allPlayers.stream()
+                .filter(p -> p.getSeatNumber() != null && p.getSeatNumber() == seat)
+                .map(Player::getId)
+                .findFirst()
+                .orElse(null);
     }
 
     /**
@@ -467,14 +575,16 @@ public class AIPlayerBridge {
             log.warn("AI 投票服务调用失败，使用随机投票: {}", e.getMessage());
         }
 
-        // ✨ FIX #21: 降级 — 随机投一个存活玩家
+        // ✨ FIX #21: 降级 — 随机投一个存活玩家 (返回座位号)
+        // 注意: 此处 playerId 已是座位号, 按座位号过滤排除自己
+        int selfSeat = playerId.intValue();
         List<Player> targets = gameService.getAlivePlayers(gameId).stream()
-                .filter(p -> !p.getId().equals(playerId))
+                .filter(p -> p.getSeatNumber() != null && p.getSeatNumber() != selfSeat)
                 .toList();
         Map<String, Object> fallback = new HashMap<>();
         if (!targets.isEmpty()) {
             Player target = targets.get(ThreadLocalRandom.current().nextInt(targets.size()));
-            fallback.put("target_id", target.getId());
+            fallback.put("target_id", target.getSeatNumber());
         }
         fallback.put("reason", "随机投票（AI 服务不可用）");
         return fallback;
