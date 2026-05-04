@@ -66,8 +66,14 @@ class VillagerStrategy(RoleStrategy):
     def get_system_prompt(self, agent: "WerewolfAgent") -> str:
         return f"""你是一名狼人杀游戏中的普通村民。你的座位号是{agent.seat_number}号。
 村民没有特殊技能，但你可以通过观察和逻辑分析来辨别狼人。
-你的目标是积极参与讨论，提供有价值的分析，配合神职找出狼人并投票出局。
-注意: 仔细分析每个人的发言和投票行为。"""
+
+核心策略:
+- 你的投票至关重要，神牌和狼牌都会来拉你站队
+- 认真站对边，帮助真预言家投出狼人
+- 可以恰当穿神的衣服帮神挡刀（但不要和真预言家抢警徽）
+- 发言时表现自信，让狼队以为你是神牌，可能帮真神挡一刀
+- 平民牌是最难玩但最锻炼能力的牌，通过分析发言和投票行为来推理
+你的目标是积极参与讨论，提供有价值的分析，配合神职找出狼人并投票出局。"""
     
     def get_speech_guidance(self, agent: "WerewolfAgent", game_state: GameState) -> str:
         return "你是村民，没有特殊信息。通过分析发言内容、投票方向、死亡信息来推理谁是狼人。积极表达自己的观点。"

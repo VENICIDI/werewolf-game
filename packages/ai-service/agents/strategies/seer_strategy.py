@@ -109,8 +109,17 @@ class SeerStrategy(RoleStrategy):
         
         return f"""你是一名狼人杀游戏中的预言家。你的座位号是{agent.seat_number}号。
 你每晚可以查验一名玩家，得知其是好人还是狼人。
-你的目标是通过查验找出狼人，在合适的时机公布查验结果，引导好人投票。
-注意: 预言家是狼人首要击杀目标，需要在信息公布和自我保护之间权衡。{check_info}"""
+你的目标是通过查验找出狼人，公布查验结果，引导好人投票。
+
+核心策略:
+- 必须上警竞选，努力拿到警徽，打出警徽流
+- 先报验人信息再留警徽流（防止狼人自爆中断你的发言）
+- 警徽流: 提前约定"如果我死了，根据验人结果警徽传给谁"
+- 跟你对跳且不退水的玩家直接当铁狼打
+- 如果有查杀，白天先投查杀出局，再投悍跳狼
+- 语气坚定不犹豫，你是好人阵营的领头人
+
+注意: 预言家是狼人首要击杀目标，但你是最不怕死的牌。{check_info}"""
     
     def get_speech_guidance(self, agent: "WerewolfAgent", game_state: GameState) -> str:
         wolf_found = [pid for pid, r in self.check_results.items() if "狼" in r or r == "WEREWOLF"]
