@@ -183,13 +183,14 @@ class RAGService:
         """
         丰富文档元数据
         
-        根据文件名和内容，为文档添加角色、类型等元数据
+        根据文件名和内容，为文档添加角色、类型、阶段、难度等元数据
         """
         source = doc.metadata.get("source", "")
         filename = Path(source).name.lower()
+        content_lower = doc.page_content[:200].lower()
         
         # 根据文件名推断角色
-        if "werewolf" in filename or "狼人" in filename:
+        if "werewolf" in filename or "狼人" in filename or "狼队" in filename:
             doc.metadata["role"] = "WEREWOLF"
         elif "seer" in filename or "预言家" in filename:
             doc.metadata["role"] = "SEER"
@@ -203,10 +204,32 @@ class RAGService:
         # 文档类型
         if "rule" in filename or "规则" in filename:
             doc.metadata["doc_type"] = "rules"
-        elif "strateg" in filename or "策略" in filename:
+        elif "strateg" in filename or "策略" in filename or "战术" in filename:
             doc.metadata["doc_type"] = "strategy"
-        elif "speech" in filename or "发言" in filename:
+        elif "speech" in filename or "发言" in filename or "模板" in filename:
             doc.metadata["doc_type"] = "speech"
+        elif "警" in filename or "警徽" in filename:
+            doc.metadata["doc_type"] = "sheriff"
+        elif "案例" in filename or "实战" in filename or "实例" in filename:
+            doc.metadata["doc_type"] = "case_study"
+        
+        # 游戏阶段（根据内容推断）
+        if any(kw in content_lower for kw in ["警上", "竞选", "上警", "警徽"]):
+            doc.metadata["game_phase"] = "sheriff_election"
+        elif any(kw in content_lower for kw in ["夜晚", "夜间", "刀", "首刀", "守护"]):
+            doc.metadata["game_phase"] = "night"
+        elif any(kw in content_lower for kw in ["投票", "归票", "扛推"]):
+            doc.metadata["game_phase"] = "vote"
+        elif any(kw in content_lower for kw in ["发言", "讨论", "白天"]):
+            doc.metadata["game_phase"] = "discussion"
+        
+        # 难度等级
+        if any(kw in filename for kw in ["新手", "入门", "基础"]):
+            doc.metadata["difficulty"] = "beginner"
+        elif any(kw in filename for kw in ["进阶", "高阶", "详解"]):
+            doc.metadata["difficulty"] = "advanced"
+        elif any(kw in content_lower for kw in ["悍跳", "倒钩", "深水", "狼查杀狼", "警徽流2.0"]):
+            doc.metadata["difficulty"] = "advanced"
     
     def get_retriever(
         self,

@@ -11,7 +11,7 @@
 | A2 | 增强现有4个知识库文档 | ✅ 完成 | `knowledge/01,02,05,07-*.md` | commit 2 |
 | C1 | 增强各角色系统提示词 | ✅ 完成 | `strategies/*.py` (6个文件) | commit 3 |
 | B2 | 发言模板注入 SpeechGenerator | ✅ 完成 | `base_strategy.py`, `seer/witch/werewolf_strategy.py`, `speech_generator.py` | commit 4 |
-| A3 | RAG 元数据优化 | ⏳ 待开始 | `services/rag_service.py` | - |
+| A3 | RAG 元数据优化 | ✅ 完成 | `services/rag_service.py` | commit 5 |
 
 ## 变更记录
 
@@ -44,3 +44,11 @@
 - `witch_strategy.py` — 新增女巫跳身份/隐藏身份两种发言模板
 - `werewolf_strategy.py` — 新增假装平民/悍跳预言家发言模板+狼队暗号技巧
 - `speech_generator.py` — 在 `_build_prompt_variables` 中将角色发言示例作为 few-shot 注入 reasoning_context
+
+### [A3] RAG 元数据优化 — 2026-05-04 21:12
+**修改文件：**
+- `services/rag_service.py` — `_enrich_metadata()` 方法增强：
+  - 角色识别：新增"狼队"关键词匹配 WEREWOLF
+  - 文档类型：新增 sheriff（警徽）、case_study（实战案例）
+  - 游戏阶段（新维度）：sheriff_election / night / vote / discussion
+  - 难度等级（新维度）：beginner / advanced（根据文件名和内容关键词推断）
