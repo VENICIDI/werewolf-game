@@ -1051,7 +1051,13 @@ export default function GamePlay() {
         </View>
         <View className='timer'>
           <Text className='timer-icon'>⏱️</Text>
-          <Text className='timer-text'>{phaseTimeLeft}s</Text>
+          {/* ✨ 讨论阶段:优先显示当前发言人的剩余发言时间(每人 60s);
+              其他阶段显示阶段总倒计时 */}
+          {game?.phase === 'DISCUSSION' && speakEndsAt > 0 ? (
+            <Text className='timer-text'>{speakTimeLeft}s</Text>
+          ) : (
+            <Text className='timer-text'>{phaseTimeLeft}s</Text>
+          )}
         </View>
         <View className='role-btn' onClick={() => setShowRoleModal(true)}>
           <Text className='role-icon'>👤</Text>
