@@ -60,17 +60,16 @@ public class VoteHandler implements GameActionHandler {
     }
 
     /**
-     * 广播当前投票进度（实时更新）
+     * 广播当前投票进度(仅计数,不透露投票明细)
+     *
+     * ⚠️ 设计要点:投票阶段内不向前端发送 votesByVoter / voteDetails,
+     *   避免玩家在 30s 投票期间就能看到"谁投了谁 / 当前票数"。
+     *   投票明细与最终结果只在阶段结束后由 GameService.resolveVoting
+     *   统一通过 VOTE_RESULT 广播。
      */
     private void broadcastVoteUpdate(ActionContext context, VoteManager.VoteSession session) {
         try {
             Map<String, Object> data = new HashMap<>();
-            // voterId -> targetId（0=弃票）；JSON 里 key 是字符串
-            Map<String, Long> votesByVoter = new HashMap<>();
-            for (Map.Entry<Long, Long> entry : session.snapshotVotes().entrySet()) {
-                votesByVoter.put(String.valueOf(entry.getKey()), entry.getValue());
-            }
-            data.put("votesByVoter", votesByVoter);
             data.put("votedCount", session.getVotedCount());
             data.put("eligibleCount", session.getEligibleCount());
 

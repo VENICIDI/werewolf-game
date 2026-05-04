@@ -163,13 +163,8 @@ public class GameService {
             webSocketHandler.sendToUser(roomCode, userId, confirmMsg);
         }
 
-        // 投票完成后自动结算(幂等:通过 VoteSession.tryMarkResolved 抢占)
-        if ("vote".equals(action)) {
-            VoteManager.VoteSession session = voteManager.getVoteSession(gameId);
-            if (session != null && session.isAllVoted() && session.tryMarkResolved()) {
-                resolveVoting(gameId);
-            }
-        }
+        // ✨ 投票阶段:全员投完也不立即结算,必须等完整的 30s 投票阶段结束才公布结果。
+        //    结算由 PhaseScheduler 在投票阶段倒计时结束时统一触发(调用 resolveVoting)。
 
         // 猎人开枪后检查胜负
         if ("shoot".equals(action)) {
@@ -177,6 +172,7 @@ public class GameService {
         }
 
         // ✨ 全员提交即推进 — 在事务提交后执行,避免事务回滚时已广播/已推进阶段
+        //    注意: isPhaseAllSubmitted 对 VOTING 阶段永远返回 false,所以投票阶段不会被提前推进。
         advanceAfterCommit(gameId);
 
         return result;
@@ -257,13 +253,8 @@ public class GameService {
                 "AI {}号({}) 执行: action={}, target={}",
                 player.getSeatNumber(), player.getRole(), action, targetId);
 
-        // 投票完成后自动结算(幂等:通过 VoteSession.tryMarkResolved 抢占)
-        if ("vote".equals(action)) {
-            VoteManager.VoteSession session = voteManager.getVoteSession(gameId);
-            if (session != null && session.isAllVoted() && session.tryMarkResolved()) {
-                resolveVoting(gameId);
-            }
-        }
+        // ✨ 投票阶段:全员投完也不立即结算,必须等完整的 30s 投票阶段结束才公布结果。
+        //    结算由 PhaseScheduler 在投票阶段倒计时结束时统一触发(调用 resolveVoting)。
 
         // 猎人开枪后检查胜负
         if ("shoot".equals(action)) {
@@ -271,6 +262,7 @@ public class GameService {
         }
 
         // ✨ 全员提交即推进 — 在事务提交后执行
+        //    注意: isPhaseAllSubmitted 对 VOTING 阶段永远返回 false,所以投票阶段不会被提前推进。
         advanceAfterCommit(gameId);
 
         return result;
@@ -960,11 +952,15 @@ public class GameService {
             VoteManager.VoteSession session = voteManager.getVoteSession(gameId);
             if (session != null) {
                 Map<String, Object> voteData = new HashMap<>();
-                Map<String, Long> votesByVoter = new HashMap<>();
-                for (Map.Entry<Long, Long> e : session.snapshotVotes().entrySet()) {
-                    votesByVoter.put(String.valueOf(e.getKey()), e.getValue());
+                // ⚠️ VOTING 阶段不回传 votesByVoter,避免前端通过快照看到投票明细;
+                //    只有 EXECUTION 阶段(投票已结算)才回传完整明细。
+                if (game.getCurrentPhase() == Game.GamePhase.EXECUTION) {
+                    Map<String, Long> votesByVoter = new HashMap<>();
+                    for (Map.Entry<Long, Long> e : session.snapshotVotes().entrySet()) {
+                        votesByVoter.put(String.valueOf(e.getKey()), e.getValue());
+                    }
+                    voteData.put("votesByVoter", votesByVoter);
                 }
-                voteData.put("votesByVoter", votesByVoter);
                 voteData.put("votedCount", session.getVotedCount());
                 voteData.put("eligibleCount", session.getEligibleCount());
                 snapshot.put("vote", voteData);
@@ -1062,10 +1058,9 @@ public class GameService {
         }
 
         if (phase == Game.GamePhase.VOTING) {
-            VoteManager.VoteSession session = voteManager.getVoteSession(gameId);
-            // session 已被 clearVote 清理 → 说明已经结算完（等价于"全员提交"），允许推进
-            if (session == null) return true;
-            return session.isAllVoted();
+            // ✨ 投票阶段固定走完 30s 倒计时,不因全员投票提前结束。
+            //    结算与阶段推进由 PhaseScheduler 在倒计时结束时统一触发。
+            return false;
         }
 
         return false;

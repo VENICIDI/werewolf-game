@@ -1114,12 +1114,16 @@ export default function GamePlay() {
             const isTeammate = game?.myRole === 'WEREWOLF' && game?.teammates?.includes(player.playerId)
             const isMe = player.playerId === game?.myPlayerId
             const highlight = getPlayerHighlight(player)
-            // 投票相关：显示在 VOTING / EXECUTION 阶段
-            const showVoteUI = game?.phase === 'VOTING' || game?.phase === 'EXECUTION'
+            // 投票气泡:仅 EXECUTION 阶段展示,VOTING 阶段不公开投票明细
+            const showVoteUI = game?.phase === 'EXECUTION'
+            // 结算后的投票明细统一来自 voteResult.votesByVoter
+            const finalVotes: Record<number, number> = (showVoteUI && voteResult?.votesByVoter) || {}
             const receivedVotes = showVoteUI
-              ? Object.values(voteRecords).filter(t => Number(t) === player.playerId).length
+              ? Object.values(finalVotes).filter(t => Number(t) === player.playerId).length
               : 0
-            const myVoteTarget = game?.myPlayerId != null ? voteRecords[game.myPlayerId] : undefined
+            const myVoteTarget = (showVoteUI && game?.myPlayerId != null)
+              ? finalVotes[game.myPlayerId]
+              : undefined
             const iVotedHim = showVoteUI && myVoteTarget != null && Number(myVoteTarget) === player.playerId
             const isEliminated = game?.phase === 'EXECUTION'
               && voteResult?.eliminatedPlayerId === player.playerId
@@ -1226,30 +1230,42 @@ export default function GamePlay() {
         </View>
       </View>
 
-      {/* ✨ 投票明细面板（VOTING 实时 / EXECUTION 最终） */}
+      {/* ✨ 投票明细面板（VOTING 阶段仅显示进度 / EXECUTION 显示最终明细） */}
       {(game?.phase === 'VOTING' || game?.phase === 'EXECUTION') && (() => {
-        // VOTING 阶段用实时 voteRecords，EXECUTION 阶段优先用 voteResult
-        const records: Record<number, number> = (game?.phase === 'EXECUTION' && voteResult)
-          ? voteResult.votesByVoter
-          : voteRecords
-        const entries = Object.entries(records).map(([vid, tid]) => ({
-          voterId: Number(vid),
-          targetId: Number(tid),
-        }))
-        if (entries.length === 0 && game?.phase === 'VOTING') {
+        // VOTING 阶段:后端不下发投票明细,只显示进度提示,避免提前暴露"谁投了谁";
+        // EXECUTION 阶段:展示最终投票结果(voteResult)。
+        if (game?.phase === 'VOTING') {
+          const voted = voteProgress.voted
+          const total = voteProgress.total
+          const allVoted = total > 0 && voted >= total
           return (
             <View style={{
-              margin: '8px 12px', padding: '12px',
-              background: 'rgba(20,16,12,0.75)',
-              border: '1px solid rgba(74,61,48,0.5)',
-              borderRadius: '8px', textAlign: 'center'
+              margin: '8px 12px', padding: '14px',
+              background: 'rgba(20,16,12,0.8)',
+              border: '1px solid rgba(212,175,55,0.3)',
+              borderRadius: '10px', textAlign: 'center'
             }}>
-              <Text style={{ fontSize: '13px', color: '#8a7a68' }}>
-                等待玩家投票中…
+              <Text style={{
+                display: 'block', fontSize: '14px', color: '#d4af37',
+                fontWeight: 'bold', marginBottom: '6px'
+              }}>
+                🗳 投票进行中
+              </Text>
+              <Text style={{ fontSize: '13px', color: '#c9a86a' }}>
+                {allVoted
+                  ? '全员已投票，等待阶段结束后公布结果…'
+                  : `已有 ${voted}/${total} 人完成投票，结果将在阶段结束后公布`}
               </Text>
             </View>
           )
         }
+
+        // 以下为 EXECUTION 阶段分支
+        const records: Record<number, number> = (voteResult && voteResult.votesByVoter) || {}
+        const entries = Object.entries(records).map(([vid, tid]) => ({
+          voterId: Number(vid),
+          targetId: Number(tid),
+        }))
         // 排序：按投票人座位号
         entries.sort((a, b) => {
           const sa = game?.players.find(p => p.playerId === a.voterId)?.seatNumber ?? 99
