@@ -155,6 +155,12 @@ class WerewolfStrategy(RoleStrategy):
 4. 可以适当踩一下队友制造对立
 5. 引导投票投向好人阵营"""
     
+    def get_speech_example(self) -> str:
+        return """狼人发言示例：
+假装平民："我手上没牌，但我听下来觉得X号的逻辑有问题。他说验了Y号但又不敢报查杀，这个态度很可疑。我倾向投X号，大家怎么看？"
+悍跳预言家："我是预言家，昨晚验了X号，查杀！大家投他！我的警徽流留给Y号和Z号。"
+注意：最后一个发言的狼队友可以加一句"D更像一点"暗示其他狼队友集中投票。"""
+    
     def update_on_event(self, agent: "WerewolfAgent", event: GameEvent):
         """狼人特有事件处理"""
         if event.event_type.value == "PLAYER_SPEECH":

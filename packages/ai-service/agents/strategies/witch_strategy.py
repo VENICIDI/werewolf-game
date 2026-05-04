@@ -191,6 +191,11 @@ class WitchStrategy(RoleStrategy):
             return "你知道刀口信息，可以利用这些信息辅助分析。但注意不要轻易暴露女巫身份。"
         return "你是女巫，掌握药水使用情况。在合适的时候可以跳身份公布信息。"
     
+    def get_speech_example(self) -> str:
+        return """女巫发言示例：
+跳身份时："我是女巫，我救了C号，他大概率是好人。预言家加上我加上他验的好人加上C号，四个好人已经出来了。建议猎人和白痴说身份，平民说自己是平民。"
+隐藏时（像村民一样）："我听下来觉得X号的发言逻辑有问题，他说的和之前矛盾了。我倾向投X号。""""
+    
     def update_on_event(self, agent: "WerewolfAgent", event: GameEvent):
         """女巫特有事件处理"""
         pass

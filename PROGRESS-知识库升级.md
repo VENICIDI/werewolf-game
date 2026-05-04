@@ -10,7 +10,7 @@
 | A1 | 新增3个知识库文档 | ✅ 完成 | `knowledge/10-警长竞选与警徽流.md`, `11-发言模板与实战案例.md`, `12-狼队战术分工详解.md` | commit 1 |
 | A2 | 增强现有4个知识库文档 | ✅ 完成 | `knowledge/01,02,05,07-*.md` | commit 2 |
 | C1 | 增强各角色系统提示词 | ✅ 完成 | `strategies/*.py` (6个文件) | commit 3 |
-| B2 | 发言模板注入 SpeechGenerator | ⏳ 待开始 | `agents/planning/speech_generator.py` | - |
+| B2 | 发言模板注入 SpeechGenerator | ✅ 完成 | `base_strategy.py`, `seer/witch/werewolf_strategy.py`, `speech_generator.py` | commit 4 |
 | A3 | RAG 元数据优化 | ⏳ 待开始 | `services/rag_service.py` | - |
 
 ## 变更记录
@@ -36,3 +36,11 @@
 - `guard_strategy.py` — 补充守救守节奏、同守同救注意、博心态策略、隐藏身份要点
 - `villager_strategy.py` — 补充挡刀意识、穿衣服帮神挡刀、投票重要性、心态建设
 - `werewolf_strategy.py` — 补充心理建设（把自己当神牌）、战术分工参考、拉票策略、倒钩提示
+
+### [B2] 发言模板注入 SpeechGenerator — 2026-05-04 21:10
+**修改文件：**
+- `base_strategy.py` — 新增 `get_speech_example()` 抽象方法，提供角色发言模板 few-shot 示例
+- `seer_strategy.py` — 新增预言家上警发言模板（含警徽流留法）
+- `witch_strategy.py` — 新增女巫跳身份/隐藏身份两种发言模板
+- `werewolf_strategy.py` — 新增假装平民/悍跳预言家发言模板+狼队暗号技巧
+- `speech_generator.py` — 在 `_build_prompt_variables` 中将角色发言示例作为 few-shot 注入 reasoning_context

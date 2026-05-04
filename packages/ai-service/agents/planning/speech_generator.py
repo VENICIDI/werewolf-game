@@ -131,6 +131,11 @@ class SpeechGenerator:
             except Exception as e:
                 logger.warning(f"RAG query failed: {e}")
         
+        # 角色发言示例（few-shot）
+        speech_example = agent.strategy.get_speech_example() if hasattr(agent.strategy, 'get_speech_example') else ""
+        if speech_example:
+            rag_context += f"\n\n{speech_example}"
+        
         return {
             "seat_number": agent.seat_number or agent.player_id,
             "role_prompt": role_prompt,

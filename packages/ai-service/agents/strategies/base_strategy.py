@@ -89,6 +89,15 @@ class RoleStrategy(ABC):
         """
         return f"你是{self.role_name}，目标是{self.role_objective}。根据场上局势合理发言。"
     
+    def get_speech_example(self) -> str:
+        """
+        获取角色发言模板示例（few-shot 注入）
+        
+        Returns:
+            str: 发言模板示例文本
+        """
+        return ""
+    
     def _get_available_targets(self, agent: "WerewolfAgent", game_state: GameState, exclude_self: bool = True) -> List[int]:
         """获取可选目标（通用工具方法）"""
         targets = list(game_state.alive_players)
