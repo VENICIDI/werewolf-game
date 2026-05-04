@@ -52,22 +52,27 @@ public class PhaseScheduler {
         final java.util.concurrent.atomic.AtomicBoolean advanced = new java.util.concurrent.atomic.AtomicBoolean(false);
         /** 阶段开始绝对时间(epoch ms) */
         final long phaseStartedAt;
-        /** 阶段预计结束绝对时间(epoch ms) = phaseStartedAt + duration */
+        /** 阶段预计结束绝对时间(epoch ms) = phaseStartedAt + effectiveDurationMs */
         final long phaseEndsAt;
+        /** ✨ 本阶段实际使用的时长(ms) — 讨论阶段会按存活人数动态调整,与 phase.duration 可能不同 */
+        final int effectiveDurationMs;
 
-        PhaseContext(GameConfig.GameMode gameMode, GameConfig.PhaseConfig phase, int phaseIndex, boolean isNight) {
+        PhaseContext(GameConfig.GameMode gameMode, GameConfig.PhaseConfig phase, int phaseIndex,
+                     boolean isNight, int effectiveDurationMs) {
             this.gameMode = gameMode;
             this.phase = phase;
             this.phaseIndex = phaseIndex;
             this.isNight = isNight;
+            this.effectiveDurationMs = Math.max(effectiveDurationMs, 1000);
             this.phaseStartedAt = System.currentTimeMillis();
-            this.phaseEndsAt = this.phaseStartedAt + Math.max(phase.getDuration(), 1000);
+            this.phaseEndsAt = this.phaseStartedAt + this.effectiveDurationMs;
         }
 
         public GameConfig.PhaseConfig getPhase() { return phase; }
         public long getPhaseStartedAt() { return phaseStartedAt; }
         public long getPhaseEndsAt() { return phaseEndsAt; }
         public boolean isNight() { return isNight; }
+        public int getEffectiveDurationMs() { return effectiveDurationMs; }
     }
 
     // GameService 延迟获取
@@ -187,11 +192,34 @@ public class PhaseScheduler {
         GameConfig.PhaseConfig phase = phases.get(phaseIndex);
         int durationMs = Math.max(phase.getDuration(), 1000); // 最少1秒
 
+        // ✨ 讨论阶段:按存活玩家数 × speakTime 动态计算兜底阶段时长,
+        //    保证所有人都能轮到发言;若配置 duration 已足够则按较大值取。
+        //    真正的"所有人发完自然结束"由 DiscussionManager.advanceDiscussionPhase 触发。
+        if ("discussion".equals(phase.getPhase())) {
+            int speakTimeMs = phase.getSpeakTime() != null ? phase.getSpeakTime() : 30000;
+            int aliveCount = 0;
+            try {
+                aliveCount = getGameService().getAlivePlayers(gameId).size();
+            } catch (Exception e) {
+                log.warn("获取存活玩家数失败,使用配置时长 - 游戏: {}", gameId, e);
+            }
+            if (aliveCount > 0) {
+                // 留 3s 缓冲,防止最后一位发言人刚好卡在阶段倒计时边界被切
+                int dynamicMs = speakTimeMs * aliveCount + 3000;
+                int chosen = Math.max(durationMs, dynamicMs);
+                if (chosen != durationMs) {
+                    log.info("讨论阶段动态扩容时长 - 游戏: {}, 配置: {}ms, 动态: {}ms (存活 {} 人 × {}ms + 3000ms 缓冲)",
+                            gameId, durationMs, dynamicMs, aliveCount, speakTimeMs);
+                }
+                durationMs = chosen;
+            }
+        }
+
         log.info("调度阶段 - 游戏: {}, 阶段: {}, 时长: {}ms, 夜晚: {}",
                 gameId, phase.getPhase(), durationMs, isNight);
 
         // ✨ 记录阶段上下文（用于"全员提交即推进"）
-        PhaseContext ctx = new PhaseContext(gameMode, phase, phaseIndex, isNight);
+        PhaseContext ctx = new PhaseContext(gameMode, phase, phaseIndex, isNight, durationMs);
         activePhase.put(gameId, ctx);
 
         // 立即执行阶段开始
@@ -309,10 +337,11 @@ public class PhaseScheduler {
         {
             Map<String, Object> data = new HashMap<>();
             data.put("phase", gamePhase != null ? gamePhase.name() : phase.getPhase());
-            data.put("duration", phase.getDuration());   // 向后兼容
-            data.put("round", getGameService().getGameStatus(gameId).getCurrentRound());
             // ✨ 绝对时间戳,避免客户端本地 setInterval 漂移;前端用 (endsAt - now)/1000 自愈
             PhaseContext ctxForTs = activePhase.get(gameId);
+            // ✨ duration 使用本阶段实际生效时长(可能因动态扩容而大于 phase.duration)
+            data.put("duration", ctxForTs != null ? ctxForTs.effectiveDurationMs : phase.getDuration());
+            data.put("round", getGameService().getGameStatus(gameId).getCurrentRound());
             if (ctxForTs != null) {
                 data.put("startedAt", ctxForTs.phaseStartedAt);
                 data.put("endsAt", ctxForTs.phaseEndsAt);
