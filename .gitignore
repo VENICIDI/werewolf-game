@@ -73,3 +73,10 @@ packages/ai-service/.env
 packages/ai-service/chroma_db/
 __pycache__/
 *.pyc
+
+# WorkBuddy
+.workbuddy/
+
+# 小红书采集临时数据
+xhs-*.json
+cookies.json
