@@ -56,10 +56,10 @@
           },
           {
             "phase": "discussion",
-            "duration": 180000,
+            "duration": 360000,
             "action": "discussion",
             "speakOrder": "seat",
-            "speakTime": 30000,
+            "speakTime": 60000,
             "allowMultipleRounds": false
           },
           {
@@ -149,10 +149,10 @@
           },
           {
             "phase": "discussion",
-            "duration": 270000,
+            "duration": 540000,
             "action": "discussion",
             "speakOrder": "seat",
-            "speakTime": 30000,
+            "speakTime": 60000,
             "allowMultipleRounds": false
           },
           {
@@ -253,10 +253,10 @@
           },
           {
             "phase": "discussion",
-            "duration": 360000,
+            "duration": 720000,
             "action": "discussion",
             "speakOrder": "seat",
-            "speakTime": 30000,
+            "speakTime": 60000,
             "allowMultipleRounds": false
           },
           {
