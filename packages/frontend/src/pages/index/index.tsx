@@ -1,19 +1,32 @@
 import { useEffect, useState } from 'react'
 import Taro from '@tarojs/taro'
-import { View, Text, Button, ScrollView } from '@tarojs/components'
+import { View, Text, Button, ScrollView, Image } from '@tarojs/components'
 import { isLoggedIn, getUserInfo, clearAuth } from '../../api/auth'
 import { checkLogin } from '../../utils/auth-guard'
+import { IconWolf, IconCrystalBall, IconPotion, IconCrosshair, IconShield, IconPlayer, IconSwords, IconMoon, IconCrown } from '../../components/Icons'
 import './index.scss'
 
-// 角色图鉴数据
+// 角色图鉴数据 — 使用 iconType 标识替代 emoji
 const ROLES = [
-  { icon: '🐺', name: '狼人', camp: '狼阵营', desc: '夜晚猎杀一名玩家' },
-  { icon: '🔮', name: '预言家', camp: '好人阵营', desc: '每晚查验一人身份' },
-  { icon: '🧙', name: '女巫', camp: '好人阵营', desc: '持有一瓶解药和毒药' },
-  { icon: '🏹', name: '猎人', camp: '好人阵营', desc: '死亡时可带走一人' },
-  { icon: '💂', name: '守卫', camp: '好人阵营', desc: '每晚守护一名玩家' },
-  { icon: '👤', name: '村民', camp: '好人阵营', desc: '用智慧找出狼人' },
+  { iconType: 'wolf', name: '狼人', camp: '狼阵营', desc: '夜晚猎杀一名玩家' },
+  { iconType: 'crystal', name: '预言家', camp: '好人阵营', desc: '每晚查验一人身份' },
+  { iconType: 'potion', name: '女巫', camp: '好人阵营', desc: '持有一瓶解药和毒药' },
+  { iconType: 'crosshair', name: '猎人', camp: '好人阵营', desc: '死亡时可带走一人' },
+  { iconType: 'shield', name: '守卫', camp: '好人阵营', desc: '每晚守护一名玩家' },
+  { iconType: 'player', name: '村民', camp: '好人阵营', desc: '用智慧找出狼人' },
 ]
+
+const renderRoleIcon = (iconType: string) => {
+  switch (iconType) {
+    case 'wolf': return <IconWolf size={28} />
+    case 'crystal': return <IconCrystalBall size={28} />
+    case 'potion': return <IconPotion size={28} />
+    case 'crosshair': return <IconCrosshair size={28} />
+    case 'shield': return <IconShield size={28} />
+    case 'player': return <IconPlayer size={28} />
+    default: return <IconPlayer size={28} />
+  }
+}
 
 export default function Index() {
   const [loggedIn, setLoggedIn] = useState(false)
@@ -70,12 +83,12 @@ export default function Index() {
     <View className='index-page'>
       {/* 主标题区 */}
       <View className='hero-section'>
-        <View className='hero-wolf'>🐺</View>
+        <View className='hero-wolf'><IconWolf size={56} /></View>
         <Text className='hero-title'>狼人杀</Text>
         <Text className='hero-en'>Werewolf · 血色月夜</Text>
         <View className='hero-divider'>
           <View className='divider-line' />
-          <Text className='divider-icon'>✦</Text>
+          <Text className='divider-icon'>—</Text>
           <View className='divider-line' />
         </View>
         <Text className='hero-slogan'>血月之下，谁是暗夜的猎手？</Text>
@@ -85,7 +98,7 @@ export default function Index() {
       {loggedIn && userInfo ? (
         <View className='player-card'>
           <View className='player-avatar'>
-            <Text className='avatar-emoji'>🦊</Text>
+            <Text className='avatar-emoji'><IconPlayer size={28} color="#e5c040" /></Text>
           </View>
           <View className='player-info'>
             <Text className='player-name'>{userInfo.username}</Text>
@@ -114,7 +127,7 @@ export default function Index() {
       ) : (
         <View className='invite-card' onClick={goToLogin}>
           <View className='invite-content'>
-            <Text className='invite-icon'>🌙</Text>
+            <Text className='invite-icon'><IconMoon size={24} /></Text>
             <View className='invite-text'>
               <Text className='invite-title'>月夜将至，猎人尚未现身</Text>
               <Text className='invite-desc'>点击此处，揭示你的身份</Text>
@@ -127,14 +140,14 @@ export default function Index() {
       {/* 核心操作 */}
       <View className='action-area'>
         <Button className='action-btn primary' onClick={goToRoomList}>
-          <Text className='action-btn-icon'>⚔️</Text>
+          <Text className='action-btn-icon'><IconSwords size={24} /></Text>
           <View className='action-btn-text'>
             <Text className='action-btn-title'>快速加入</Text>
             <Text className='action-btn-desc'>寻找正在等待的猎场</Text>
           </View>
         </Button>
         <Button className='action-btn secondary' onClick={createRoom}>
-          <Text className='action-btn-icon'>🏰</Text>
+          <Text className='action-btn-icon'><IconCrown size={24} /></Text>
           <View className='action-btn-text'>
             <Text className='action-btn-title'>创建房间</Text>
             <Text className='action-btn-desc'>召集猎人开始狩猎</Text>
@@ -145,7 +158,7 @@ export default function Index() {
       {/* 血夜战报 */}
       <View className='tonight-section'>
         <View className='tonight-header'>
-          <Text className='tonight-title'>◆ 血夜战报</Text>
+          <Text className='tonight-title'>血夜战报</Text>
         </View>
         <View className='tonight-stats'>
           <View className='tonight-item'>
@@ -168,12 +181,12 @@ export default function Index() {
       {/* 角色图鉴 */}
       <View className='roles-section'>
         <View className='roles-header'>
-          <Text className='roles-title'>◆ 角色图鉴</Text>
+          <Text className='roles-title'>角色图鉴</Text>
         </View>
         <ScrollView className='roles-scroll' scrollX enableFlex>
           {ROLES.map((role) => (
             <View className='role-card' key={role.name}>
-              <Text className='role-icon'>{role.icon}</Text>
+              <View className='role-icon'>{renderRoleIcon(role.iconType)}</View>
               <Text className='role-name'>{role.name}</Text>
               <Text className='role-camp'>{role.camp}</Text>
               <Text className='role-desc'>{role.desc}</Text>
