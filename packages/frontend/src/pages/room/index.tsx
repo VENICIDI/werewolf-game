@@ -510,46 +510,60 @@ export default function Room() {
             </View>
           )}
 
-          <View className='players-grid'>
-            {room.players?.map((player, index) => (
-              <View
-                key={player.userId}
-                className={`player-card ${player.isReady ? 'ready' : ''} ${player.isHost ? 'host' : ''}`}
-              >
-                <View className='player-avatar'>
-                  {player.avatarUrl ? (
-                    <image src={player.avatarUrl} className='avatar-img' />
-                  ) : (
-                    <Text className='avatar-emoji'>
-                      {player.isAi ? '🤖' : player.isHost ? '👑' : '🐺'}
-                    </Text>
-                  )}
-                  {player.isReady && (
-                    <View className='ready-mark'>
-                      <Text className='ready-mark-text'>✓</Text>
+          {/* 圆桌式玩家布局 */}
+          <View className='round-table-room'>
+            <View className='table-bg'>
+              <Text className='table-icon'>⚔</Text>
+              <Text className='table-count'>{room.currentPlayers}/{room.maxPlayers}</Text>
+            </View>
+            <View className='seats-ring-room'>
+              {room.players?.map((player, index) => {
+                const total = room.maxPlayers
+                const angle = (index / total) * 360 - 90
+                const seatStyle = { '--seat-angle': `${angle}deg` } as React.CSSProperties
+                return (
+                  <View
+                    key={player.userId}
+                    className={`seat-node-room ${player.isReady ? 'ready' : ''} ${player.isHost ? 'host' : ''}`}
+                    style={seatStyle}
+                  >
+                    <View className='seat-avatar-room'>
+                      {player.avatarUrl ? (
+                        <image src={player.avatarUrl} className='avatar-img' />
+                      ) : (
+                        <Text className='avatar-emoji'>
+                          {player.isAi ? '🤖' : player.isHost ? '👑' : '🐺'}
+                        </Text>
+                      )}
+                      {player.isReady && (
+                        <View className='ready-dot'></View>
+                      )}
                     </View>
-                  )}
-                </View>
-                <Text className='player-name'>{player.username}</Text>
-                <View className='player-badges'>
-                  {player.isHost && <Text className='badge host-badge'>房主</Text>}
-                  {player.isAi && <Text className='badge ai-badge'>人机</Text>}
-                  {player.isReady && !player.isHost && !player.isAi && <Text className='badge ready-badge'>已准备</Text>}
-                </View>
-                <Text className='seat-number'>{index + 1}号位</Text>
-              </View>
-            ))}
+                    <Text className='seat-name-room'>{player.username}</Text>
+                    <View className='seat-badges'>
+                      {player.isHost && <Text className='badge-mini host'>主</Text>}
+                      {player.isAi && <Text className='badge-mini ai'>AI</Text>}
+                    </View>
+                  </View>
+                )
+              })}
 
-            {/* 空位 */}
-            {Array.from({ length: room.maxPlayers - (room.players?.length || 0) }).map((_, i) => (
-              <View key={`empty-${i}`} className='player-card empty'>
-                <View className='player-avatar empty'>
-                  <Text className='avatar-emoji'>+</Text>
-                </View>
-                <Text className='player-name empty-name'>等待加入</Text>
-                <Text className='seat-number'>{(room.players?.length || 0) + i + 1}号位</Text>
-              </View>
-            ))}
+              {/* 空位 */}
+              {Array.from({ length: room.maxPlayers - (room.players?.length || 0) }).map((_, i) => {
+                const index = (room.players?.length || 0) + i
+                const total = room.maxPlayers
+                const angle = (index / total) * 360 - 90
+                const seatStyle = { '--seat-angle': `${angle}deg` } as React.CSSProperties
+                return (
+                  <View key={`empty-${i}`} className='seat-node-room empty' style={seatStyle}>
+                    <View className='seat-avatar-room empty'>
+                      <Text className='avatar-emoji'>+</Text>
+                    </View>
+                    <Text className='seat-name-room empty-name'>空位</Text>
+                  </View>
+                )
+              })}
+            </View>
           </View>
         </View>
 

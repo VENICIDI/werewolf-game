@@ -457,166 +457,147 @@
     }
   }
 
-  .players-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 8px;
-  }
-
-  .player-card {
-    background: rgba(18, 15, 12, 0.85);
-    border: 1.5px solid rgba(74, 61, 48, 0.4);
-    border-radius: 10px;
-    padding: 14px 6px 10px;
-    text-align: center;
-    transition: all 0.3s;
+  // ---- 圆桌式玩家布局 ----
+  .round-table-room {
     position: relative;
-    overflow: hidden;
+    width: 100%;
+    height: 280px;
 
-    // 卡片顶部装饰线
-    &::before {
-      content: '';
+    .table-bg {
       position: absolute;
-      top: 0; left: 8px; right: 8px;
-      height: 1px;
-      background: linear-gradient(90deg, transparent, rgba(212, 175, 55, 0.12), transparent);
-    }
-
-    // 就绪 - 金色光晕
-    &.ready {
-      border-color: rgba(212, 175, 55, 0.45);
-      box-shadow: 0 0 14px rgba(212, 175, 55, 0.12);
-
-      &::before {
-        background: linear-gradient(90deg, transparent, rgba(212, 175, 55, 0.4), transparent);
-        height: 2px;
-      }
-
-      .player-avatar {
-        border-color: var(--gold);
-        box-shadow: 0 0 12px rgba(212, 175, 55, 0.25), 0 2px 8px rgba(0, 0, 0, 0.4);
-      }
-    }
-
-    // 房主 - 暗红光晕
-    &.host {
-      border-color: rgba(196, 26, 26, 0.35);
-      background: rgba(196, 26, 26, 0.04);
-
-      .player-avatar {
-        border-color: rgba(196, 26, 26, 0.5);
-        box-shadow: 0 0 10px rgba(196, 26, 26, 0.15), 0 2px 8px rgba(0, 0, 0, 0.4);
-      }
-    }
-
-    // 空位
-    &.empty {
-      opacity: 0.3;
-      border-style: dashed;
-      border-color: rgba(74, 61, 48, 0.25);
-
-      .player-avatar {
-        background: rgba(8, 6, 4, 0.5);
-        border-color: rgba(74, 61, 48, 0.2);
-        box-shadow: none;
-      }
-    }
-
-    .player-avatar {
-      width: 52px; height: 52px;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 110px;
+      height: 110px;
       border-radius: 50%;
-      background: radial-gradient(circle at 35% 35%, var(--parchment-light) 0%, var(--parchment) 60%, #141210 100%);
-      border: 2.5px solid var(--gold-dim);
-      margin: 0 auto 8px;
+      background: radial-gradient(circle at 40% 35%, rgba(50, 40, 30, 0.9), rgba(30, 24, 18, 0.95) 50%, rgba(15, 12, 10, 1) 100%);
+      border: 2px solid rgba(212, 175, 55, 0.2);
+      box-shadow: 0 0 30px rgba(0, 0, 0, 0.5), inset 0 0 20px rgba(0, 0, 0, 0.3);
       display: flex;
+      flex-direction: column;
       align-items: center;
       justify-content: center;
-      position: relative;
-      box-shadow: 0 3px 12px rgba(0, 0, 0, 0.5), inset 0 1px 2px rgba(255, 255, 255, 0.1);
+      gap: 4px;
 
-      // 外环装饰
-      &::after {
+      &::before {
         content: '';
         position: absolute;
-        inset: -6px;
+        inset: 6px;
         border: 1px dashed rgba(212, 175, 55, 0.1);
         border-radius: 50%;
-        pointer-events: none;
       }
 
-      .avatar-img { width: 100%; height: 100%; border-radius: 50%; }
-
-      .avatar-emoji {
-        font-size: 24px;
-        filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.5));
+      .table-icon {
+        font-size: 28px;
+        filter: drop-shadow(0 2px 6px rgba(196, 26, 26, 0.3));
       }
 
-      .ready-mark {
-        position: absolute;
-        bottom: -2px; right: -2px;
-        width: 18px; height: 18px;
-        background: linear-gradient(135deg, #4caf50, #388e3c);
+      .table-count {
+        font-size: 11px;
+        color: var(--gold-dim);
+        letter-spacing: 2px;
+        font-family: monospace;
+      }
+    }
+
+    .seats-ring-room {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 0;
+      height: 0;
+    }
+
+    .seat-node-room {
+      $radius: 110px;
+      position: absolute;
+      width: 58px;
+      height: 72px;
+      margin-left: -29px;
+      margin-top: -36px;
+      transform: rotate(var(--seat-angle)) translateY(-#{$radius}) rotate(calc(-1 * var(--seat-angle)));
+      text-align: center;
+      transition: all 0.3s;
+
+      &.ready {
+        .seat-avatar-room {
+          border-color: var(--gold);
+          box-shadow: 0 0 14px rgba(212, 175, 55, 0.4);
+        }
+      }
+
+      &.host {
+        .seat-avatar-room {
+          border-color: rgba(196, 26, 26, 0.6);
+          box-shadow: 0 0 12px rgba(196, 26, 26, 0.3);
+        }
+      }
+
+      &.empty {
+        opacity: 0.3;
+        .seat-avatar-room { border-style: dashed; border-color: rgba(74, 61, 48, 0.3); box-shadow: none; }
+      }
+
+      .seat-avatar-room {
+        width: 42px;
+        height: 42px;
+        margin: 0 auto 3px;
         border-radius: 50%;
-        border: 2px solid rgba(18, 15, 12, 0.9);
+        background: radial-gradient(circle at 35% 35%, var(--parchment-light), var(--parchment) 60%, #141210 100%);
+        border: 2.5px solid var(--gold-dim);
         display: flex;
         align-items: center;
         justify-content: center;
-        box-shadow: 0 0 6px rgba(76, 175, 80, 0.5);
+        position: relative;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+        transition: all 0.3s;
 
-        .ready-mark-text { font-size: 9px; color: #fff; font-weight: 700; }
+        .avatar-img { width: 100%; height: 100%; border-radius: 50%; }
+        .avatar-emoji { font-size: 18px; }
+
+        .ready-dot {
+          position: absolute;
+          bottom: -1px;
+          right: -1px;
+          width: 12px;
+          height: 12px;
+          background: #4caf50;
+          border-radius: 50%;
+          border: 2px solid rgba(18, 15, 12, 0.9);
+          box-shadow: 0 0 6px rgba(76, 175, 80, 0.6);
+        }
       }
-    }
 
-    .player-name {
-      display: block;
-      font-size: 11px;
-      font-weight: 600;
-      color: var(--text);
-      margin-bottom: 3px;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      padding: 0 2px;
-
-      &.empty-name { color: var(--text-tertiary); }
-    }
-
-    .player-badges {
-      min-height: 16px;
-      margin-bottom: 2px;
-
-      .badge {
-        display: inline-block;
-        font-size: 8px;
-        padding: 1px 5px;
-        border-radius: 3px;
-        letter-spacing: 1px;
+      .seat-name-room {
+        display: block;
+        font-size: 10px;
         font-weight: 600;
+        color: var(--text);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 58px;
+
+        &.empty-name { color: var(--text-tertiary); }
       }
 
-      .host-badge {
-        color: var(--blood-glow);
-        background: rgba(196, 26, 26, 0.15);
-        border: 1px solid rgba(196, 26, 26, 0.3);
-      }
-      .ready-badge {
-        color: #4caf50;
-        background: rgba(76, 175, 80, 0.1);
-        border: 1px solid rgba(76, 175, 80, 0.25);
-      }
-      .ai-badge {
-        color: #60a0e0;
-        background: rgba(96, 160, 224, 0.1);
-        border: 1px solid rgba(96, 160, 224, 0.25);
-      }
-    }
+      .seat-badges {
+        display: flex;
+        justify-content: center;
+        gap: 3px;
 
-    .seat-number {
-      display: block;
-      font-size: 9px;
-      color: var(--text-tertiary);
-      letter-spacing: 1px;
-      font-family: monospace;
+        .badge-mini {
+          font-size: 8px;
+          padding: 0 4px;
+          border-radius: 3px;
+          font-weight: 700;
+          letter-spacing: 1px;
+
+          &.host { color: var(--blood-glow); background: rgba(196, 26, 26, 0.15); border: 1px solid rgba(196, 26, 26, 0.3); }
+          &.ai { color: #60a0e0; background: rgba(96, 160, 224, 0.1); border: 1px solid rgba(96, 160, 224, 0.25); }
+        }
+      }
     }
   }
 }
