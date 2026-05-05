@@ -1101,28 +1101,30 @@ export default function GamePlay() {
         </View>
       )}
 
-      {/* 玩家列表 */}
-      <View className='players-section'>
-        <Text className='section-title'>玩家列表</Text>
-        {/* 狼人队友提示 - 始终显示 */}
-        {game?.myRole === 'WEREWOLF' && game?.teammates && game.teammates.length > 0 && (
-          <View style={{ padding: '6px 12px', marginBottom: '8px', background: 'rgba(180,40,40,0.2)', borderRadius: '6px', border: '1.5px solid rgba(180,40,40,0.4)' }}>
-            <Text style={{ fontSize: '13px', color: '#ff4444', fontWeight: 'bold' }}>
-              🐺 你的狼队友: {game.teammates.map(tid => {
-                const p = game.players.find(pl => pl.playerId === tid)
-                return p ? `${p.seatNumber}号 ${p.username}` : `ID${tid}`
-              }).join('、')}
-            </Text>
+      {/* 圆桌式玩家列表 */}
+      <View className='round-table-section'>
+        {/* 圆桌桌面 */}
+        <View className='table-surface'>
+          <View className='table-center'>
+            <Text className='table-phase-icon'>{phaseDisplay.icon}</Text>
+            {game?.myRole === 'WEREWOLF' && game?.teammates && game.teammates.length > 0 && (
+              <Text className='table-wolf-hint'>
+                队友: {game.teammates.map(tid => {
+                  const p = game.players.find(pl => pl.playerId === tid)
+                  return p ? `${p.seatNumber}号` : ''
+                }).join(' ')}
+              </Text>
+            )}
           </View>
-        )}
-        <View className='players-grid'>
-          {game?.players.map((player) => {
+        </View>
+
+        {/* 玩家座位 - 圆形排列 */}
+        <View className='seats-ring'>
+          {game?.players.map((player, index) => {
             const isTeammate = game?.myRole === 'WEREWOLF' && game?.teammates?.includes(player.playerId)
             const isMe = player.playerId === game?.myPlayerId
             const highlight = getPlayerHighlight(player)
-            // 投票气泡:仅 EXECUTION 阶段展示,VOTING 阶段不公开投票明细
             const showVoteUI = game?.phase === 'EXECUTION'
-            // 结算后的投票明细统一来自 voteResult.votesByVoter
             const finalVotes: Record<number, number> = (showVoteUI && voteResult?.votesByVoter) || {}
             const receivedVotes = showVoteUI
               ? Object.values(finalVotes).filter(t => Number(t) === player.playerId).length
@@ -1133,103 +1135,44 @@ export default function GamePlay() {
             const iVotedHim = showVoteUI && myVoteTarget != null && Number(myVoteTarget) === player.playerId
             const isEliminated = game?.phase === 'EXECUTION'
               && voteResult?.eliminatedPlayerId === player.playerId
+
+            // 圆桌位置计算：以 CSS 变量注入角度
+            const total = game?.players.length || 9
+            const angle = (index / total) * 360 - 90 // 从顶部开始
+            const seatStyle = {
+              '--seat-angle': `${angle}deg`,
+              '--seat-index': `${index}`,
+            } as React.CSSProperties
+
             return (
               <View
                 key={player.playerId}
-                className={`player-card ${player.status} ${selectedTarget === player.playerId ? 'selected' : ''} ${speakingPlayerIds.has(player.playerId) ? 'speaking' : ''} ${isTeammate ? 'werewolf-teammate' : ''} ${highlight.className} ${isEliminated ? 'eliminated' : ''}`}
+                className={`seat-node ${player.status} ${selectedTarget === player.playerId ? 'selected' : ''} ${speakingPlayerIds.has(player.playerId) ? 'speaking' : ''} ${isTeammate ? 'werewolf-teammate' : ''} ${highlight.className} ${isEliminated ? 'eliminated' : ''} ${isMe ? 'is-me' : ''}`}
+                style={seatStyle}
                 onClick={() => {
-                  console.log('[BTN] 点击玩家卡片 →', {
-                    seat: player.seatNumber,
-                    playerId: player.playerId,
-                    status: player.status,
-                    isMe,
-                    isTeammate,
-                    phase: game?.phase,
-                    round: game?.round,
-                    myRole: game?.myRole,
-                    canAct: canAct(),
-                    isActionLocked: isActionLocked(),
-                    submitting: submittingRef.current,
-                    submittedPhaseKeyRef: submittedPhaseKeyRef.current,
-                    submittedPhaseKey,
-                  })
-                  if (!canAct() || player.status !== 'ALIVE') {
-                    console.log('[BTN] ❌ 玩家卡片点击被拦截 (canAct=false 或 玩家已死亡)')
-                    return
-                  }
-                  // 狼人阶段不能选自己和队友
-                  if (game?.phase === 'WEREWOLF' && (isTeammate || isMe)) {
-                    console.log('[BTN] ❌ 狼人阶段不能选自己/队友')
-                    return
-                  }
-                  console.log('[BTN] ✅ 选中目标 seat=', player.seatNumber)
+                  if (!canAct() || player.status !== 'ALIVE') return
+                  if (game?.phase === 'WEREWOLF' && (isTeammate || isMe)) return
                   setSelectedTarget(player.playerId)
                 }}
               >
-                <View className='player-avatar'>
-                  <Text className='avatar-default'>
+                <View className='seat-avatar'>
+                  <Text className='avatar-icon'>
                     {player.status === 'DEAD' ? '💀'
                       : (isTeammate || (isMe && game?.myRole === 'WEREWOLF')) ? '🐺'
                       : player.isAi ? '🤖' : '👤'}
                   </Text>
+                  {/* 投票得票气泡 */}
+                  {showVoteUI && receivedVotes > 0 && (
+                    <View className='vote-bubble'>
+                      <Text className='vote-count'>{receivedVotes}</Text>
+                    </View>
+                  )}
                 </View>
-                <Text className='player-name'>{player.username}</Text>
-                <Text className='seat-num'>{player.seatNumber}号位</Text>
-                {isMe && game?.myRole === 'WEREWOLF' && (
-                  <Text style={{ fontSize: '10px', color: '#ff4444', textAlign: 'center', fontWeight: 'bold' }}>🐺 你</Text>
-                )}
-                {isTeammate && (
-                  <Text style={{ fontSize: '10px', color: '#ff4444', textAlign: 'center', fontWeight: 'bold' }}>🐺 队友</Text>
-                )}
-                {highlight.active && <Text className='active-badge'>{highlight.label}</Text>}
-                {player.status === 'DEAD' && !isEliminated && <Text className='dead-badge'>已死亡</Text>}
-
-                {/* ✨ 投票气泡：得票数 + 是否为我的投票目标 */}
-                {showVoteUI && receivedVotes > 0 && (
-                  <View style={{
-                    position: 'absolute', top: '2px', right: '2px',
-                    background: 'linear-gradient(135deg, #ff6b6b, #c62828)',
-                    color: '#fff', borderRadius: '10px',
-                    padding: '2px 6px', minWidth: '20px',
-                    textAlign: 'center',
-                    boxShadow: '0 2px 6px rgba(198,40,40,0.5)',
-                    border: '1px solid rgba(255,255,255,0.85)',
-                    zIndex: 3
-                  }}>
-                    <Text style={{ fontSize: '11px', color: '#fff', fontWeight: 'bold' }}>
-                      {receivedVotes}
-                    </Text>
-                  </View>
-                )}
-                {iVotedHim && (
-                  <Text style={{
-                    position: 'absolute', bottom: '2px', left: '50%',
-                    transform: 'translateX(-50%)',
-                    fontSize: '10px', color: '#ffd54f',
-                    background: 'rgba(30,20,10,0.85)',
-                    padding: '1px 6px', borderRadius: '8px',
-                    border: '1px solid rgba(255,213,79,0.6)',
-                    whiteSpace: 'nowrap',
-                    zIndex: 3
-                  }}>
-                    ✦ 我的一票
-                  </Text>
-                )}
-                {isEliminated && (
-                  <Text style={{
-                    position: 'absolute', top: '50%', left: '50%',
-                    transform: 'translate(-50%, -50%)',
-                    fontSize: '14px', color: '#fff',
-                    background: 'rgba(198,40,40,0.95)',
-                    padding: '3px 10px', borderRadius: '12px',
-                    fontWeight: 'bold',
-                    boxShadow: '0 2px 12px rgba(198,40,40,0.8)',
-                    whiteSpace: 'nowrap',
-                    zIndex: 4
-                  }}>
-                    ⚖ 被放逐
-                  </Text>
-                )}
+                <Text className='seat-name'>{isMe ? '我' : player.username}</Text>
+                <Text className='seat-number'>{player.seatNumber}号</Text>
+                {highlight.active && <View className='seat-active-ring' />}
+                {iVotedHim && <Text className='my-vote-mark'>✦</Text>}
+                {isEliminated && <Text className='eliminated-mark'>✗</Text>}
               </View>
             )
           })}

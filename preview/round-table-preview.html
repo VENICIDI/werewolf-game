@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>圆桌布局预览</title>
+<style>
+:root {
+  --blood-red: #c41a1a;
+  --blood-dark: #6a0000;
+  --blood-glow: #ff2d2d;
+  --gold: #e5c040;
+  --gold-dim: #b89830;
+  --shadow: #080604;
+  --parchment: #1e1812;
+  --parchment-light: #322820;
+  --text: #f0e6d6;
+  --text-secondary: #b0a090;
+  --text-tertiary: #8a7a68;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  background: #080604;
+  color: #f0e6d6;
+  font-family: 'Noto Serif SC', serif;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 20px;
+  max-width: 480px;
+  margin: 0 auto;
+}
+
+h2 {
+  color: var(--gold);
+  letter-spacing: 4px;
+  margin-bottom: 20px;
+  text-shadow: 0 0 12px rgba(229,192,64,0.3);
+}
+
+/* 圆桌区域 */
+.round-table-section {
+  position: relative;
+  width: 100%;
+  height: 340px;
+  margin-bottom: 20px;
+}
+
+.table-surface {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 140px;
+  height: 140px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 40% 35%, rgba(50,40,30,0.9), rgba(30,24,18,0.95) 50%, rgba(15,12,10,1) 100%);
+  border: 2px solid rgba(212,175,55,0.25);
+  box-shadow: 0 0 40px rgba(0,0,0,0.6), inset 0 0 30px rgba(0,0,0,0.4), 0 0 60px rgba(139,0,0,0.08);
+}
+
+.table-surface::before {
+  content: '';
+  position: absolute;
+  inset: 8px;
+  border: 1px dashed rgba(212,175,55,0.12);
+  border-radius: 50%;
+}
+
+.table-surface::after {
+  content: '';
+  position: absolute;
+  inset: -8px;
+  border: 1px solid rgba(74,61,48,0.2);
+  border-radius: 50%;
+}
+
+.table-center {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+}
+
+.table-phase-icon {
+  font-size: 36px;
+  filter: drop-shadow(0 2px 8px rgba(196,26,26,0.4));
+  animation: iconFloat 3s ease-in-out infinite;
+}
+
+@keyframes iconFloat {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+
+.seats-ring {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+}
+
+.seat-node {
+  position: absolute;
+  width: 62px;
+  height: 76px;
+  margin-left: -31px;
+  margin-top: -38px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.seat-avatar {
+  width: 44px;
+  height: 44px;
+  margin: 0 auto 3px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, var(--parchment-light), var(--parchment) 60%, #141210 100%);
+  border: 2.5px solid var(--gold-dim);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.5), inset 0 1px 2px rgba(255,255,255,0.1);
+  transition: all 0.3s;
+}
+
+.seat-avatar:hover {
+  border-color: var(--blood-glow);
+  box-shadow: 0 0 20px rgba(255,45,45,0.4);
+  transform: scale(1.1);
+}
+
+.avatar-icon { font-size: 20px; }
+.seat-name {
+  display: block;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 62px;
+}
+.seat-number {
+  display: block;
+  font-size: 9px;
+  color: var(--text-tertiary);
+  font-family: monospace;
+}
+
+/* 特殊状态 */
+.seat-node.is-me .seat-avatar {
+  border-color: var(--gold);
+  box-shadow: 0 0 12px rgba(212,175,55,0.4);
+}
+.seat-node.is-me .seat-name { color: var(--gold); font-weight: 700; }
+
+.seat-node.selected .seat-avatar {
+  border-color: var(--blood-glow);
+  box-shadow: 0 0 24px rgba(255,45,45,0.6);
+  transform: scale(1.15);
+}
+
+.seat-node.dead {
+  opacity: 0.4;
+  filter: grayscale(0.8);
+  pointer-events: none;
+}
+
+.seat-node.speaking .seat-avatar {
+  border-color: #4caf50;
+  box-shadow: 0 0 18px rgba(76,175,80,0.5);
+  animation: speakPulse 1.5s infinite;
+}
+
+@keyframes speakPulse {
+  0%, 100% { box-shadow: 0 0 12px rgba(76,175,80,0.3); }
+  50% { box-shadow: 0 0 24px rgba(76,175,80,0.6); }
+}
+
+/* 底部信息 */
+.info { text-align: center; color: var(--text-tertiary); font-size: 12px; letter-spacing: 2px; }
+</style>
+</head>
+<body>
+<h2>—— 圆桌布局预览 ——</h2>
+
+<div class="round-table-section">
+  <div class="table-surface">
+    <div class="table-center">
+      <span class="table-phase-icon">🐺</span>
+    </div>
+  </div>
+  <div class="seats-ring" id="seatsRing"></div>
+</div>
+
+<p class="info">点击座位可选中 · 9人标准局</p>
+
+<script>
+const players = [
+  { name: '我', seat: 1, icon: '🐺', cls: 'is-me' },
+  { name: '张三', seat: 2, icon: '👤', cls: '' },
+  { name: '李四', seat: 3, icon: '👤', cls: 'speaking' },
+  { name: '王五', seat: 4, icon: '🤖', cls: '' },
+  { name: '赵六', seat: 5, icon: '👤', cls: '' },
+  { name: '钱七', seat: 6, icon: '💀', cls: 'dead' },
+  { name: '孙八', seat: 7, icon: '🤖', cls: '' },
+  { name: '周九', seat: 8, icon: '👤', cls: 'selected' },
+  { name: '吴十', seat: 9, icon: '👤', cls: '' },
+];
+
+const ring = document.getElementById('seatsRing');
+const radius = 130;
+const total = players.length;
+
+players.forEach((p, i) => {
+  const angle = (i / total) * 360 - 90;
+  const rad = angle * Math.PI / 180;
+  const x = Math.cos(rad) * radius;
+  const y = Math.sin(rad) * radius;
+  
+  const node = document.createElement('div');
+  node.className = `seat-node ${p.cls}`;
+  node.style.transform = `translate(${x}px, ${y}px)`;
+  node.innerHTML = `
+    <div class="seat-avatar">
+      <span class="avatar-icon">${p.icon}</span>
+    </div>
+    <span class="seat-name">${p.name}</span>
+    <span class="seat-number">${p.seat}号</span>
+  `;
+  node.onclick = () => {
+    document.querySelectorAll('.seat-node').forEach(n => n.classList.remove('selected'));
+    node.classList.add('selected');
+  };
+  ring.appendChild(node);
+});
+</script>
+</body>
+</html>
