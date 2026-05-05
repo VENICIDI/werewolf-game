@@ -1,11 +1,14 @@
 import Taro from '@tarojs/taro'
 import { checkLogin } from './auth-guard'
 
-// API 基础地址 - H5 环境使用相对路径走 devServer 代理，避免跨域问题
-const BASE_URL = process.env.TARO_ENV === 'h5' ? '/api' : 'http://localhost:8080/api'
+// 后端服务器地址
+// H5 环境使用相对路径走 devServer 代理，避免跨域问题
+// 小程序环境使用局域网 IP（真机调试需要手机和电脑在同一 WiFi 下）
+const SERVER_HOST = process.env.TARO_ENV === 'h5' ? '' : 'http://192.168.0.109:8080'
+const BASE_URL = process.env.TARO_ENV === 'h5' ? '/api' : `${SERVER_HOST}/api`
 
 // 服务器基础地址（用于静态资源如头像）
-const SERVER_BASE = process.env.TARO_ENV === 'h5' ? '' : 'http://localhost:8080'
+const SERVER_BASE = SERVER_HOST
 
 /**
  * 将后端返回的相对路径资源 URL 转为完整可访问的 URL

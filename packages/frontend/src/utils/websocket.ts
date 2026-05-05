@@ -47,7 +47,8 @@ class WebSocketManager {
         return
       }
 
-      const wsUrl = `ws://localhost:8080/ws/room/${roomCode}?token=${token}`
+      const wsHost = process.env.TARO_ENV === 'h5' ? 'localhost:8080' : '192.168.0.109:8080'
+      const wsUrl = `ws://${wsHost}/ws/room/${roomCode}?token=${token}`
       console.log('[WS] 连接:', wsUrl)
       this.state = WebSocketState.CONNECTING
 

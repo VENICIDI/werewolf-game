@@ -2,16 +2,17 @@ import { useEffect, useState } from 'react'
 import Taro from '@tarojs/taro'
 import { View, Text, Button, Image } from '@tarojs/components'
 import { Role } from '../../../api/game'
+import { getResourceUrl } from '../../../utils/request'
 import './index.scss'
 
-// 角色立绘图片
-import imgWerewolf from '../../../assets/images/roles/werewolf.png'
-import imgSeer from '../../../assets/images/roles/seer.png'
-import imgWitch from '../../../assets/images/roles/witch.png'
-import imgHunter from '../../../assets/images/roles/hunter.png'
-import imgGuard from '../../../assets/images/roles/guard.png'
-import imgVillager from '../../../assets/images/roles/villager.png'
-import imgIdiot from '../../../assets/images/roles/idiot.png'
+// 角色立绘通过后端静态资源网络加载，不打包进小程序
+const imgWerewolf = getResourceUrl('/images/roles/werewolf.png')
+const imgSeer = getResourceUrl('/images/roles/seer.png')
+const imgWitch = getResourceUrl('/images/roles/witch.png')
+const imgHunter = getResourceUrl('/images/roles/hunter.png')
+const imgGuard = getResourceUrl('/images/roles/guard.png')
+const imgVillager = getResourceUrl('/images/roles/villager.png')
+const imgIdiot = getResourceUrl('/images/roles/idiot.png')
 
 interface RoleInfo {
   id: string

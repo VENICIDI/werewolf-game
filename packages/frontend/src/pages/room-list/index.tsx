@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import Taro from '@tarojs/taro'
+import Taro, { useDidShow } from '@tarojs/taro'
 import { View, Text, Button, Input, ScrollView } from '@tarojs/components'
 import { getRoomList, joinRoom } from '../../api/room'
 import { checkLogin } from '../../utils/auth-guard'
@@ -25,9 +25,10 @@ export default function RoomList() {
   const [showPasswordModal, setShowPasswordModal] = useState(false)
   const [selectedRoom, setSelectedRoom] = useState<Room | null>(null)
 
-  useEffect(() => {
+  // 每次页面显示时刷新房间列表（tabBar 页面缓存不会重新挂载）
+  useDidShow(() => {
     fetchRooms()
-  }, [])
+  })
 
   const fetchRooms = async () => {
     setLoading(true)

@@ -4,13 +4,16 @@ import { View, Text, Button, ScrollView, Input, Image } from '@tarojs/components
 import { getGameStatus, getGameSnapshot, GamePhase, GameStatus, Role } from '../../../api/game'
 import { get, post, getResourceUrl } from '../../../utils/request'
 import { wsManager } from '../../../utils/websocket'
+import { bgm } from '../../../utils/bgm'
 import { IconWolf, IconPlayer, IconRobot, IconSkull, IconMoon, IconSun, IconCrystalBall, IconPotion, IconShield, IconCrosshair, IconChat, IconVote, IconScale, IconTimer, IconLock } from '../../../components/Icons'
-import imgVillagerWin from '../../../assets/images/endings/villager-victory.png'
-import imgWerewolfWin from '../../../assets/images/endings/werewolf-victory.png'
-import imgBgNight from '../../../assets/images/backgrounds/bg-night-village.png'
-import imgBgDay from '../../../assets/images/backgrounds/bg-day.png'
-import imgTable from '../../../assets/images/table-texture.png'
 import './index.scss'
+
+// 大图通过后端静态资源网络加载，不打包进小程序
+const imgVillagerWin = getResourceUrl('/images/villager-victory.png')
+const imgWerewolfWin = getResourceUrl('/images/werewolf-victory.png')
+const imgBgNight = getResourceUrl('/images/backgrounds/bg-night-village.png')
+const imgBgDay = getResourceUrl('/images/backgrounds/bg-day.png')
+const imgTable = getResourceUrl('/images/table-texture.png')
 
 interface PlayerInfo {
   playerId: number
@@ -111,9 +114,12 @@ export default function GamePlay() {
     if (roomCode) {
       connectWebSocket(String(roomCode))
     }
+    // 播放背景音乐
+    bgm.play()
 
     return () => {
       wsManager.disconnect()
+      bgm.stop()
     }
   }, [])
 
@@ -429,6 +435,8 @@ export default function GamePlay() {
       winner: data.winner || '',
       message: data.message || '游戏已结束'
     })
+    // 游戏结束时停止背景音乐
+    bgm.stop()
   }, [])
 
   const handleDeathAnnounce = useCallback((message: any) => {
@@ -983,16 +991,16 @@ export default function GamePlay() {
     return map[role || ''] || role || '未知'
   }
 
-  // 角色立绘图片映射
+  // 角色立绘图片映射（通过后端静态资源网络加载）
   const getRoleImage = (role?: string) => {
     const map: Record<string, string> = {
-      VILLAGER: require('../../../assets/images/roles/villager.png'),
-      WEREWOLF: require('../../../assets/images/roles/werewolf.png'),
-      SEER: require('../../../assets/images/roles/seer.png'),
-      WITCH: require('../../../assets/images/roles/witch.png'),
-      HUNTER: require('../../../assets/images/roles/hunter.png'),
-      GUARD: require('../../../assets/images/roles/guard.png'),
-      IDIOT: require('../../../assets/images/roles/idiot.png'),
+      VILLAGER: getResourceUrl('/images/roles/villager.png'),
+      WEREWOLF: getResourceUrl('/images/roles/werewolf.png'),
+      SEER: getResourceUrl('/images/roles/seer.png'),
+      WITCH: getResourceUrl('/images/roles/witch.png'),
+      HUNTER: getResourceUrl('/images/roles/hunter.png'),
+      GUARD: getResourceUrl('/images/roles/guard.png'),
+      IDIOT: getResourceUrl('/images/roles/idiot.png'),
     }
     return map[role || ''] || map['VILLAGER']
   }

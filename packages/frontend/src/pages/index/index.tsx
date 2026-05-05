@@ -1,22 +1,28 @@
 import { useEffect, useState } from 'react'
-import Taro from '@tarojs/taro'
+import Taro, { useDidShow } from '@tarojs/taro'
 import { View, Text, Button, Image } from '@tarojs/components'
 import { isLoggedIn, getUserInfo, clearAuth } from '../../api/auth'
 import { getResourceUrl } from '../../utils/request'
 import { IconSwords, IconCrown, IconPlayer } from '../../components/Icons'
-import homePoster from '../../assets/images/home-poster.png'
 import './index.scss'
+
+// 首页海报通过后端静态资源网络加载
+const homePoster = getResourceUrl('/images/home-poster.png')
 
 export default function Index() {
   const [loggedIn, setLoggedIn] = useState(false)
   const [userInfo, setUserInfo] = useState<any>(null)
 
-  useEffect(() => {
+  // 每次页面显示时刷新登录状态（tabBar 页面缓存，switchTab 回来不会重新挂载）
+  useDidShow(() => {
     if (isLoggedIn()) {
       setLoggedIn(true)
       setUserInfo(getUserInfo())
+    } else {
+      setLoggedIn(false)
+      setUserInfo(null)
     }
-  }, [])
+  })
 
   const goToRoomList = () => {
     Taro.switchTab({ url: '/pages/room-list/index' })

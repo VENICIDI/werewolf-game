@@ -16,6 +16,7 @@ export default defineAppConfig({
     navigationBarTitleText: '狼人杀',
     navigationBarTextStyle: 'white'
   },
+  lazyCodeLoading: 'requiredComponents',
   tabBar: {
     color: '#8a7a68',
     selectedColor: '#c41a1a',
