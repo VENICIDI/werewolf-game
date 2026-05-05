@@ -1698,7 +1698,7 @@ export default function GamePlay() {
           <View className='chat-input-row'>
             <Input
               className='chat-input'
-              placeholder={speakTimeLeft > 0 ? `还剩 ${speakTimeLeft}s，发表你的看法...` : '发表你的看法...'}
+              placeholder='发表你的看法...'
               value={chatInput}
               onInput={(e) => setChatInput(e.detail.value)}
               onConfirm={handleSendChat}
