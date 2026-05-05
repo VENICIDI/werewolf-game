@@ -1,277 +1,235 @@
-// ============================================
-// 首页 - 重新设计：大狼头 + 紧凑布局
-// ============================================
 .index-page {
-  min-height: 100vh;
-  padding: 0 16px;
-  padding-bottom: calc(80px + env(safe-area-inset-bottom));
+  height: 100vh;
   position: relative;
-  z-index: 1;
+  overflow: hidden;
+  background: #050505;
 }
 
-// ==================== 英雄区 ====================
-.hero {
+// ====== 背景层 ======
+.bg-poster {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 0;
+}
+
+.bg-gradient {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background: linear-gradient(
+    180deg,
+    rgba(0, 0, 0, 0.7) 0%,
+    rgba(0, 0, 0, 0.3) 15%,
+    rgba(0, 0, 0, 0) 30%,
+    rgba(0, 0, 0, 0.1) 45%,
+    rgba(10, 6, 4, 0.75) 70%,
+    rgba(10, 6, 4, 0.98) 88%,
+    rgba(10, 6, 4, 1) 100%
+  );
+}
+
+// ====== 顶部状态栏 ======
+.top-panel {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 3;
+  padding: calc(16px + env(safe-area-inset-top)) 20px 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-family: 'LXGW WenKai', sans-serif;
+}
+
+.user-profile, .login-profile {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  
+  &:active {
+    opacity: 0.8;
+  }
+  transition: opacity 0.2s;
+
+  .user-avatar {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: rgba(12, 10, 8, 0.6);
+    border: 2px solid rgba(212, 175, 55, 0.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    flex-shrink: 0;
+    box-shadow: 
+      0 4px 12px rgba(0, 0, 0, 0.6), 
+      inset 0 2px 4px rgba(255, 255, 255, 0.1);
+
+    .avatar-img {
+      width: 100%;
+      height: 100%;
+    }
+  }
+
+  .user-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+
+    .user-name {
+      display: block;
+      font-size: 16px;
+      font-weight: 700;
+      color: #fff;
+      text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8);
+      line-height: 1;
+    }
+
+    .user-rank {
+      display: block;
+      font-size: 12px;
+      color: rgba(212, 175, 55, 0.9);
+      font-weight: 600;
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+      line-height: 1;
+    }
+  }
+}
+
+.user-assets {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+
+  .asset-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(0, 0, 0, 0.5);
+    padding: 4px 12px 4px 8px;
+    border-radius: 20px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: 
+      inset 0 1px 2px rgba(255, 255, 255, 0.05), 
+      0 2px 8px rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(8px);
+
+    .asset-value {
+      color: #fff;
+      font-size: 13px;
+      font-weight: 600;
+      font-family: sans-serif;
+      letter-spacing: 0.5px;
+    }
+  }
+}
+
+// ====== 底部面板标题 ======
+.panel-title {
+  text-align: center;
+  margin-bottom: 6px;
+  font-family: 'LXGW WenKai', serif, sans-serif;
+
+  .game-title {
+    display: block;
+    font-size: 28px;
+    font-weight: 700;
+    color: #fff;
+    letter-spacing: 12px;
+    margin-left: 12px;
+    text-shadow: 0 2px 8px rgba(0, 0, 0, 0.6);
+  }
+
+  .game-sub {
+    display: block;
+    margin-top: 6px;
+    font-size: 11px;
+    color: rgba(212, 175, 55, 0.8);
+    letter-spacing: 6px;
+    margin-left: 6px;
+    font-weight: 500;
+  }
+}
+
+// ====== 底部操作面板 ======
+.bottom-panel {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 3;
+  padding: 0 48px 24px;
+  font-family: 'LXGW WenKai', sans-serif;
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 40px 0 24px;
-
-  .hero-logo {
-    width: 140px;
-    height: 140px;
-    margin-bottom: 16px;
-    filter: drop-shadow(0 4px 20px rgba(196, 26, 26, 0.4));
-  }
-
-  .hero-title {
-    font-family: var(--font-display);
-    font-size: 32px;
-    font-weight: 900;
-    color: var(--blood-red);
-    letter-spacing: 12px;
-    text-shadow: 0 0 20px rgba(196, 26, 26, 0.4), 0 2px 4px rgba(0, 0, 0, 0.8);
-    margin-bottom: 8px;
-  }
-
-  .hero-sub {
-    font-size: 13px;
-    color: var(--text-tertiary);
-    letter-spacing: 4px;
-  }
+  gap: 10px;
 }
 
-// ==================== 操作按钮 ====================
-.actions {
-  display: flex;
-  gap: 12px;
-  margin-bottom: 16px;
+.action-card {
+  width: 100%;
+  padding: 14px 24px;
+  border-radius: 0;
+  position: relative;
+  overflow: visible;
+  margin: 0;
+  line-height: 1;
+  transition: transform 0.1s ease;
+  clip-path: polygon(
+    10px 0%, calc(100% - 10px) 0%, 100% 50%, calc(100% - 10px) 100%, 10px 100%, 0% 50%
+  );
 
-  .action-btn {
-    flex: 1;
+  &::after { border: none; }
+  &.button-hover { transform: scale(0.97); opacity: 0.9; }
+
+  .card-inner {
     display: flex;
     align-items: center;
-    gap: 10px;
-    padding: 16px 14px;
-    border-radius: 12px;
-    position: relative;
-    overflow: hidden;
+    justify-content: center;
+    gap: 12px;
+  }
 
-    &::after { border: none !important; }
-    &:active { transform: scale(0.97); opacity: 0.9; }
+  .card-icon-wrap {
+    display: none;
+  }
 
-    .action-icon {
-      width: 40px;
-      height: 40px;
-      border-radius: 10px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      flex-shrink: 0;
-    }
+  .card-text {
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
 
-    .action-text {
-      display: flex;
-      flex-direction: column;
-      align-items: flex-start;
-
-      .action-title {
-        font-size: 16px;
-        font-weight: 700;
-        letter-spacing: 2px;
-        margin-bottom: 2px;
-      }
-
-      .action-desc {
-        font-size: 11px;
-        opacity: 0.7;
-        letter-spacing: 1px;
-      }
-    }
-
-    &.primary {
-      background: linear-gradient(135deg, rgba(196, 26, 26, 0.9) 0%, rgba(120, 10, 10, 0.95) 100%);
-      border: 1.5px solid rgba(196, 26, 26, 0.6);
-      box-shadow: 0 4px 16px rgba(196, 26, 26, 0.3);
+    .card-title {
+      display: block;
+      font-size: 16px;
+      font-weight: 700;
       color: #fff;
-
-      .action-icon { background: rgba(255, 255, 255, 0.15); }
-      .action-title { color: #fff; }
-      .action-desc { color: rgba(255, 255, 255, 0.7); }
+      line-height: 1;
+      letter-spacing: 4px;
+      text-shadow: 0 2px 4px rgba(0, 0, 0, 0.6);
     }
 
-    &.secondary {
-      background: linear-gradient(135deg, rgba(30, 24, 18, 0.9) 0%, rgba(20, 16, 12, 0.95) 100%);
-      border: 1.5px solid rgba(212, 175, 55, 0.3);
-      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
-      color: var(--text);
-
-      .action-icon { background: rgba(212, 175, 55, 0.12); }
-      .action-title { color: var(--gold); }
-      .action-desc { color: var(--text-tertiary); }
-    }
-  }
-}
-
-// ==================== 用户卡片 ====================
-.user-card {
-  background: linear-gradient(135deg, rgba(25, 20, 16, 0.9) 0%, rgba(15, 12, 10, 0.95) 100%);
-  border: 1px solid rgba(74, 61, 48, 0.4);
-  border-radius: 12px;
-  padding: 14px 16px;
-  margin-bottom: 16px;
-
-  .user-left {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    margin-bottom: 12px;
-
-    .user-avatar {
-      width: 40px;
-      height: 40px;
-      border-radius: 50%;
-      background: radial-gradient(circle at 35% 35%, var(--parchment-light), var(--parchment) 60%, #141210);
-      border: 2px solid var(--gold-dim);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-
-    .user-info {
-      .user-name {
-        display: block;
-        font-size: 15px;
-        font-weight: 700;
-        color: var(--text);
-        margin-bottom: 2px;
-      }
-
-      .user-rank {
-        display: block;
-        font-size: 11px;
-        color: var(--blood-red);
-        letter-spacing: 1px;
-      }
+    .card-desc {
+      display: block;
+      font-size: 10px;
+      color: rgba(255, 255, 255, 0.4);
+      line-height: 1;
+      letter-spacing: 2px;
     }
   }
 
-  .user-stats {
-    display: flex;
-    gap: 0;
-
-    .stat {
-      flex: 1;
-      text-align: center;
-      position: relative;
-
-      &:not(:last-child)::after {
-        content: '';
-        position: absolute;
-        right: 0;
-        top: 4px;
-        bottom: 4px;
-        width: 1px;
-        background: rgba(74, 61, 48, 0.4);
-      }
-
-      .stat-val {
-        display: block;
-        font-size: 18px;
-        font-weight: 700;
-        color: var(--gold);
-        font-family: monospace;
-      }
-
-      .stat-lbl {
-        display: block;
-        font-size: 10px;
-        color: var(--text-tertiary);
-        letter-spacing: 2px;
-        margin-top: 2px;
-      }
-    }
-  }
-}
-
-// 未登录状态
-.login-card {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 14px 16px;
-  margin-bottom: 16px;
-  background: rgba(20, 16, 12, 0.8);
-  border: 1px dashed rgba(212, 175, 55, 0.25);
-  border-radius: 10px;
-
-  .login-text {
-    font-size: 13px;
-    color: var(--gold-dim);
-    letter-spacing: 2px;
+  &.primary {
+    background: linear-gradient(180deg, #6b3a1a 0%, #3d1e0a 100%);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
   }
 
-  .login-arrow {
-    font-size: 18px;
-    color: var(--gold-dim);
-    font-weight: 700;
-  }
-
-  &:active { background: rgba(196, 26, 26, 0.08); border-color: rgba(196, 26, 26, 0.3); }
-}
-
-// ==================== 角色速览 ====================
-.roles {
-  margin-bottom: 20px;
-
-  .section-label {
-    display: block;
-    font-size: 12px;
-    color: var(--text-tertiary);
-    letter-spacing: 3px;
-    margin-bottom: 10px;
-    padding-left: 2px;
-
-    &::before {
-      content: '';
-      display: inline-block;
-      width: 3px;
-      height: 12px;
-      background: var(--blood-red);
-      margin-right: 8px;
-      vertical-align: middle;
-      border-radius: 1px;
-    }
-  }
-
-  .roles-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 8px;
-
-    .role-chip {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      padding: 10px 8px;
-      background: rgba(20, 16, 12, 0.7);
-      border: 1px solid rgba(74, 61, 48, 0.3);
-      border-radius: 8px;
-
-      .role-chip-icon {
-        width: 28px;
-        height: 28px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        flex-shrink: 0;
-      }
-
-      .role-chip-name {
-        font-size: 12px;
-        font-weight: 600;
-        color: var(--text);
-        letter-spacing: 1px;
-      }
-    }
+  &.secondary {
+    background: linear-gradient(180deg, #3a3020 0%, #1e1810 100%);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
   }
 }
