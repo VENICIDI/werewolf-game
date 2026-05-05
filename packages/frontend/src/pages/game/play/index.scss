@@ -153,65 +153,160 @@
   }
 }
 
-// ==================== 阶段横幅 ====================
-.phase-banner {
-  text-align: center;
-  padding: 24px 20px 20px;
-  margin: 0 16px 16px;
-  background: linear-gradient(135deg, rgba(20, 16, 12, 0.9) 0%, rgba(12, 10, 8, 0.95) 100%);
-  border: 1px solid rgba(74, 61, 48, 0.4);
-  border-radius: 4px 16px 4px 16px;
-  position: relative;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.03);
+// ==================== 投票进度条 ====================
+.vote-progress-bar {
+  margin: 8px 12px 0;
+  padding: 8px 12px;
+  background: rgba(20, 16, 12, 0.75);
+  border: 1px solid rgba(212, 175, 55, 0.3);
+  border-radius: 8px;
 
-  // 顶部血线装饰
-  &::before {
-    content: '';
-    position: absolute;
-    top: -1px; left: 16px; right: 16px;
-    height: 2px;
-    background: linear-gradient(90deg, transparent, var(--blood-red), transparent);
-  }
-
-  // 底部金线装饰
-  &::after {
-    content: '';
-    position: absolute;
-    bottom: -1px; left: 24px; right: 24px;
-    height: 1px;
-    background: linear-gradient(90deg, transparent, rgba(212, 175, 55, 0.3), transparent);
-  }
-
-  .phase-icon {
-    display: block;
-    font-size: 52px;
-    margin-bottom: 8px;
-    filter: drop-shadow(0 4px 16px rgba(196, 26, 26, 0.5));
-    animation: iconFloat 3s ease-in-out infinite;
-  }
-
-  .phase-title {
-    display: block;
-    font-family: var(--font-display);
-    font-size: 22px;
-    font-weight: bold;
-    color: var(--gold);
+  .vote-progress-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
     margin-bottom: 6px;
-    letter-spacing: 4px;
-    text-shadow: 0 0 16px rgba(229, 192, 64, 0.3), 0 2px 4px rgba(0, 0, 0, 0.5);
+
+    .vote-progress-label { font-size: 13px; color: #d4af37; font-weight: bold; }
+    .vote-progress-count { font-size: 12px; color: #c9a86a; }
   }
 
-  .phase-subtitle {
-    display: block;
-    font-size: 13px;
-    color: var(--text-secondary);
-    letter-spacing: 1px;
+  .vote-progress-track {
+    height: 6px;
+    background: rgba(0, 0, 0, 0.4);
+    border-radius: 3px;
+    overflow: hidden;
+
+    .vote-progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #d4af37, #ff9800);
+      border-radius: 3px;
+      transition: width 0.4s ease;
+    }
   }
 }
 
-@keyframes iconFloat {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-4px); }
+// ==================== 投票面板 ====================
+.vote-panel {
+  margin: 8px 12px;
+  padding: 14px;
+  background: rgba(20, 16, 12, 0.8);
+  border: 1px solid rgba(212, 175, 55, 0.3);
+  border-radius: 10px;
+  text-align: center;
+
+  &.final {
+    background: linear-gradient(180deg, rgba(50, 20, 20, 0.85), rgba(20, 16, 12, 0.9));
+    border: 1.5px solid rgba(198, 40, 40, 0.55);
+    box-shadow: 0 4px 18px rgba(198, 40, 40, 0.3);
+    text-align: left;
+  }
+
+  .vote-panel-title {
+    display: block;
+    font-size: 14px;
+    color: #d4af37;
+    font-weight: bold;
+    margin-bottom: 6px;
+    text-align: center;
+
+    &.danger { color: #ff8a80; }
+  }
+
+  .vote-panel-desc {
+    font-size: 13px;
+    color: #c9a86a;
+  }
+
+  .vote-verdict {
+    margin-bottom: 10px;
+    padding: 10px;
+    border-radius: 6px;
+    text-align: center;
+
+    &.eliminated {
+      background: rgba(198, 40, 40, 0.22);
+      border: 1px solid rgba(198, 40, 40, 0.6);
+    }
+    &.safe {
+      background: rgba(80, 80, 80, 0.22);
+      border: 1px solid rgba(140, 140, 140, 0.4);
+    }
+
+    .vote-verdict-text {
+      font-size: 15px;
+      font-weight: bold;
+      color: #c9a86a;
+    }
+
+    &.eliminated .vote-verdict-text { color: #ff6b6b; }
+  }
+
+  .vote-bars {
+    margin-bottom: 8px;
+
+    .vote-bar-item { margin-bottom: 6px; }
+
+    .vote-bar-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 2px;
+
+      .vote-bar-name { font-size: 12px; color: #c9a86a; &.danger { color: #ff8a80; } }
+      .vote-bar-count { font-size: 12px; color: #c9a86a; font-weight: bold; &.danger { color: #ff8a80; } }
+    }
+
+    .vote-bar-track {
+      height: 6px;
+      background: rgba(0, 0, 0, 0.4);
+      border-radius: 3px;
+      overflow: hidden;
+
+      .vote-bar-fill {
+        height: 100%;
+        background: linear-gradient(90deg, #d4af37, #ff9800);
+        transition: width 0.4s ease;
+
+        &.danger { background: linear-gradient(90deg, #ff6b6b, #c62828); }
+      }
+    }
+
+    .vote-abstain { font-size: 11px; color: #8a7a68; margin-top: 4px; }
+  }
+
+  .vote-details {
+    padding-top: 8px;
+    border-top: 1px dashed rgba(212, 175, 55, 0.25);
+
+    .vote-details-label {
+      display: block;
+      font-size: 11px;
+      color: #8a7a68;
+      margin-bottom: 6px;
+    }
+
+    .vote-details-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .vote-detail-chip {
+      padding: 3px 8px;
+      background: rgba(212, 175, 55, 0.12);
+      border: 1px solid rgba(212, 175, 55, 0.3);
+      border-radius: 10px;
+
+      &.abstain {
+        background: rgba(80, 80, 80, 0.25);
+        border-color: rgba(140, 140, 140, 0.3);
+      }
+
+      .vote-detail-text { font-size: 11px; color: #c9a86a; }
+      &.abstain .vote-detail-text { color: #8a7a68; }
+    }
+  }
 }
 
 // ==================== 圆桌式玩家列表 ====================
@@ -579,7 +674,7 @@
   }
 
   .chat-messages {
-    height: 130px;
+    height: 200px;
     padding: 8px 12px;
     overflow-y: auto;
 

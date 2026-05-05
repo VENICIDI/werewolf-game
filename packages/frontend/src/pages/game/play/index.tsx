@@ -1064,39 +1064,15 @@ export default function GamePlay() {
         </View>
       </View>
 
-      {/* 阶段提示 */}
-      <View className='phase-banner'>
-        <Text className='phase-icon'>{phaseDisplay.icon}</Text>
-        <Text className='phase-title'>{phaseDisplay.title}</Text>
-        <Text className='phase-subtitle'>{phaseDisplay.subtitle}</Text>
-      </View>
-
-      {/* ✨ 投票阶段进度条 */}
+      {/* 投票阶段进度条 */}
       {(game?.phase === 'VOTING' || game?.phase === 'EXECUTION') && voteProgress.total > 0 && (
-        <View style={{
-          margin: '8px 12px 0', padding: '8px 12px',
-          background: 'rgba(20,16,12,0.75)',
-          border: '1px solid rgba(212,175,55,0.3)',
-          borderRadius: '8px'
-        }}>
-          <View style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-            <Text style={{ fontSize: '13px', color: '#d4af37', fontWeight: 'bold' }}>
-              🗳️ 投票进度
-            </Text>
-            <Text style={{ fontSize: '12px', color: '#c9a86a' }}>
-              {voteProgress.voted} / {voteProgress.total}
-            </Text>
+        <View className='vote-progress-bar'>
+          <View className='vote-progress-header'>
+            <Text className='vote-progress-label'>🗳️ 投票进度</Text>
+            <Text className='vote-progress-count'>{voteProgress.voted} / {voteProgress.total}</Text>
           </View>
-          <View style={{
-            height: '6px', background: 'rgba(0,0,0,0.4)',
-            borderRadius: '3px', overflow: 'hidden'
-          }}>
-            <View style={{
-              height: '100%',
-              width: `${voteProgress.total > 0 ? (voteProgress.voted / voteProgress.total) * 100 : 0}%`,
-              background: 'linear-gradient(90deg, #d4af37, #ff9800)',
-              transition: 'width 0.4s ease'
-            }} />
+          <View className='vote-progress-track'>
+            <View className='vote-progress-fill' style={{ width: `${(voteProgress.voted / voteProgress.total) * 100}%` }} />
           </View>
         </View>
       )}
@@ -1179,28 +1155,16 @@ export default function GamePlay() {
         </View>
       </View>
 
-      {/* ✨ 投票明细面板（VOTING 阶段仅显示进度 / EXECUTION 显示最终明细） */}
+      {/* 投票明细面板 */}
       {(game?.phase === 'VOTING' || game?.phase === 'EXECUTION') && (() => {
-        // VOTING 阶段:后端不下发投票明细,只显示进度提示,避免提前暴露"谁投了谁";
-        // EXECUTION 阶段:展示最终投票结果(voteResult)。
         if (game?.phase === 'VOTING') {
           const voted = voteProgress.voted
           const total = voteProgress.total
           const allVoted = total > 0 && voted >= total
           return (
-            <View style={{
-              margin: '8px 12px', padding: '14px',
-              background: 'rgba(20,16,12,0.8)',
-              border: '1px solid rgba(212,175,55,0.3)',
-              borderRadius: '10px', textAlign: 'center'
-            }}>
-              <Text style={{
-                display: 'block', fontSize: '14px', color: '#d4af37',
-                fontWeight: 'bold', marginBottom: '6px'
-              }}>
-                🗳 投票进行中
-              </Text>
-              <Text style={{ fontSize: '13px', color: '#c9a86a' }}>
+            <View className='vote-panel'>
+              <Text className='vote-panel-title'>🗳 投票进行中</Text>
+              <Text className='vote-panel-desc'>
                 {allVoted
                   ? '全员已投票，等待阶段结束后公布结果…'
                   : `已有 ${voted}/${total} 人完成投票，结果将在阶段结束后公布`}
@@ -1237,41 +1201,15 @@ export default function GamePlay() {
         const isFinal = game?.phase === 'EXECUTION' && !!voteResult
 
         return (
-          <View style={{
-            margin: '8px 12px', padding: '12px',
-            background: isFinal
-              ? 'linear-gradient(180deg, rgba(50,20,20,0.85), rgba(20,16,12,0.9))'
-              : 'rgba(20,16,12,0.8)',
-            border: isFinal
-              ? '1.5px solid rgba(198,40,40,0.55)'
-              : '1px solid rgba(212,175,55,0.3)',
-            borderRadius: '10px',
-            boxShadow: isFinal ? '0 4px 18px rgba(198,40,40,0.3)' : 'none'
-          }}>
-            <Text style={{
-              display: 'block', fontSize: '14px',
-              color: isFinal ? '#ff8a80' : '#d4af37',
-              fontWeight: 'bold', marginBottom: '8px',
-              textAlign: 'center'
-            }}>
+          <View className={`vote-panel ${isFinal ? 'final' : ''}`}>
+            <Text className={`vote-panel-title ${isFinal ? 'danger' : ''}`}>
               {isFinal ? '⚖ 放逐结果' : '🗳 实时投票'}
             </Text>
 
-            {/* EXECUTION 阶段：最终处决结论 */}
+            {/* 处决结论 */}
             {isFinal && voteResult && (
-              <View style={{
-                marginBottom: '10px', padding: '10px',
-                background: voteResult.eliminatedPlayerId
-                  ? 'rgba(198,40,40,0.22)'
-                  : 'rgba(80,80,80,0.22)',
-                borderRadius: '6px',
-                border: `1px solid ${voteResult.eliminatedPlayerId ? 'rgba(198,40,40,0.6)' : 'rgba(140,140,140,0.4)'}`,
-                textAlign: 'center'
-              }}>
-                <Text style={{
-                  fontSize: '15px', fontWeight: 'bold',
-                  color: voteResult.eliminatedPlayerId ? '#ff6b6b' : '#c9a86a'
-                }}>
+              <View className={`vote-verdict ${voteResult.eliminatedPlayerId ? 'eliminated' : 'safe'}`}>
+                <Text className='vote-verdict-text'>
                   {voteResult.eliminatedPlayerId
                     ? `⚔ ${voteResult.eliminatedSeat}号 ${voteResult.eliminatedName || ''} 被放逐`
                     : (voteResult.isTie ? '⚖ 平票，无人被放逐' : '🕊 无人被放逐')}
@@ -1279,70 +1217,44 @@ export default function GamePlay() {
               </View>
             )}
 
-            {/* 每个目标的得票柱状 */}
+            {/* 得票柱状 */}
             {countEntries.length > 0 && (
-              <View style={{ marginBottom: '8px' }}>
+              <View className='vote-bars'>
                 {countEntries.map(({ targetId, count }) => {
                   const target = game?.players.find(p => p.playerId === targetId)
                   const isEliminated = isFinal && voteResult?.eliminatedPlayerId === targetId
                   return (
-                    <View key={targetId} style={{ marginBottom: '6px' }}>
-                      <View style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2px' }}>
-                        <Text style={{ fontSize: '12px', color: isEliminated ? '#ff8a80' : '#c9a86a' }}>
+                    <View key={targetId} className='vote-bar-item'>
+                      <View className='vote-bar-header'>
+                        <Text className={`vote-bar-name ${isEliminated ? 'danger' : ''}`}>
                           {target ? `${target.seatNumber}号 ${target.username}` : `ID ${targetId}`}
                           {isEliminated && ' ⚔'}
                         </Text>
-                        <Text style={{ fontSize: '12px', color: isEliminated ? '#ff8a80' : '#c9a86a', fontWeight: 'bold' }}>
-                          {count}票
-                        </Text>
+                        <Text className={`vote-bar-count ${isEliminated ? 'danger' : ''}`}>{count}票</Text>
                       </View>
-                      <View style={{
-                        height: '6px', background: 'rgba(0,0,0,0.4)',
-                        borderRadius: '3px', overflow: 'hidden'
-                      }}>
-                        <View style={{
-                          height: '100%',
-                          width: `${(count / maxCount) * 100}%`,
-                          background: isEliminated
-                            ? 'linear-gradient(90deg, #ff6b6b, #c62828)'
-                            : 'linear-gradient(90deg, #d4af37, #ff9800)',
-                          transition: 'width 0.4s ease'
-                        }} />
+                      <View className='vote-bar-track'>
+                        <View className={`vote-bar-fill ${isEliminated ? 'danger' : ''}`} style={{ width: `${(count / maxCount) * 100}%` }} />
                       </View>
                     </View>
                   )
                 })}
                 {abstainCount > 0 && (
-                  <View style={{ marginTop: '4px' }}>
-                    <Text style={{ fontSize: '11px', color: '#8a7a68' }}>
-                      弃票: {abstainCount}
-                    </Text>
-                  </View>
+                  <Text className='vote-abstain'>弃票: {abstainCount}</Text>
                 )}
               </View>
             )}
 
-            {/* 投票明细："X号 → Y号" */}
-            <View style={{
-              paddingTop: '8px',
-              borderTop: '1px dashed rgba(212,175,55,0.25)'
-            }}>
-              <Text style={{ display: 'block', fontSize: '11px', color: '#8a7a68', marginBottom: '6px' }}>
-                投票明细
-              </Text>
-              <View style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+            {/* 投票明细 */}
+            <View className='vote-details'>
+              <Text className='vote-details-label'>投票明细</Text>
+              <View className='vote-details-list'>
                 {entries.map(({ voterId, targetId }) => {
                   const voter = game?.players.find(p => p.playerId === voterId)
                   const target = targetId > 0 ? game?.players.find(p => p.playerId === targetId) : null
                   const abstain = !targetId || targetId <= 0
                   return (
-                    <View key={voterId} style={{
-                      padding: '3px 8px',
-                      background: abstain ? 'rgba(80,80,80,0.25)' : 'rgba(212,175,55,0.12)',
-                      border: `1px solid ${abstain ? 'rgba(140,140,140,0.3)' : 'rgba(212,175,55,0.3)'}`,
-                      borderRadius: '10px'
-                    }}>
-                      <Text style={{ fontSize: '11px', color: abstain ? '#8a7a68' : '#c9a86a' }}>
+                    <View key={voterId} className={`vote-detail-chip ${abstain ? 'abstain' : ''}`}>
+                      <Text className='vote-detail-text'>
                         {voter ? `${voter.seatNumber}号` : `ID${voterId}`}
                         {abstain ? ' 弃票' : ` → ${target ? `${target.seatNumber}号` : `ID${targetId}`}`}
                       </Text>
