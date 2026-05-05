@@ -1,32 +1,10 @@
 import { useEffect, useState } from 'react'
 import Taro from '@tarojs/taro'
-import { View, Text, Button, ScrollView, Image } from '@tarojs/components'
+import { View, Text, Button, Image } from '@tarojs/components'
 import { isLoggedIn, getUserInfo, clearAuth } from '../../api/auth'
-import { checkLogin } from '../../utils/auth-guard'
-import { IconWolf, IconCrystalBall, IconPotion, IconCrosshair, IconShield, IconPlayer, IconSwords, IconMoon, IconCrown } from '../../components/Icons'
+import { IconSwords, IconCrown, IconCrystalBall, IconPotion, IconCrosshair, IconShield, IconPlayer, IconWolf } from '../../components/Icons'
+import wolfLogo from '../../assets/icons/wolf-logo.png'
 import './index.scss'
-
-// 角色图鉴数据 — 使用 iconType 标识替代 emoji
-const ROLES = [
-  { iconType: 'wolf', name: '狼人', camp: '狼阵营', desc: '夜晚猎杀一名玩家' },
-  { iconType: 'crystal', name: '预言家', camp: '好人阵营', desc: '每晚查验一人身份' },
-  { iconType: 'potion', name: '女巫', camp: '好人阵营', desc: '持有一瓶解药和毒药' },
-  { iconType: 'crosshair', name: '猎人', camp: '好人阵营', desc: '死亡时可带走一人' },
-  { iconType: 'shield', name: '守卫', camp: '好人阵营', desc: '每晚守护一名玩家' },
-  { iconType: 'player', name: '村民', camp: '好人阵营', desc: '用智慧找出狼人' },
-]
-
-const renderRoleIcon = (iconType: string) => {
-  switch (iconType) {
-    case 'wolf': return <IconWolf size={28} />
-    case 'crystal': return <IconCrystalBall size={28} />
-    case 'potion': return <IconPotion size={28} />
-    case 'crosshair': return <IconCrosshair size={28} />
-    case 'shield': return <IconShield size={28} />
-    case 'player': return <IconPlayer size={28} />
-    default: return <IconPlayer size={28} />
-  }
-}
 
 export default function Index() {
   const [loggedIn, setLoggedIn] = useState(false)
@@ -70,7 +48,6 @@ export default function Index() {
     Taro.navigateTo({ url: '/pages/room/index?action=create' })
   }
 
-  // 根据积分返回称号
   const getRankTitle = (rating: number) => {
     if (rating >= 2000) return '传奇猎魔人'
     if (rating >= 1500) return '高级猎魔人'
@@ -81,123 +58,81 @@ export default function Index() {
 
   return (
     <View className='index-page'>
-      {/* 主标题区 */}
-      <View className='hero-section'>
-        <View className='hero-wolf'><IconWolf size={56} /></View>
-        <Text className='hero-title'>狼人杀</Text>
-        <Text className='hero-en'>Werewolf · 血色月夜</Text>
-        <View className='hero-divider'>
-          <View className='divider-line' />
-          <Text className='divider-icon'>—</Text>
-          <View className='divider-line' />
-        </View>
-        <Text className='hero-slogan'>血月之下，谁是暗夜的猎手？</Text>
+      {/* 顶部英雄区：大狼头 + 标题 */}
+      <View className='hero'>
+        <Image className='hero-logo' src={wolfLogo} mode='aspectFit' />
+        <Text className='hero-title'>狼 人 杀</Text>
+        <Text className='hero-sub'>Werewolf · 血色月夜</Text>
       </View>
 
-      {/* 玩家身份卡 / 登录邀请 */}
-      {loggedIn && userInfo ? (
-        <View className='player-card'>
-          <View className='player-avatar'>
-            <View className='avatar-emoji'><IconPlayer size={28} color="#e5c040" /></View>
-          </View>
-          <View className='player-info'>
-            <Text className='player-name'>{userInfo.username}</Text>
-            <Text className='player-rank'>
-              {getRankTitle(userInfo.rating || 1000)}
-            </Text>
-            <View className='player-stats'>
-              <View className='stat-item'>
-                <Text className='stat-value'>{userInfo.rating || 1000}</Text>
-                <Text className='stat-label'>积分</Text>
-              </View>
-              <View className='stat-divider' />
-              <View className='stat-item'>
-                <Text className='stat-value'>{userInfo.wins || 0}</Text>
-                <Text className='stat-label'>胜场</Text>
-              </View>
-              <View className='stat-divider' />
-              <View className='stat-item'>
-                <Text className='stat-value'>{userInfo.games || 0}</Text>
-                <Text className='stat-label'>总场次</Text>
-              </View>
-            </View>
-          </View>
-          <Text className='logout-btn' onClick={handleLogout}>离开</Text>
-        </View>
-      ) : (
-        <View className='invite-card' onClick={goToLogin}>
-          <View className='invite-content'>
-            <View className='invite-icon'><IconMoon size={24} /></View>
-            <View className='invite-text'>
-              <Text className='invite-title'>月夜将至，猎人尚未现身</Text>
-              <Text className='invite-desc'>点击此处，揭示你的身份</Text>
-            </View>
-          </View>
-          <Text className='invite-arrow'>›</Text>
-        </View>
-      )}
-
-      {/* 核心操作 */}
-      <View className='action-area'>
+      {/* 核心操作按钮 */}
+      <View className='actions'>
         <Button className='action-btn primary' onClick={goToRoomList}>
-          <View className='action-btn-icon'><IconSwords size={24} /></View>
-          <View className='action-btn-text'>
-            <Text className='action-btn-title'>快速加入</Text>
-            <Text className='action-btn-desc'>寻找正在等待的猎场</Text>
+          <View className='action-icon'><IconSwords size={22} color="#fff" /></View>
+          <View className='action-text'>
+            <Text className='action-title'>快速加入</Text>
+            <Text className='action-desc'>寻找猎场</Text>
           </View>
         </Button>
         <Button className='action-btn secondary' onClick={createRoom}>
-          <View className='action-btn-icon'><IconCrown size={24} /></View>
-          <View className='action-btn-text'>
-            <Text className='action-btn-title'>创建房间</Text>
-            <Text className='action-btn-desc'>召集猎人开始狩猎</Text>
+          <View className='action-icon'><IconCrown size={22} color="#e5c040" /></View>
+          <View className='action-text'>
+            <Text className='action-title'>创建房间</Text>
+            <Text className='action-desc'>召集猎人</Text>
           </View>
         </Button>
       </View>
 
-      {/* 血夜战报 */}
-      <View className='tonight-section'>
-        <View className='tonight-header'>
-          <Text className='tonight-title'>血夜战报</Text>
+      {/* 玩家卡片 */}
+      {loggedIn && userInfo ? (
+        <View className='user-card'>
+          <View className='user-left'>
+            <View className='user-avatar'><IconPlayer size={24} color="#e5c040" /></View>
+            <View className='user-info'>
+              <Text className='user-name'>{userInfo.username}</Text>
+              <Text className='user-rank'>{getRankTitle(userInfo.rating || 1000)}</Text>
+            </View>
+          </View>
+          <View className='user-stats'>
+            <View className='stat'>
+              <Text className='stat-val'>{userInfo.rating || 1000}</Text>
+              <Text className='stat-lbl'>积分</Text>
+            </View>
+            <View className='stat'>
+              <Text className='stat-val'>{userInfo.wins || 0}</Text>
+              <Text className='stat-lbl'>胜场</Text>
+            </View>
+            <View className='stat'>
+              <Text className='stat-val'>{userInfo.games || 0}</Text>
+              <Text className='stat-lbl'>场次</Text>
+            </View>
+          </View>
         </View>
-        <View className='tonight-stats'>
-          <View className='tonight-item'>
-            <Text className='tonight-num'>--</Text>
-            <Text className='tonight-label'>在线猎人</Text>
-          </View>
-          <View className='tonight-sep'>|</View>
-          <View className='tonight-item'>
-            <Text className='tonight-num'>--</Text>
-            <Text className='tonight-label'>进行中</Text>
-          </View>
-          <View className='tonight-sep'>|</View>
-          <View className='tonight-item'>
-            <Text className='tonight-num'>--</Text>
-            <Text className='tonight-label'>今日对局</Text>
-          </View>
+      ) : (
+        <View className='login-card' onClick={goToLogin}>
+          <Text className='login-text'>登录以开始狩猎</Text>
+          <Text className='login-arrow'>{'>'}</Text>
         </View>
-      </View>
+      )}
 
-      {/* 角色图鉴 */}
-      <View className='roles-section'>
-        <View className='roles-header'>
-          <Text className='roles-title'>角色图鉴</Text>
-        </View>
-        <ScrollView className='roles-scroll' scrollX enableFlex>
-          {ROLES.map((role) => (
-            <View className='role-card' key={role.name}>
-              <View className='role-icon'>{renderRoleIcon(role.iconType)}</View>
-              <Text className='role-name'>{role.name}</Text>
-              <Text className='role-camp'>{role.camp}</Text>
-              <Text className='role-desc'>{role.desc}</Text>
+      {/* 角色速览 */}
+      <View className='roles'>
+        <Text className='section-label'>角色一览</Text>
+        <View className='roles-grid'>
+          {[
+            { icon: <IconWolf size={20} />, name: '狼人', color: '#c41a1a' },
+            { icon: <IconCrystalBall size={20} />, name: '预言家', color: '#8a7dff' },
+            { icon: <IconPotion size={20} />, name: '女巫', color: '#b84cff' },
+            { icon: <IconCrosshair size={20} />, name: '猎人', color: '#ff9800' },
+            { icon: <IconShield size={20} />, name: '守卫', color: '#e5c040' },
+            { icon: <IconPlayer size={20} />, name: '村民', color: '#b0a090' },
+          ].map(r => (
+            <View className='role-chip' key={r.name}>
+              <View className='role-chip-icon'>{r.icon}</View>
+              <Text className='role-chip-name'>{r.name}</Text>
             </View>
           ))}
-        </ScrollView>
-      </View>
-
-      {/* 底部装饰 */}
-      <View className='footer-deco'>
-        <Text className='footer-text'>—— 谨慎选择你的盟友 ——</Text>
+        </View>
       </View>
     </View>
   )
