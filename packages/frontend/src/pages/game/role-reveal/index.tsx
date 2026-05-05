@@ -3,6 +3,7 @@ import Taro from '@tarojs/taro'
 import { View, Text, Button, Image } from '@tarojs/components'
 import { Role } from '../../../api/game'
 import { getResourceUrl } from '../../../utils/request'
+import { bgm } from '../../../utils/bgm'
 import './index.scss'
 
 // 角色立绘通过后端静态资源网络加载，不打包进小程序
@@ -120,6 +121,9 @@ export default function RoleReveal() {
   const [countdown, setCountdown] = useState(3)
 
   useEffect(() => {
+    // 角色揭示属于游戏进行中，暂停背景音乐
+    bgm.pause()
+
     // 从路由参数获取角色
     const { router } = Taro.getCurrentInstance()
     const roleParam = router?.params?.role as Role

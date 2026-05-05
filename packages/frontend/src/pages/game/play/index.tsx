@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
-import Taro, { useRouter } from '@tarojs/taro'
+import Taro, { useRouter, useDidHide } from '@tarojs/taro'
 import { View, Text, Button, ScrollView, Input, Image } from '@tarojs/components'
 import { getGameStatus, getGameSnapshot, GamePhase, GameStatus, Role } from '../../../api/game'
 import { get, post, getResourceUrl } from '../../../utils/request'
@@ -114,12 +114,13 @@ export default function GamePlay() {
     if (roomCode) {
       connectWebSocket(String(roomCode))
     }
-    // 播放背景音乐
-    bgm.play()
+    // 进入游戏进行中页面：暂停背景音乐（由其他页面负责播放）
+    bgm.pause()
 
     return () => {
       wsManager.disconnect()
-      bgm.stop()
+      // 离开游戏页面：恢复背景音乐
+      bgm.ensurePlaying()
     }
   }, [])
 
@@ -435,8 +436,8 @@ export default function GamePlay() {
       winner: data.winner || '',
       message: data.message || '游戏已结束'
     })
-    // 游戏结束时停止背景音乐
-    bgm.stop()
+    // 游戏结束时恢复背景音乐（用户即将返回非游戏页面）
+    bgm.ensurePlaying()
   }, [])
 
   const handleDeathAnnounce = useCallback((message: any) => {

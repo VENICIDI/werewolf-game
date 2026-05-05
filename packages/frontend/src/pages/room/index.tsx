@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
-import Taro, { getCurrentInstance } from '@tarojs/taro'
+import Taro, { getCurrentInstance, useDidShow } from '@tarojs/taro'
 import { View, Text, Button, Input, ScrollView } from '@tarojs/components'
 import { getRoomDetail, createRoom, leaveRoom, setReady, addAiPlayer, removeAiPlayer } from '../../api/room'
 import { startGame } from '../../api/game'
@@ -8,6 +8,7 @@ import { checkLogin } from '../../utils/auth-guard'
 import { isLoggedIn } from '../../api/auth'
 import { wsManager, WebSocketState } from '../../utils/websocket'
 import { getResourceUrl } from '../../utils/request'
+import { bgm } from '../../utils/bgm'
 import { IconBack, IconSwords, IconPlayer, IconRobot, IconCrown, IconWolf, IconMoon, IconLock, IconChat, IconCheck, IconPlus } from '../../components/Icons'
 import './index.scss'
 
@@ -58,6 +59,11 @@ export default function Room() {
   const { router } = getCurrentInstance()
   const roomCode = router?.params?.code
   const action = router?.params?.action
+
+  // 非游戏页面：页面显示时恢复 BGM（从游戏返回时也会触发）
+  useDidShow(() => {
+    bgm.ensurePlaying()
+  })
 
   useEffect(() => {
     console.log('[Room] useEffect 触发, action:', action, 'roomCode:', roomCode, 'isLoggedIn:', isLoggedIn())

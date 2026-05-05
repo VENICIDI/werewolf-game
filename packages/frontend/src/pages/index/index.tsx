@@ -3,6 +3,7 @@ import Taro, { useDidShow } from '@tarojs/taro'
 import { View, Text, Button, Image } from '@tarojs/components'
 import { isLoggedIn, getUserInfo, clearAuth } from '../../api/auth'
 import { getResourceUrl } from '../../utils/request'
+import { bgm } from '../../utils/bgm'
 import { IconSwords, IconCrown, IconPlayer } from '../../components/Icons'
 import './index.scss'
 
@@ -22,6 +23,8 @@ export default function Index() {
       setLoggedIn(false)
       setUserInfo(null)
     }
+    // 非游戏页面恢复/保持 BGM 播放
+    bgm.ensurePlaying()
   })
 
   const goToRoomList = () => {

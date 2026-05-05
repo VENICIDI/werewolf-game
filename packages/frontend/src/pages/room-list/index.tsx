@@ -3,6 +3,7 @@ import Taro, { useDidShow } from '@tarojs/taro'
 import { View, Text, Button, Input, ScrollView } from '@tarojs/components'
 import { getRoomList, joinRoom } from '../../api/room'
 import { checkLogin } from '../../utils/auth-guard'
+import { bgm } from '../../utils/bgm'
 import { IconSwords, IconLock, IconPlayer } from '../../components/Icons'
 import './index.scss'
 
@@ -28,6 +29,8 @@ export default function RoomList() {
   // 每次页面显示时刷新房间列表（tabBar 页面缓存不会重新挂载）
   useDidShow(() => {
     fetchRooms()
+    // 非游戏页面恢复/保持 BGM 播放
+    bgm.ensurePlaying()
   })
 
   const fetchRooms = async () => {

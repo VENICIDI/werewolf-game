@@ -1,21 +1,27 @@
 import { useEffect, useState } from 'react'
-import Taro from '@tarojs/taro'
+import Taro, { useDidShow } from '@tarojs/taro'
 import { View, Text, Button } from '@tarojs/components'
 import { isLoggedIn, getUserInfo, clearAuth } from '../../api/auth'
+import { bgm } from '../../utils/bgm'
 import './index.scss'
 
 export default function Profile() {
   const [loggedIn, setLoggedIn] = useState(false)
   const [userInfo, setUserInfo] = useState<any>(null)
 
-  useEffect(() => {
+  // tabBar 页面用 useDidShow 确保每次切回来都刷新状态并保持 BGM
+  useDidShow(() => {
     checkLoginStatus()
-  }, [])
+    bgm.ensurePlaying()
+  })
 
   const checkLoginStatus = () => {
     if (isLoggedIn()) {
       setLoggedIn(true)
       setUserInfo(getUserInfo())
+    } else {
+      setLoggedIn(false)
+      setUserInfo(null)
     }
   }
 

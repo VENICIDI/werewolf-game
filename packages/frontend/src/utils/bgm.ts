@@ -56,7 +56,18 @@ class BgmManager {
     this.audioCtx!.play()
   }
 
-  /** 暂停 BGM */
+  /**
+   * 确保 BGM 正在播放（幂等）。
+   * 若尚未初始化则初始化，若暂停中则恢复，若已在播则不动。
+   * 供"非游戏页面"的 useDidShow 调用。
+   */
+  ensurePlaying() {
+    this.init()
+    if (this.playing) return
+    this.audioCtx!.play()
+  }
+
+  /** 暂停 BGM（保留上下文，可用 play() 恢复）。供"游戏页面"离开其他页进入时调用。 */
   pause() {
     if (!this.audioCtx || !this.playing) return
     this.audioCtx.pause()

@@ -1,7 +1,8 @@
 import { useState } from 'react'
-import Taro from '@tarojs/taro'
+import Taro, { useDidShow } from '@tarojs/taro'
 import { View, Text, Input, Button } from '@tarojs/components'
 import { register, saveAuth } from '../../api/auth'
+import { bgm } from '../../utils/bgm'
 import './index.scss'
 
 export default function Register() {
@@ -10,6 +11,11 @@ export default function Register() {
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [loading, setLoading] = useState(false)
+
+  // 非游戏页面：保持 BGM 播放
+  useDidShow(() => {
+    bgm.ensurePlaying()
+  })
 
   const validateForm = () => {
     if (!username.trim()) {
