@@ -1,4 +1,4 @@
-// 游戏对战页 - 沉浸式血夜桌游风
+// 游戏对战页 - 简化背景
 .game-play-container {
   min-height: 100vh;
   padding: 0;
@@ -8,53 +8,12 @@
   overflow-x: hidden;
 
   &.night {
-    background: linear-gradient(180deg, #060404 0%, #0a0606 30%, #120808 60%, #0a0604 100%);
-
-    &::before {
-      content: '';
-      position: fixed;
-      top: 0; left: 0; right: 0; bottom: 0;
-      background:
-        radial-gradient(ellipse at 75% 5%, rgba(106, 0, 0, 0.18) 0%, transparent 50%),
-        radial-gradient(ellipse at 20% 15%, rgba(40, 20, 80, 0.08) 0%, transparent 40%),
-        radial-gradient(circle at 50% 50%, rgba(0, 0, 0, 0) 40%, rgba(0, 0, 0, 0.4) 100%);
-      pointer-events: none;
-      z-index: -1;
-    }
-
-    // 夜晚月光
-    &::after {
-      content: '';
-      position: fixed;
-      top: -40px; right: -20px;
-      width: 120px; height: 120px;
-      background: radial-gradient(circle, rgba(200, 200, 220, 0.08) 0%, transparent 70%);
-      border-radius: 50%;
-      pointer-events: none;
-      z-index: -1;
-      animation: moonGlow 6s ease-in-out infinite;
-    }
+    background: linear-gradient(180deg, #060404 0%, #0a0606 50%, #0a0604 100%);
   }
 
   &.day {
-    background: linear-gradient(180deg, #16120e 0%, #1a1510 30%, #12100c 100%);
-
-    &::before {
-      content: '';
-      position: fixed;
-      top: 0; left: 0; right: 0; bottom: 0;
-      background:
-        radial-gradient(ellipse at 40% 8%, rgba(212, 175, 55, 0.06) 0%, transparent 50%),
-        radial-gradient(ellipse at 60% 20%, rgba(255, 200, 80, 0.04) 0%, transparent 40%);
-      pointer-events: none;
-      z-index: -1;
-    }
+    background: linear-gradient(180deg, #16120e 0%, #1a1510 50%, #12100c 100%);
   }
-}
-
-@keyframes moonGlow {
-  0%, 100% { opacity: 0.6; transform: scale(1); }
-  50% { opacity: 1; transform: scale(1.05); }
 }
 
 .loading {
