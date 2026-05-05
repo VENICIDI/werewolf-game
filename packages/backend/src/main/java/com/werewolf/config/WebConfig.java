@@ -29,9 +29,11 @@ public class WebConfig implements WebMvcConfigurer {
                 .addResourceLocations("classpath:/static/avatars/");
         registry.addResourceHandler("/images/**")
                 .addResourceLocations("classpath:/static/images/");
-        // 用户上传的头像，写入项目根的 uploads/avatars/ 目录
+        // 用户上传的头像，写入工作目录下 uploads/avatars/（用绝对路径更稳）
+        String uploadAbsPath = java.nio.file.Paths.get("uploads/avatars").toAbsolutePath().normalize().toString();
+        if (!uploadAbsPath.endsWith("/")) uploadAbsPath += "/";
         registry.addResourceHandler("/uploads/avatars/**")
-                .addResourceLocations("file:./uploads/avatars/");
+                .addResourceLocations("file:" + uploadAbsPath);
     }
     
     /**

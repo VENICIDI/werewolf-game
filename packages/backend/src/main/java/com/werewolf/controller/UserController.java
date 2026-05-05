@@ -47,10 +47,11 @@ public class UserController {
                         .body(ApiResponse.badRequest("文件为空"));
             }
             
-            // 确保目录存在
-            Path uploadPath = Paths.get(UPLOAD_DIR);
+            // 确保目录存在（用绝对路径，避免 transferTo 解析到 Tomcat 临时目录）
+            Path uploadPath = Paths.get(UPLOAD_DIR).toAbsolutePath().normalize();
             if (!Files.exists(uploadPath)) {
                 Files.createDirectories(uploadPath);
+                log.info("创建上传目录: {}", uploadPath);
             }
             
             // 构建文件名：userId_uuid.ext
@@ -63,9 +64,11 @@ public class UserController {
             String filename = userId + "_" + UUID.randomUUID().toString().substring(0, 8) + ext;
             Path filePath = uploadPath.resolve(filename);
             
-            // 写入文件
-            file.transferTo(filePath.toFile());
-            log.info("用户 {} 上传头像: {}", userId, filename);
+            // 用 Files.copy 写入，避免 transferTo 的相对路径陷阱
+            try (java.io.InputStream in = file.getInputStream()) {
+                Files.copy(in, filePath, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+            }
+            log.info("用户 {} 上传头像: {} -> {}", userId, filename, filePath);
             
             String url = "/uploads/avatars/" + filename;
             Map<String, String> result = new HashMap<>();
