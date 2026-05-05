@@ -4,6 +4,7 @@ import { View, Text, Button, ScrollView, Input } from '@tarojs/components'
 import { getGameStatus, getGameSnapshot, GamePhase, GameStatus, Role } from '../../../api/game'
 import { get, post } from '../../../utils/request'
 import { wsManager } from '../../../utils/websocket'
+import { IconWolf, IconPlayer, IconRobot, IconSkull, IconMoon, IconSun, IconCrystalBall, IconPotion, IconShield, IconCrosshair, IconChat, IconVote, IconScale, IconTimer, IconLock } from '../../../components/Icons'
 import './index.scss'
 
 interface PlayerInfo {
@@ -642,25 +643,42 @@ export default function GamePlay() {
   const getPhaseDisplay = () => {
     switch (game?.phase) {
       case 'NIGHT_START':
-        return { title: '天黑了', subtitle: '所有人请闭眼', icon: '🌙', bg: 'night' }
+        return { title: '天黑了', subtitle: '所有人请闭眼', iconType: 'moon', bg: 'night' }
       case 'GUARD':
-        return { title: '守卫行动', subtitle: '请选择要守护的目标', icon: '🛡️', bg: 'night' }
+        return { title: '守卫行动', subtitle: '请选择要守护的目标', iconType: 'shield', bg: 'night' }
       case 'WEREWOLF':
-        return { title: '狼人行动', subtitle: '请选择要击杀的目标', icon: '🐺', bg: 'night' }
+        return { title: '狼人行动', subtitle: '请选择要击杀的目标', iconType: 'wolf', bg: 'night' }
       case 'SEER':
-        return { title: '预言家行动', subtitle: '请选择要查验的目标', icon: '🔮', bg: 'night' }
+        return { title: '预言家行动', subtitle: '请选择要查验的目标', iconType: 'crystal', bg: 'night' }
       case 'WITCH':
-        return { title: '女巫行动', subtitle: '是否使用解药/毒药', icon: '🧙', bg: 'night' }
+        return { title: '女巫行动', subtitle: '是否使用解药/毒药', iconType: 'potion', bg: 'night' }
       case 'DAY_START':
-        return { title: '天亮了', subtitle: `第 ${game?.round} 天`, icon: '☀️', bg: 'day' }
+        return { title: '天亮了', subtitle: `第 ${game?.round} 天`, iconType: 'sun', bg: 'day' }
       case 'DISCUSSION':
-        return { title: '讨论阶段', subtitle: '请发表你的看法', icon: '💬', bg: 'day' }
+        return { title: '讨论阶段', subtitle: '请发表你的看法', iconType: 'chat', bg: 'day' }
       case 'VOTING':
-        return { title: '投票阶段', subtitle: '请选择要放逐的玩家', icon: '🗳️', bg: 'day' }
+        return { title: '投票阶段', subtitle: '请选择要放逐的玩家', iconType: 'vote', bg: 'day' }
       case 'EXECUTION':
-        return { title: '处决阶段', subtitle: '公布投票结果', icon: '⚖️', bg: 'day' }
+        return { title: '处决阶段', subtitle: '公布投票结果', iconType: 'scale', bg: 'day' }
       default:
-        return { title: '游戏进行中', subtitle: game?.phase || '', icon: '🐺', bg: 'night' }
+        return { title: '游戏进行中', subtitle: game?.phase || '', iconType: 'wolf', bg: 'night' }
+    }
+  }
+
+  // 根据 iconType 渲染对应的 SVG 图标
+  const renderPhaseIcon = (iconType: string, size = 32) => {
+    switch (iconType) {
+      case 'moon': return <IconMoon size={size} />
+      case 'sun': return <IconSun size={size} />
+      case 'wolf': return <IconWolf size={size} />
+      case 'crystal': return <IconCrystalBall size={size} />
+      case 'potion': return <IconPotion size={size} />
+      case 'shield': return <IconShield size={size} />
+      case 'crosshair': return <IconCrosshair size={size} />
+      case 'chat': return <IconChat size={size} />
+      case 'vote': return <IconVote size={size} />
+      case 'scale': return <IconScale size={size} />
+      default: return <IconWolf size={size} />
     }
   }
 
@@ -1050,9 +1068,8 @@ export default function GamePlay() {
           <Text className='phase-text'>{phaseDisplay.title}</Text>
         </View>
         <View className='timer'>
-          <Text className='timer-icon'>⏱️</Text>
-          {/* ✨ 讨论阶段:优先显示当前发言人的剩余发言时间(每人 60s);
-              其他阶段显示阶段总倒计时 */}
+          <IconTimer size={14} />
+          {/* 讨论阶段:优先显示当前发言人的剩余发言时间 */}
           {game?.phase === 'DISCUSSION' && speakEndsAt > 0 ? (
             <Text className='timer-text'>{speakTimeLeft}s</Text>
           ) : (
@@ -1060,7 +1077,7 @@ export default function GamePlay() {
           )}
         </View>
         <View className='role-btn' onClick={() => setShowRoleModal(true)}>
-          <Text className='role-icon'>👤</Text>
+          <IconPlayer size={18} color="#e5c040" />
         </View>
       </View>
 
@@ -1068,7 +1085,7 @@ export default function GamePlay() {
       {(game?.phase === 'VOTING' || game?.phase === 'EXECUTION') && voteProgress.total > 0 && (
         <View className='vote-progress-bar'>
           <View className='vote-progress-header'>
-            <Text className='vote-progress-label'>🗳️ 投票进度</Text>
+            <Text className='vote-progress-label'>投票进度</Text>
             <Text className='vote-progress-count'>{voteProgress.voted} / {voteProgress.total}</Text>
           </View>
           <View className='vote-progress-track'>
@@ -1082,7 +1099,7 @@ export default function GamePlay() {
         {/* 圆桌桌面 */}
         <View className='table-surface'>
           <View className='table-center'>
-            <Text className='table-phase-icon'>{phaseDisplay.icon}</Text>
+            {renderPhaseIcon(phaseDisplay.iconType, 36)}
             {game?.myRole === 'WEREWOLF' && game?.teammates && game.teammates.length > 0 && (
               <Text className='table-wolf-hint'>
                 队友: {game.teammates.map(tid => {
@@ -1132,11 +1149,9 @@ export default function GamePlay() {
                 }}
               >
                 <View className='seat-avatar'>
-                  <Text className='avatar-icon'>
-                    {player.status === 'DEAD' ? '💀'
-                      : (isTeammate || (isMe && game?.myRole === 'WEREWOLF')) ? '🐺'
-                      : player.isAi ? '🤖' : '👤'}
-                  </Text>
+                  {player.status === 'DEAD' ? <IconSkull size={20} />
+                    : (isTeammate || (isMe && game?.myRole === 'WEREWOLF')) ? <IconWolf size={20} />
+                    : player.isAi ? <IconRobot size={20} /> : <IconPlayer size={20} />}
                   {/* 投票得票气泡 */}
                   {showVoteUI && receivedVotes > 0 && (
                     <View className='vote-bubble'>
@@ -1288,7 +1303,7 @@ export default function GamePlay() {
               border: '2px solid rgba(76,175,80,0.55)',
               textAlign: 'center',
             }}>
-              <Text style={{ fontSize: '24px', display: 'block', marginBottom: '4px' }}>🔒</Text>
+              <Text style={{ fontSize: '24px', display: 'block', marginBottom: '4px' }}><IconLock size={24} /></Text>
               <Text style={{ color: '#a5d6a7', fontSize: '12px', display: 'block', marginBottom: '4px' }}>
                 — 本阶段行动已锁定 —
               </Text>
