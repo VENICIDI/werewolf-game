@@ -31,6 +31,12 @@ spring:
         max-active: 8
         max-idle: 8
         min-idle: 0
+  
+  # 文件上传（头像）
+  servlet:
+    multipart:
+      max-file-size: 5MB
+      max-request-size: 5MB
 
 # JWT配置
 jwt:

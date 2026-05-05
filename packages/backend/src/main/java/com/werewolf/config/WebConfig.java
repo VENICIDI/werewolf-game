@@ -29,6 +29,9 @@ public class WebConfig implements WebMvcConfigurer {
                 .addResourceLocations("classpath:/static/avatars/");
         registry.addResourceHandler("/images/**")
                 .addResourceLocations("classpath:/static/images/");
+        // 用户上传的头像，写入项目根的 uploads/avatars/ 目录
+        registry.addResourceHandler("/uploads/avatars/**")
+                .addResourceLocations("file:./uploads/avatars/");
     }
     
     /**

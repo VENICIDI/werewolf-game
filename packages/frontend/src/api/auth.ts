@@ -7,8 +7,14 @@ export const login = (username: string, password: string) => {
 }
 
 // 微信登录（小程序一键登录）
-export const wxLogin = (code: string, nickName?: string, avatarUrl?: string) => {
-  return post('/auth/wx-login', { code, nickName, avatarUrl })
+// phoneCode 可选：传了就走手机号登录流程
+export const wxLogin = (
+  code: string,
+  phoneCode?: string,
+  nickName?: string,
+  avatarUrl?: string
+) => {
+  return post('/auth/wx-login', { code, phoneCode, nickName, avatarUrl })
 }
 
 // 注册
@@ -27,8 +33,10 @@ export const saveAuth = (data: any) => {
   Taro.setStorageSync('userInfo', {
     id: data.id,
     username: data.username,
+    nickname: data.nickname,
     email: data.email,
     avatarUrl: data.avatarUrl,
+    phone: data.phone,
     rating: data.rating
   })
 }

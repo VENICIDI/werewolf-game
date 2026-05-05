@@ -5,11 +5,15 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * 微信服务类
@@ -32,6 +36,18 @@ public class WechatService {
     // 微信登录凭证校验接口
     private static final String WX_AUTH_URL = 
             "https://api.weixin.qq.com/sns/jscode2session";
+    
+    // 获取 access_token 接口
+    private static final String WX_ACCESS_TOKEN_URL =
+            "https://api.weixin.qq.com/cgi-bin/token";
+    
+    // 通过 phoneCode 拿手机号接口（新版）
+    private static final String WX_PHONE_URL =
+            "https://api.weixin.qq.com/wxa/business/getuserphonenumber";
+    
+    // 简单内存缓存 access_token（有效期 7200 秒，提前 300 秒刷新）
+    private final AtomicReference<String> cachedAccessToken = new AtomicReference<>();
+    private volatile long accessTokenExpireAt = 0L;
     
     /**
      * 通过 code 获取微信用户的 openid 和 session_key
@@ -57,7 +73,7 @@ public class WechatService {
             JsonNode jsonNode = objectMapper.readTree(response);
             
             // 检查错误
-            if (jsonNode.has("errcode")) {
+            if (jsonNode.has("errcode") && jsonNode.get("errcode").asInt() != 0) {
                 int errCode = jsonNode.get("errcode").asInt();
                 String errMsg = jsonNode.get("errmsg").asText();
                 log.error("微信登录失败: code={}, msg={}", errCode, errMsg);
@@ -79,6 +95,94 @@ public class WechatService {
             log.error("获取微信 session 失败", e);
             throw new RuntimeException("微信登录失败: " + e.getMessage());
         }
+    }
+    
+    /**
+     * 获取小程序 access_token（带内存缓存）
+     */
+    private String getAccessToken() {
+        long now = System.currentTimeMillis() / 1000;
+        String token = cachedAccessToken.get();
+        if (token != null && now < accessTokenExpireAt) {
+            return token;
+        }
+        
+        try {
+            String url = String.format(
+                    "%s?grant_type=client_credential&appid=%s&secret=%s",
+                    WX_ACCESS_TOKEN_URL, appId, secret
+            );
+            log.debug("请求 access_token: {}", url.replace(secret, "***"));
+            String response = restTemplate.getForObject(url, String.class);
+            log.debug("access_token 响应: {}", response != null ? response.replaceAll("\"access_token\":\"[^\"]+\"", "\"access_token\":\"***\"") : "null");
+            
+            JsonNode json = objectMapper.readTree(response);
+            if (json.has("errcode") && json.get("errcode").asInt() != 0) {
+                throw new RuntimeException("获取 access_token 失败: " + json.get("errmsg").asText());
+            }
+            
+            String newToken = json.get("access_token").asText();
+            int expiresIn = json.has("expires_in") ? json.get("expires_in").asInt() : 7200;
+            cachedAccessToken.set(newToken);
+            // 提前 300 秒过期
+            accessTokenExpireAt = now + expiresIn - 300;
+            return newToken;
+        } catch (Exception e) {
+            log.error("获取 access_token 失败", e);
+            throw new RuntimeException("获取 access_token 失败: " + e.getMessage());
+        }
+    }
+    
+    /**
+     * 通过 phoneCode 获取用户手机号
+     * 小程序 <button open-type="getPhoneNumber"> 回调里拿到的 code
+     * 
+     * @param phoneCode 手机号授权 code
+     * @return purePhoneNumber（纯手机号，无区号），失败返回 null
+     */
+    public String getPhoneNumber(String phoneCode) {
+        try {
+            String accessToken = getAccessToken();
+            String url = WX_PHONE_URL + "?access_token=" + accessToken;
+            
+            Map<String, String> body = new HashMap<>();
+            body.put("code", phoneCode);
+            
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
+            HttpEntity<Map<String, String>> entity = new HttpEntity<>(body, headers);
+            
+            log.debug("请求获取手机号接口, phoneCode: {}", phoneCode);
+            String response = restTemplate.postForObject(url, entity, String.class);
+            log.debug("获取手机号响应: {}", response);
+            
+            JsonNode json = objectMapper.readTree(response);
+            if (json.has("errcode") && json.get("errcode").asInt() != 0) {
+                String errMsg = json.has("errmsg") ? json.get("errmsg").asText() : "未知错误";
+                log.error("获取手机号失败: errcode={}, errmsg={}", json.get("errcode").asInt(), errMsg);
+                throw new RuntimeException("获取手机号失败: " + errMsg);
+            }
+            
+            JsonNode phoneInfo = json.get("phone_info");
+            if (phoneInfo == null) {
+                throw new RuntimeException("微信返回的 phone_info 为空");
+            }
+            
+            String purePhoneNumber = phoneInfo.has("purePhoneNumber") 
+                    ? phoneInfo.get("purePhoneNumber").asText() 
+                    : phoneInfo.get("phoneNumber").asText();
+            log.info("成功获取手机号: {}", maskPhone(purePhoneNumber));
+            return purePhoneNumber;
+            
+        } catch (Exception e) {
+            log.error("获取手机号失败", e);
+            throw new RuntimeException("获取手机号失败: " + e.getMessage());
+        }
+    }
+    
+    private String maskPhone(String phone) {
+        if (phone == null || phone.length() < 11) return "***";
+        return phone.substring(0, 3) + "****" + phone.substring(7);
     }
     
     /**

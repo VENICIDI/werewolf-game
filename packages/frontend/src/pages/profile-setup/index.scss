@@ -1,0 +1,149 @@
+.setup-container {
+  min-height: 100vh;
+  background: #080604;
+  padding: 60rpx 48rpx;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.setup-header {
+  margin-top: 40rpx;
+  margin-bottom: 80rpx;
+  text-align: center;
+}
+
+.setup-title {
+  display: block;
+  font-size: 48rpx;
+  color: #f4ecd8;
+  font-weight: 700;
+  margin-bottom: 16rpx;
+}
+
+.setup-subtitle {
+  display: block;
+  font-size: 26rpx;
+  color: #8a7a68;
+}
+
+.avatar-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 60rpx;
+}
+
+.avatar-chooser {
+  width: 200rpx;
+  height: 200rpx;
+  padding: 0;
+  margin: 0;
+  border-radius: 50%;
+  overflow: hidden;
+  background: #1a1410;
+  border: 4rpx dashed #4a3e30;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  line-height: normal;
+
+  &::after {
+    border: none;
+  }
+}
+
+.avatar-img {
+  width: 200rpx;
+  height: 200rpx;
+  border-radius: 50%;
+  display: block;
+}
+
+.avatar-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+}
+
+.avatar-placeholder-icon {
+  font-size: 60rpx;
+  color: #c41a1a;
+  line-height: 1;
+  margin-bottom: 8rpx;
+}
+
+.avatar-placeholder-text {
+  font-size: 24rpx;
+  color: #8a7a68;
+}
+
+.avatar-hint {
+  margin-top: 20rpx;
+  font-size: 24rpx;
+  color: #6a5d4d;
+}
+
+.nickname-section {
+  width: 100%;
+  margin-bottom: 80rpx;
+}
+
+.nickname-label {
+  display: block;
+  font-size: 28rpx;
+  color: #c4b59a;
+  margin-bottom: 16rpx;
+}
+
+.nickname-input {
+  width: 100%;
+  height: 96rpx;
+  background: #1a1410;
+  border: 2rpx solid #3a2f26;
+  border-radius: 12rpx;
+  padding: 0 28rpx;
+  font-size: 32rpx;
+  color: #f4ecd8;
+  box-sizing: border-box;
+}
+
+.save-btn {
+  width: 100%;
+  height: 96rpx;
+  line-height: 96rpx;
+  background: linear-gradient(135deg, #c41a1a, #8b1414);
+  color: #f4ecd8;
+  font-size: 32rpx;
+  font-weight: 700;
+  border-radius: 12rpx;
+  margin-bottom: 24rpx;
+  border: none;
+
+  &::after {
+    border: none;
+  }
+
+  &.loading {
+    opacity: 0.6;
+  }
+}
+
+.skip-btn {
+  width: 100%;
+  height: 88rpx;
+  line-height: 88rpx;
+  background: transparent;
+  color: #8a7a68;
+  font-size: 28rpx;
+  border: 2rpx solid #3a2f26;
+  border-radius: 12rpx;
+
+  &::after {
+    border: none;
+  }
+}

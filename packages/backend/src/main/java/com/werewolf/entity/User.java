@@ -28,8 +28,16 @@ public class User {
     @Column(unique = true, length = 100)
     private String email;
     
-    @Column(name = "avatar_url")
+    @Column(name = "avatar_url", length = 512)
     private String avatarUrl;
+    
+    // 手机号（微信一键登录获取）
+    @Column(name = "phone", length = 20)
+    private String phone;
+    
+    // 昵称（用户自定义，可与 username 不同）
+    @Column(name = "nickname", length = 100)
+    private String nickname;
     
     @Column(name = "total_games")
     private Integer totalGames = 0;

@@ -59,6 +59,7 @@ public class SecurityConfig {
                 .requestMatchers("/avatars/**").permitAll()
                 .requestMatchers("/images/**").permitAll()
                 .requestMatchers("/audio/**").permitAll()
+                .requestMatchers("/uploads/**").permitAll()
                 
                 // 房间列表允许未登录查看（登录后才能创建/加入）
                 .requestMatchers(HttpMethod.GET, "/api/rooms").permitAll()

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import Taro, { useDidShow } from '@tarojs/taro'
-import { View, Text, Input, Button, Form } from '@tarojs/components'
+import { View, Text, Input, Button } from '@tarojs/components'
 import { login, wxLogin, saveAuth } from '../../api/auth'
 import { bgm } from '../../utils/bgm'
 import './index.scss'
@@ -34,10 +34,8 @@ export default function Login() {
     setLoading(true)
     try {
       const res: any = await login(username, password)
-      // 保存登录信息
       saveAuth(res)
       Taro.showToast({ title: '登录成功', icon: 'success' })
-      // 返回首页
       setTimeout(() => {
         Taro.switchTab({ url: '/pages/index/index' })
       }, 1000)
@@ -48,48 +46,62 @@ export default function Login() {
     }
   }
 
-  // 微信一键登录
-  const handleWxLogin = async () => {
+  /**
+   * 微信手机号一键登录
+   * 参考流程图：
+   *  1. getPhoneNumber 拿 phoneCode
+   *  2. wx.login 拿 loginCode
+   *  3. 两个 code 一起发后端 /auth/wx-login
+   *  4. 后端用 phoneCode 调微信拿手机号
+   *  5. 后端用 loginCode 调微信拿 openid
+   *  6. 登录&绑定
+   */
+  const handleGetPhoneNumber = async (e: any) => {
     if (wxLoading) return
+    const detail = e?.detail || {}
+    // 用户拒绝授权
+    if (detail.errMsg && detail.errMsg.indexOf('fail') !== -1) {
+      if (detail.errMsg.indexOf('cancel') !== -1 || detail.errMsg.indexOf('deny') !== -1) {
+        Taro.showToast({ title: '已取消授权', icon: 'none' })
+      } else {
+        Taro.showToast({ title: '授权失败，请重试', icon: 'none' })
+      }
+      return
+    }
+    const phoneCode = detail.code
+    if (!phoneCode) {
+      Taro.showToast({ title: '未获得手机号授权', icon: 'none' })
+      return
+    }
+
     setWxLoading(true)
     try {
-      // 1. 调用 Taro.login 获取临时 code
+      // 1. 拿 loginCode
       const loginRes = await Taro.login()
       if (!loginRes.code) {
         throw new Error('获取微信登录凭证失败')
       }
 
-      // 2. 尝试获取用户昵称和头像（可选，失败不阻断登录）
-      let nickName: string | undefined
-      let avatarUrl: string | undefined
-      try {
-        const profileRes = await Taro.getUserProfile({
-          desc: '用于完善会员资料'
-        })
-        nickName = profileRes.userInfo?.nickName
-        avatarUrl = profileRes.userInfo?.avatarUrl
-      } catch (e) {
-        // 用户拒绝授权或 API 不可用，继续用 code 登录
-        console.log('未获取用户资料，继续匿名登录', e)
-      }
+      // 2. 发后端（loginCode + phoneCode）
+      const res: any = await wxLogin(loginRes.code, phoneCode)
 
-      // 3. 调用后端接口
-      const res: any = await wxLogin(loginRes.code, nickName, avatarUrl)
-
-      // 4. 保存登录信息
+      // 3. 保存登录态
       saveAuth(res)
       Taro.showToast({
         title: res.isNewUser ? '欢迎新用户' : '登录成功',
         icon: 'success'
       })
+
+      // 4. 根据是否需要完善资料决定跳转
       setTimeout(() => {
-        Taro.switchTab({ url: '/pages/index/index' })
-      }, 1000)
+        if (res.needProfileSetup) {
+          Taro.redirectTo({ url: '/pages/profile-setup/index' })
+        } else {
+          Taro.switchTab({ url: '/pages/index/index' })
+        }
+      }, 800)
     } catch (error: any) {
-      Taro.showToast({
-        title: error.message || '微信登录失败',
-        icon: 'none'
-      })
+      Taro.showToast({ title: error.message || '微信登录失败', icon: 'none' })
     } finally {
       setWxLoading(false)
     }
@@ -112,7 +124,6 @@ export default function Login() {
 
       {/* Logo */}
       <View className='logo-section'>
-        
         <Text className='logo-title'>狼人杀</Text>
         <Text className='logo-subtitle'>AI 对战平台</Text>
       </View>
@@ -154,13 +165,14 @@ export default function Login() {
           <Text className='divider-text'>或</Text>
         </View>
 
-        {/* 微信一键登录 */}
+        {/* 微信手机号一键登录 —— 必须用 open-type，原生组件触发授权 */}
         <Button
           className={`wx-login-btn ${wxLoading ? 'loading' : ''}`}
-          onClick={handleWxLogin}
+          openType='getPhoneNumber'
+          onGetPhoneNumber={handleGetPhoneNumber}
           disabled={wxLoading}
         >
-          {wxLoading ? '登录中...' : '微信一键登录'}
+          {wxLoading ? '登录中...' : '微信手机号一键登录'}
         </Button>
       </View>
 

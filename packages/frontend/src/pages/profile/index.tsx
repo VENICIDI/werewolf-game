@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import Taro, { useDidShow } from '@tarojs/taro'
-import { View, Text, Button } from '@tarojs/components'
+import { View, Text, Button, Image } from '@tarojs/components'
 import { isLoggedIn, getUserInfo, clearAuth } from '../../api/auth'
+import { getResourceUrl } from '../../utils/request'
 import { bgm } from '../../utils/bgm'
 import './index.scss'
 
@@ -9,7 +10,6 @@ export default function Profile() {
   const [loggedIn, setLoggedIn] = useState(false)
   const [userInfo, setUserInfo] = useState<any>(null)
 
-  // tabBar 页面用 useDidShow 确保每次切回来都刷新状态并保持 BGM
   useDidShow(() => {
     checkLoginStatus()
     bgm.ensurePlaying()
@@ -44,6 +44,16 @@ export default function Profile() {
     Taro.navigateTo({ url: '/pages/login/index' })
   }
 
+  const goToEditProfile = () => {
+    Taro.navigateTo({ url: '/pages/profile-setup/index' })
+  }
+
+  // 手机号打码显示
+  const maskedPhone = (p?: string) => {
+    if (!p || p.length < 11) return ''
+    return p.substring(0, 3) + '****' + p.substring(7)
+  }
+
   if (!loggedIn) {
     return (
       <View className='profile-container'>
@@ -56,15 +66,30 @@ export default function Profile() {
     )
   }
 
+  const avatarSrc = userInfo?.avatarUrl ? getResourceUrl(userInfo.avatarUrl) : ''
+  const displayName = userInfo?.nickname || userInfo?.username || '未知用户'
+  const initial = (displayName[0] || '?').toUpperCase()
+
   return (
     <View className='profile-container'>
       {/* 用户头像区域 */}
       <View className='profile-header'>
         <View className='avatar'>
-          <Text className='avatar-text'>{userInfo?.username?.[0]?.toUpperCase() || '?'}</Text>
+          {avatarSrc ? (
+            <Image className='avatar-img' src={avatarSrc} mode='aspectFill' />
+          ) : (
+            <Text className='avatar-text'>{initial}</Text>
+          )}
         </View>
-        <Text className='username'>{userInfo?.username || '未知用户'}</Text>
-        <Text className='email'>{userInfo?.email || ''}</Text>
+        <Text className='username'>{displayName}</Text>
+        {userInfo?.phone ? (
+          <Text className='email'>{maskedPhone(userInfo.phone)}</Text>
+        ) : (
+          <Text className='email'>{userInfo?.email || ''}</Text>
+        )}
+        <View className='edit-profile' onClick={goToEditProfile}>
+          <Text className='edit-profile-text'>编辑资料</Text>
+        </View>
       </View>
 
       {/* 统计信息 */}

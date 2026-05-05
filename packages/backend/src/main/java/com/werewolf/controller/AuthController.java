@@ -121,12 +121,12 @@ public class AuthController {
     
     /**
      * 微信登录
-     * 微信小程序一键登录
+     * 微信小程序一键登录（可选带手机号授权）
      */
     @PostMapping("/wx-login")
     public ResponseEntity<ApiResponse<?>> wxLogin(@Valid @RequestBody WxLoginRequest request) {
         try {
-            log.info("收到微信登录请求");
+            log.info("收到微信登录请求, hasPhoneCode: {}", request.getPhoneCode() != null && !request.getPhoneCode().isEmpty());
             
             // 检查微信配置
             if (!wechatService.isConfigured()) {
@@ -135,34 +135,51 @@ public class AuthController {
                         .body(ApiResponse.badRequest("微信登录功能未配置"));
             }
             
-            // 调用微信接口获取 openid
+            // 调用微信接口获取 openid（loginCode）
             Map<String, String> wxSession = wechatService.getWxSession(request.getCode());
             String openid = wxSession.get("openid");
             String unionid = wxSession.get("unionid");
-            
             log.debug("微信登录成功, openid: {}", openid);
             
-            // 查找或创建用户
+            // 如果传了 phoneCode，调微信拿手机号（任何失败都不阻断登录）
+            String phone = null;
+            if (request.getPhoneCode() != null && !request.getPhoneCode().isEmpty()) {
+                try {
+                    phone = wechatService.getPhoneNumber(request.getPhoneCode());
+                } catch (Exception ex) {
+                    log.warn("获取手机号失败（降级为无手机号登录）: {}", ex.getMessage());
+                }
+            }
+            
+            // 查找或创建用户（带 phone）
             boolean isNewUser = !userService.existsByWxOpenid(openid);
             User user = userService.findOrCreateByOpenid(
                     openid, 
                     unionid, 
                     request.getNickName(), 
-                    request.getAvatarUrl()
+                    request.getAvatarUrl(),
+                    phone
             );
             
             // 生成 Token
             String token = jwtUtil.generateToken(user.getId(), user.getUsername());
             
+            // 判断是否需要完善资料：昵称或头像缺失
+            boolean needProfileSetup = (user.getNickname() == null || user.getNickname().isEmpty())
+                    || (user.getAvatarUrl() == null || user.getAvatarUrl().isEmpty());
+            
             // 构建响应
             WxLoginResponse response = new WxLoginResponse(
                     user.getId(),
                     user.getUsername(),
+                    user.getNickname(),
                     user.getEmail(),
                     user.getAvatarUrl(),
+                    user.getPhone(),
                     user.getRating(),
                     token,
                     isNewUser,
+                    needProfileSetup,
                     "WECHAT"
             );
             
