@@ -98,7 +98,7 @@ export default function Index() {
       {loggedIn && userInfo ? (
         <View className='player-card'>
           <View className='player-avatar'>
-            <Text className='avatar-emoji'><IconPlayer size={28} color="#e5c040" /></Text>
+            <View className='avatar-emoji'><IconPlayer size={28} color="#e5c040" /></View>
           </View>
           <View className='player-info'>
             <Text className='player-name'>{userInfo.username}</Text>
@@ -127,7 +127,7 @@ export default function Index() {
       ) : (
         <View className='invite-card' onClick={goToLogin}>
           <View className='invite-content'>
-            <Text className='invite-icon'><IconMoon size={24} /></Text>
+            <View className='invite-icon'><IconMoon size={24} /></View>
             <View className='invite-text'>
               <Text className='invite-title'>月夜将至，猎人尚未现身</Text>
               <Text className='invite-desc'>点击此处，揭示你的身份</Text>
@@ -140,14 +140,14 @@ export default function Index() {
       {/* 核心操作 */}
       <View className='action-area'>
         <Button className='action-btn primary' onClick={goToRoomList}>
-          <Text className='action-btn-icon'><IconSwords size={24} /></Text>
+          <View className='action-btn-icon'><IconSwords size={24} /></View>
           <View className='action-btn-text'>
             <Text className='action-btn-title'>快速加入</Text>
             <Text className='action-btn-desc'>寻找正在等待的猎场</Text>
           </View>
         </Button>
         <Button className='action-btn secondary' onClick={createRoom}>
-          <Text className='action-btn-icon'><IconCrown size={24} /></Text>
+          <View className='action-btn-icon'><IconCrown size={24} /></View>
           <View className='action-btn-text'>
             <Text className='action-btn-title'>创建房间</Text>
             <Text className='action-btn-desc'>召集猎人开始狩猎</Text>
