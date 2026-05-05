@@ -7,6 +7,7 @@ import { getUserInfo } from '../../api/auth'
 import { checkLogin } from '../../utils/auth-guard'
 import { isLoggedIn } from '../../api/auth'
 import { wsManager, WebSocketState } from '../../utils/websocket'
+import { IconBack, IconSwords, IconPlayer, IconRobot, IconCrown, IconWolf, IconMoon, IconLock, IconChat, IconCheck, IconPlus } from '../../components/Icons'
 import './index.scss'
 
 interface Player {
@@ -343,7 +344,7 @@ export default function Room() {
       <View className='room-container'>
         <View className='nav-header'>
           <View className='back-btn' onClick={() => Taro.navigateBack()}>
-            <Text className='back-icon'>←</Text>
+            <IconBack size={16} />
           </View>
           <Text className='nav-title'>创建房间</Text>
           <View className='nav-placeholder'></View>
@@ -352,14 +353,14 @@ export default function Room() {
         <View className='create-form'>
           {/* 顶部装饰 */}
           <View className='form-deco-top'>
-            <Text className='form-deco-icon'>⚔</Text>
+            <IconSwords size={28} />
             <Text className='form-deco-text'>设立你的猎场</Text>
           </View>
 
           {/* 房间名称 */}
           <View className='form-group'>
             <View className='form-label-row'>
-              <Text className='form-label-icon'>📝</Text>
+              <View className='form-label-icon'><IconSwords size={13} color="#b89830" /></View>
               <Text className='form-label'>房间名称</Text>
             </View>
             <Input
@@ -374,7 +375,7 @@ export default function Room() {
           {/* 人数设置 */}
           <View className='form-group'>
             <View className='form-label-row'>
-              <Text className='form-label-icon'>👥</Text>
+              <View className='form-label-icon'><IconPlayer size={13} color="#b89830" /></View>
               <Text className='form-label'>人数设置</Text>
             </View>
             <View className='player-options'>
@@ -387,7 +388,7 @@ export default function Room() {
                   <Text className='option-num'>{num}</Text>
                   <Text className='option-unit'>人</Text>
                   <Text className='option-desc'>{getRoleDesc(num)}</Text>
-                  {maxPlayers === num && <View className='option-check'>✓</View>}
+                  {maxPlayers === num && <View className='option-check'><IconCheck size={10} color="#fff" /></View>}
                 </View>
               ))}
             </View>
@@ -396,7 +397,7 @@ export default function Room() {
           {/* 房间密码 */}
           <View className='form-group'>
             <View className='form-label-row'>
-              <Text className='form-label-icon'>🔒</Text>
+              <View className='form-label-icon'><IconLock size={13} color="#b89830" /></View>
               <Text className='form-label'>房间密码</Text>
               <Text className='form-label-hint'>可选</Text>
             </View>
@@ -412,9 +413,9 @@ export default function Room() {
 
           {/* 创建按钮 */}
           <Button className='form-submit-btn' onClick={handleCreateRoom}>
-            <Text className='btn-deco'>◈</Text>
+            
             <Text className='btn-text'>创建房间</Text>
-            <Text className='btn-deco'>◈</Text>
+            
           </Button>
         </View>
       </View>
@@ -426,7 +427,7 @@ export default function Room() {
     return (
       <View className='room-container'>
         <View className='loading-state'>
-          <Text className='loading-icon'>🌙</Text>
+          <View className='loading-icon'><IconMoon size={48} /></View>
           <Text className='loading-text'>穿越暗夜迷雾...</Text>
         </View>
       </View>
@@ -442,7 +443,7 @@ export default function Room() {
       {/* 顶部导航 */}
       <View className='nav-header'>
         <View className='back-btn' onClick={() => Taro.navigateBack()}>
-          <Text className='back-icon'>←</Text>
+          <IconBack size={16} />
         </View>
         <View className='nav-center'>
           <Text className='nav-room-name'>{room.roomName}</Text>
@@ -463,7 +464,7 @@ export default function Room() {
           <View className='info-row'>
             <View className='info-cell'>
               <Text className='info-cell-label'>房主</Text>
-              <Text className='info-cell-value'>👤 {room.hostName}</Text>
+              <Text className='info-cell-value'>{room.hostName}</Text>
             </View>
             <View className='info-cell-divider'></View>
             <View className='info-cell'>
@@ -490,7 +491,7 @@ export default function Room() {
         {/* 玩家列表 */}
         <View className='players-section'>
           <View className='section-header'>
-            <Text className='section-icon'>⚔</Text>
+            <View className='section-icon'><IconSwords size={14} /></View>
             <Text className='section-title'>猎人集结</Text>
             <View className='section-line'></View>
           </View>
@@ -499,7 +500,7 @@ export default function Room() {
           {isHost && room.currentPlayers < room.maxPlayers && (
             <View className='ai-actions'>
               <Button className='ai-add-btn' onClick={handleAddAi}>
-                <Text className='ai-btn-icon'>🤖</Text>
+                <View className='ai-btn-icon'><IconRobot size={15} /></View>
                 <Text className='ai-btn-text'>添加人机</Text>
               </Button>
               {room.players?.some(p => p.isAi) && (
@@ -513,7 +514,7 @@ export default function Room() {
           {/* 圆桌式玩家布局 */}
           <View className='round-table-room'>
             <View className='table-bg'>
-              <Text className='table-icon'>⚔</Text>
+              <IconSwords size={24} />
               <Text className='table-count'>{room.currentPlayers}/{room.maxPlayers}</Text>
             </View>
             <View className='seats-ring-room'>
@@ -531,9 +532,7 @@ export default function Room() {
                       {player.avatarUrl ? (
                         <image src={player.avatarUrl} className='avatar-img' />
                       ) : (
-                        <Text className='avatar-emoji'>
-                          {player.isAi ? '🤖' : player.isHost ? '👑' : '🐺'}
-                        </Text>
+                        player.isAi ? <IconRobot size={18} /> : player.isHost ? <IconCrown size={18} /> : <IconWolf size={18} />
                       )}
                       {player.isReady && (
                         <View className='ready-dot'></View>
@@ -557,7 +556,7 @@ export default function Room() {
                 return (
                   <View key={`empty-${i}`} className='seat-node-room empty' style={seatStyle}>
                     <View className='seat-avatar-room empty'>
-                      <Text className='avatar-emoji'>+</Text>
+                      <IconPlus size={18} />
                     </View>
                     <Text className='seat-name-room empty-name'>空位</Text>
                   </View>
@@ -570,7 +569,7 @@ export default function Room() {
         {/* 聊天区域 */}
         <View className='chat-section'>
           <View className='section-header'>
-            <Text className='section-icon'>💬</Text>
+            <View className='section-icon'><IconChat size={14} /></View>
             <Text className='section-title'>聊天</Text>
             <View className='section-line'></View>
           </View>
