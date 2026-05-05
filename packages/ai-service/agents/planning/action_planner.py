@@ -165,6 +165,19 @@ class ActionPlanner:
 
         targets = [p for p in game_state.alive_players if p != agent.player_id]
         base["available_targets"] = ", ".join(f"{p}号" for p in targets) if targets else "无"
+        
+        # ✨ 注入自己本轮发言（投票应与发言一致）
+        my_speech = ""
+        for s in reversed(agent.memory.working.recent_speeches):
+            if s["player_id"] == agent.player_id and s["round"] == game_state.round:
+                my_speech = s["content"][:150]
+                break
+        if my_speech:
+            base["timeline"] = (
+                base["timeline"] + 
+                f"\n\n你本轮发言: \"{my_speech}\"\n⚠️ 你的投票应该与你的发言逻辑一致，不要自相矛盾。"
+            )
+        
         return base
 
     def _build_common_vars(
@@ -186,6 +199,25 @@ class ActionPlanner:
 
         alive_str = ", ".join(f"{p}号" for p in game_state.alive_players) or "无"
         deaths_str = memory_ctx.get("deaths") or "无"
+        
+        # ④ 构建增强的 timeline（含当前回合发言 + 投票详情）
+        timeline_parts = []
+        # 当前回合发言
+        current_speeches = agent.memory.episodic.format_round_speeches(
+            game_state.round, exclude_player=agent.player_id
+        )
+        if current_speeches and current_speeches != "本回合尚无人发言":
+            timeline_parts.append(current_speeches)
+        # 历史时间线
+        timeline = memory_ctx.get("timeline") or ""
+        if timeline and timeline != "暂无历史事件":
+            timeline_parts.append(timeline)
+        # 投票详情
+        vote_details = memory_ctx.get("vote_details") or ""
+        if vote_details:
+            timeline_parts.append(vote_details)
+        
+        full_timeline = "\n\n".join(timeline_parts) if timeline_parts else "(暂无记忆)"
 
         return {
             "seat_number": agent.seat_number or agent.player_id,
@@ -195,7 +227,7 @@ class ActionPlanner:
             "phase": game_state.phase.value if isinstance(game_state.phase, GamePhase) else str(game_state.phase),
             "alive_players": alive_str,
             "deaths": deaths_str,
-            "timeline": memory_ctx.get("timeline") or "(暂无记忆)",
+            "timeline": full_timeline,
             "reasoning": reasoning or "(暂无推理)",
             "rag_context": rag_context,
         }

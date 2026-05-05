@@ -145,7 +145,7 @@ class EpisodicMemory:
         return results
     
     def format_timeline(self, last_n_rounds: int = 3) -> str:
-        """格式化为时间线文本"""
+        """格式化为时间线文本（含发言）"""
         if not self.episodes:
             return "暂无历史事件"
         
@@ -158,10 +158,26 @@ class EpisodicMemory:
             if round_events:
                 lines.append(f"--- 第{r}天 ---")
                 for e in round_events:
-                    if e.importance >= 0.5:
+                    # 降低阈值到 0.3，让发言(0.4)也能显示
+                    if e.importance >= 0.3:
                         lines.append(f"  {e.to_text()}")
         
         return "\n".join(lines) if lines else "暂无重要事件"
+    
+    def format_round_speeches(self, round_num: int, exclude_player: int = 0) -> str:
+        """格式化某回合的所有发言（用于注入当前回合上下文）"""
+        speeches = [e for e in self.episodes 
+                    if e.round == round_num and e.event_type == "SPEECH" 
+                    and e.actor_id != exclude_player]
+        
+        if not speeches:
+            return "本回合尚无人发言"
+        
+        lines = ["本回合已有发言:"]
+        for s in speeches:
+            content = s.content[:150] if s.content else ""
+            lines.append(f"  {s.actor_id}号: {content}")
+        return "\n".join(lines)
     
     def format_deaths(self) -> str:
         """格式化死亡时间线"""
@@ -170,4 +186,21 @@ class EpisodicMemory:
         lines = []
         for d in self.deaths_timeline:
             lines.append(f"第{d['round']}天: {d['player_id']}号死亡({d['cause']})")
+        return "\n".join(lines)
+    
+    def format_vote_details(self, last_n: int = 2) -> str:
+        """格式化投票详情（谁投了谁）"""
+        if not self.vote_history:
+            return ""
+        
+        lines = []
+        for vh in self.vote_history[-last_n:]:
+            round_num = vh["round"]
+            votes = vh["votes"]
+            result = vh["result"]
+            lines.append(f"第{round_num}天投票:")
+            for voter, target in sorted(votes.items()):
+                lines.append(f"  {voter}号 → 投{target}号")
+            if result:
+                lines.append(f"  结果: {result}号被投出局")
         return "\n".join(lines)

@@ -217,6 +217,7 @@ class MemorySystem:
             "working_context": self.working.format_context(),
             "timeline": self.episodic.format_timeline(),
             "deaths": self.episodic.format_deaths(),
+            "vote_details": self.episodic.format_vote_details(),
             "player_profiles": self.semantic.format_profiles(),
             "suspicion_ranking": self.semantic.format_suspicion_ranking(),
         }

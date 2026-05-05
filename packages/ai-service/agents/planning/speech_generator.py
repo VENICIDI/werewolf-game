@@ -121,6 +121,28 @@ class SpeechGenerator:
         # 发言引导
         guidance = agent.strategy.get_speech_guidance(agent, game_state)
         
+        # ✨ 当前回合其他玩家的发言（核心：让 AI 能回应别人的发言）
+        current_speeches = agent.memory.episodic.format_round_speeches(
+            game_state.round, exclude_player=agent.player_id
+        )
+        
+        # ✨ 自己上一次发言（保持一致性）
+        my_last_speech = ""
+        for s in reversed(agent.memory.working.recent_speeches):
+            if s["player_id"] == agent.player_id:
+                my_last_speech = f"\n你上一次发言: \"{s['content'][:120]}\"\n注意保持前后逻辑一致。"
+                break
+        
+        # ✨ 发言顺序感知
+        current_round_speakers = [s["player_id"] for s in agent.memory.working.recent_speeches 
+                                  if s["round"] == game_state.round and s["player_id"] != agent.player_id]
+        if not current_round_speakers:
+            position_hint = "你是第一个发言的人，需要打开话题、表明立场。"
+        elif len(current_round_speakers) >= len(game_state.alive_players) - 2:
+            position_hint = "你是最后几个发言的人，可以总结前面的讨论并给出明确判断。"
+        else:
+            position_hint = f"前面已有 {', '.join(str(p)+'号' for p in current_round_speakers)} 发过言，你可以回应他们的观点。"
+        
         # 随机化发言风格提示（避免每局相同输入导致相同输出）
         style_hints = [
             "这次发言请直接切入重点，不要说'我分析一下'这类开头",
@@ -158,9 +180,17 @@ class SpeechGenerator:
             "round": game_state.round,
             "phase": game_state.phase.value,
             "game_context": game_context,
-            "memory_context": memory_ctx.get("timeline", ""),
-            "reasoning_context": reasoning_ctx + rag_context,
-            "speech_guidance": guidance + f"\n\n发言风格要求: {random_hint}",
+            "memory_context": (
+                current_speeches + "\n\n" +
+                memory_ctx.get("timeline", "") +
+                my_last_speech
+            ),
+            "reasoning_context": (
+                reasoning_ctx + "\n\n" +
+                memory_ctx.get("player_profiles", "") +
+                rag_context
+            ),
+            "speech_guidance": guidance + f"\n\n发言位置: {position_hint}\n发言风格要求: {random_hint}",
             "speech_context": context,
             "alive_players": alive_str,
             "deaths": memory_ctx.get("deaths", "无"),
