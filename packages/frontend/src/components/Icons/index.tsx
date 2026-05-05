@@ -61,8 +61,11 @@ const svgs = {
 
 // ========== 图标组件（使用 Image + data URI） ==========
 
+// 狼人图标使用设计师制作的 PNG（14KB，200x200）
+import wolfLogoPng from '../../assets/icons/wolf-logo.png'
+
 export function IconWolf({ size = 24, color = '#ff4444', className = '' }: IconProps) {
-  return <Image className={className} style={{ width: `${size}px`, height: `${size}px` }} src={svgToDataUri(svgs.wolf(color))} />
+  return <Image className={className} style={{ width: `${size}px`, height: `${size}px` }} src={wolfLogoPng} />
 }
 
 export function IconPlayer({ size = 24, color = '#b0a090', className = '' }: IconProps) {
