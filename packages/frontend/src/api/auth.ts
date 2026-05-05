@@ -6,6 +6,11 @@ export const login = (username: string, password: string) => {
   return post('/auth/login', { username, password })
 }
 
+// 微信登录（小程序一键登录）
+export const wxLogin = (code: string, nickName?: string, avatarUrl?: string) => {
+  return post('/auth/wx-login', { code, nickName, avatarUrl })
+}
+
 // 注册
 export const register = (username: string, password: string, email: string) => {
   return post('/auth/register', { username, password, email })

@@ -168,6 +168,69 @@
       pointer-events: none;
     }
   }
+
+  // 分割线
+  .divider {
+    display: flex;
+    align-items: center;
+    margin: 24px 0 16px;
+
+    &::before,
+    &::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, #3d3025, transparent);
+    }
+
+    .divider-text {
+      padding: 0 16px;
+      font-size: 12px;
+      color: var(--gold-dim);
+      letter-spacing: 2px;
+    }
+  }
+
+  // 微信登录按钮
+  .wx-login-btn {
+    width: 100%;
+    padding: 16px 24px;
+    background: linear-gradient(180deg, #07c160 0%, #06a552 100%);
+    border: 2px solid #089e50;
+    border-radius: 4px;
+    color: #ffffff;
+    font-family: var(--font-serif);
+    font-size: 16px;
+    font-weight: 700;
+    letter-spacing: 4px;
+    cursor: pointer;
+    position: relative;
+    box-shadow: 0 6px 0 #056340, 0 8px 20px rgba(0, 0, 0, 0.5);
+    transition: all 0.1s;
+
+    &::before {
+      content: '✿';
+      margin-right: 8px;
+      color: #ffffff;
+    }
+
+    &::after {
+      content: '✿';
+      margin-left: 8px;
+      color: #ffffff;
+      border: none !important;
+    }
+
+    &:active {
+      transform: translateY(6px);
+      box-shadow: 0 0 0 #056340, 0 2px 10px rgba(0, 0, 0, 0.5);
+    }
+
+    &.loading {
+      opacity: 0.7;
+      pointer-events: none;
+    }
+  }
 }
 
 // 底部链接
