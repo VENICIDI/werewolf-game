@@ -1,8 +1,17 @@
 import { useEffect, useState } from 'react'
 import Taro from '@tarojs/taro'
-import { View, Text, Button } from '@tarojs/components'
+import { View, Text, Button, Image } from '@tarojs/components'
 import { Role } from '../../../api/game'
 import './index.scss'
+
+// 角色立绘图片
+import imgWerewolf from '../../../assets/images/roles/werewolf.png'
+import imgSeer from '../../../assets/images/roles/seer.png'
+import imgWitch from '../../../assets/images/roles/witch.png'
+import imgHunter from '../../../assets/images/roles/hunter.png'
+import imgGuard from '../../../assets/images/roles/guard.png'
+import imgVillager from '../../../assets/images/roles/villager.png'
+import imgIdiot from '../../../assets/images/roles/idiot.png'
 
 interface RoleInfo {
   id: string
@@ -12,7 +21,7 @@ interface RoleInfo {
   campName: string
   description: string
   shortDesc: string
-  icon: string
+  image: string
   color: string
   tips: string[]
 }
@@ -26,7 +35,7 @@ const roleData: Record<string, RoleInfo> = {
     campName: '好人阵营',
     description: '没有特殊技能，通过分析发言和投票找出狼人',
     shortDesc: '平民，无特殊技能',
-    icon: '👨‍🌾',
+    image: imgVillager,
     color: '#4CAF50',
     tips: ['认真听发言，找出逻辑漏洞', '不要轻易暴露自己的身份', '学会分析票型']
   },
@@ -38,7 +47,7 @@ const roleData: Record<string, RoleInfo> = {
     campName: '狼人阵营',
     description: '夜晚可以睁眼杀人，白天需要隐藏身份并误导好人',
     shortDesc: '夜晚杀人，白天隐藏',
-    icon: '🐺',
+    image: imgWerewolf,
     color: '#F44336',
     tips: ['学会悍跳预言家', '注意狼队友的配合', '选择合适的刀法']
   },
@@ -50,7 +59,7 @@ const roleData: Record<string, RoleInfo> = {
     campName: '好人阵营',
     description: '每晚可以查验一名玩家的身份，是好人阵营的信息核心',
     shortDesc: '每晚查验一名玩家身份',
-    icon: '🔮',
+    image: imgSeer,
     color: '#9C27B0',
     tips: ['选择合适的时机跳身份', '留好警徽流', '注意狼人的悍跳']
   },
@@ -62,7 +71,7 @@ const roleData: Record<string, RoleInfo> = {
     campName: '好人阵营',
     description: '有一瓶解药和一瓶毒药，解药可以救人，毒药可以毒人',
     shortDesc: '解药救人，毒药杀人',
-    icon: '🧙‍♀️',
+    image: imgWitch,
     color: '#FF9800',
     tips: ['第一晚建议救人', '毒药留给确定的狼人', '注意狼人自刀']
   },
@@ -74,7 +83,7 @@ const roleData: Record<string, RoleInfo> = {
     campName: '好人阵营',
     description: '死亡时可以开枪带走一名玩家，被毒死不能开枪',
     shortDesc: '死亡时可以开枪',
-    icon: '🔫',
+    image: imgHunter,
     color: '#795548',
     tips: ['不要轻易暴露身份', '被票死可以带人', '被毒死不能开枪']
   },
@@ -86,7 +95,7 @@ const roleData: Record<string, RoleInfo> = {
     campName: '好人阵营',
     description: '每晚可以守护一名玩家，被守护的玩家不会被狼人杀死',
     shortDesc: '每晚守护一名玩家',
-    icon: '🛡️',
+    image: imgGuard,
     color: '#2196F3',
     tips: ['不要连续守同一个人', '可以守女巫', '注意和女巫的配合']
   },
@@ -98,7 +107,7 @@ const roleData: Record<string, RoleInfo> = {
     campName: '好人阵营',
     description: '被投票出局时不会死亡，但会失去投票权',
     shortDesc: '被票不死，失去投票权',
-    icon: '🤡',
+    image: imgIdiot,
     color: '#FFEB3B',
     tips: ['可以故意表现得像狼', '被票出后帮好人分析', '不要浪费免疫机会']
   }
@@ -168,12 +177,14 @@ export default function RoleReveal() {
             <Text className='camp-name'>{roleInfo.campName}</Text>
           </View>
 
-          {/* 角色卡片 */}
+          {/* 角色卡片 - 使用立绘 */}
           <View className='role-card' style={{ borderColor: roleInfo.color }}>
-            <Text className='role-icon'>{roleInfo.icon}</Text>
-            <Text className='role-name'>{roleInfo.name}</Text>
-            <Text className='role-name-en'>{roleInfo.nameEn}</Text>
-            <Text className='role-short'>{roleInfo.shortDesc}</Text>
+            <Image className='role-image' src={roleInfo.image} mode='aspectFit' />
+            <View className='role-info'>
+              <Text className='role-name'>{roleInfo.name}</Text>
+              <Text className='role-name-en'>{roleInfo.nameEn}</Text>
+              <Text className='role-short'>{roleInfo.shortDesc}</Text>
+            </View>
           </View>
 
           {/* 详细描述 */}
@@ -184,7 +195,7 @@ export default function RoleReveal() {
 
           {/* 技巧提示 */}
           <View className='tips-section'>
-            <Text className='tips-title'>💡 游戏技巧</Text>
+            <Text className='tips-title'>游戏技巧</Text>
             {roleInfo.tips.map((tip, index) => (
               <View key={index} className='tip-item'>
                 <Text className='tip-dot'>•</Text>

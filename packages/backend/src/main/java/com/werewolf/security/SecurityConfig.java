@@ -55,6 +55,10 @@ public class SecurityConfig {
                 .requestMatchers("/ws/**").permitAll()
                 .requestMatchers("/error").permitAll()
                 
+                // 静态资源（头像、图片等）
+                .requestMatchers("/avatars/**").permitAll()
+                .requestMatchers("/images/**").permitAll()
+                
                 // 房间列表允许未登录查看（登录后才能创建/加入）
                 .requestMatchers(HttpMethod.GET, "/api/rooms").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/rooms/**").permitAll()

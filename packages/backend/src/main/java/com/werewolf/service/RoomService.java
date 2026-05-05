@@ -28,6 +28,22 @@ public class RoomService {
         "幽灵", "黑鸦"
     };
     
+    // AI 头像文件映射（与 AI_NAMES 一一对应）
+    private static final String[] AI_AVATARS = {
+        "/avatars/01-shadow-hunter.png",
+        "/avatars/02-moonwalker.png",
+        "/avatars/03-silver-wolf.png",
+        "/avatars/04-bloodclaw.png",
+        "/avatars/05-night-owl.png",
+        "/avatars/06-mist-oracle.png",
+        "/avatars/07-iron-guard.png",
+        "/avatars/08-viper.png",
+        "/avatars/09-lone-wolf.png",
+        "/avatars/10-night-watchman.png",
+        "/avatars/11-specter.png",
+        "/avatars/12-black-raven.png"
+    };
+    
     private String generateRoomCode() {
         String chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
         Random random = new Random();
@@ -288,6 +304,7 @@ public class RoomService {
         
         // 生成 AI 名字
         String aiName = AI_NAMES[aiCount % AI_NAMES.length];
+        String aiAvatar = AI_AVATARS[aiCount % AI_AVATARS.length];
         final String firstUsername = "[AI] " + aiName;
         
         // 查找或创建 AI 虚拟用户
@@ -297,10 +314,17 @@ public class RoomService {
                             .username(firstUsername)
                             .password("AI_PLAYER_NO_LOGIN")
                             .email("ai_" + System.currentTimeMillis() + "@werewolf.bot")
+                            .avatarUrl(aiAvatar)
                             .loginType(User.LoginType.APP)
                             .build();
                     return userRepository.save(newAi);
                 });
+        
+        // 确保已有 AI 用户也有头像（兼容旧数据）
+        if (aiUser.getAvatarUrl() == null || aiUser.getAvatarUrl().isEmpty()) {
+            aiUser.setAvatarUrl(aiAvatar);
+            userRepository.save(aiUser);
+        }
         
         // 检查 AI 是否已在房间
         if (roomMemberRepository.existsByRoomIdAndUserId(room.getId(), aiUser.getId())) {

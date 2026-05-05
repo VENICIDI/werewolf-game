@@ -1,4 +1,4 @@
-// 游戏对战页 - 简化背景
+// 游戏对战页 - 背景带氛围图
 .game-play-container {
   min-height: 100vh;
   padding: 0;
@@ -9,10 +9,26 @@
 
   &.night {
     background: linear-gradient(180deg, #060404 0%, #0a0606 50%, #0a0604 100%);
+
+    .bg-atmosphere {
+      position: absolute;
+      inset: 0;
+      opacity: 0.12;
+      z-index: -1;
+      pointer-events: none;
+    }
   }
 
   &.day {
     background: linear-gradient(180deg, #16120e 0%, #1a1510 50%, #12100c 100%);
+
+    .bg-atmosphere {
+      position: absolute;
+      inset: 0;
+      opacity: 0.1;
+      z-index: -1;
+      pointer-events: none;
+    }
   }
 }
 
@@ -285,18 +301,24 @@
     width: 140px;
     height: 140px;
     border-radius: 50%;
-    background: radial-gradient(circle at 40% 35%,
-      rgba(50, 40, 30, 0.9) 0%,
-      rgba(30, 24, 18, 0.95) 50%,
-      rgba(15, 12, 10, 1) 100%
-    );
+    background: radial-gradient(circle at 40% 35%, rgba(50, 40, 30, 0.9) 0%, rgba(30, 24, 18, 0.95) 50%, rgba(15, 12, 10, 1) 100%);
     border: 2px solid rgba(212, 175, 55, 0.25);
     box-shadow:
       0 0 40px rgba(0, 0, 0, 0.6),
       inset 0 0 30px rgba(0, 0, 0, 0.4),
       0 0 60px rgba(139, 0, 0, 0.08);
+    overflow: hidden;
 
-    // 桌面纹理
+    .table-bg-img {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      opacity: 0.6;
+    }
+
+    // 桌面内环装饰
     &::before {
       content: '';
       position: absolute;
@@ -833,4 +855,81 @@
       }
     }
   }
+}
+
+// ==================== 游戏结算浮层 ====================
+.game-over-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: rgba(0, 0, 0, 0.85);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: gameOverFadeIn 0.6s ease;
+
+  .game-over-content {
+    width: 85%;
+    max-width: 360px;
+    background: linear-gradient(180deg, #1e1812 0%, #0a0806 100%);
+    border: 2px solid rgba(212, 175, 55, 0.4);
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.8), 0 0 40px rgba(139, 0, 0, 0.2);
+  }
+
+  .game-over-banner {
+    width: 100%;
+    height: 180px;
+    display: block;
+  }
+
+  .game-over-info {
+    padding: 24px 20px 16px;
+    text-align: center;
+
+    .game-over-title {
+      display: block;
+      font-family: var(--font-display);
+      font-size: 24px;
+      font-weight: 900;
+      color: var(--gold);
+      letter-spacing: 4px;
+      margin-bottom: 8px;
+      text-shadow: 0 0 20px rgba(212, 175, 55, 0.4);
+    }
+
+    .game-over-msg {
+      display: block;
+      font-size: 14px;
+      color: var(--text-secondary);
+      line-height: 1.6;
+    }
+  }
+
+  .game-over-btn {
+    display: block;
+    width: calc(100% - 40px);
+    margin: 0 20px 24px;
+    height: 48px;
+    background: linear-gradient(180deg, rgba(196, 26, 26, 0.85) 0%, rgba(90, 0, 0, 0.95) 100%);
+    border: 1.5px solid var(--gold-dim);
+    border-radius: 8px;
+    color: var(--text);
+    font-size: 16px;
+    font-weight: 700;
+    letter-spacing: 3px;
+    box-shadow: 0 4px 0 var(--blood-dark);
+
+    &::after { border: none; }
+    &:active {
+      transform: translateY(4px);
+      box-shadow: none;
+    }
+  }
+}
+
+@keyframes gameOverFadeIn {
+  from { opacity: 0; transform: scale(0.9); }
+  to { opacity: 1; transform: scale(1); }
 }

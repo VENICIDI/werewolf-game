@@ -16,7 +16,7 @@ export default function GameEntry() {
 
   return (
     <View style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100vh', background: 'var(--shadow, #080604)', color: 'var(--text, #f0e6d6)' }}>
-      <Text style={{ fontSize: '48px', marginBottom: '20px', filter: 'drop-shadow(0 4px 12px rgba(196,26,26,0.5))' }}>🐺</Text>
+      
       <Text style={{ fontSize: '24px', fontWeight: 'bold', marginBottom: '10px', color: 'var(--gold, #e5c040)', letterSpacing: '4px' }}>游戏大厅</Text>
       <Text style={{ fontSize: '14px', color: 'var(--text-secondary, #b0a090)', marginBottom: '30px' }}>请从房间中开始游戏</Text>
       <Button

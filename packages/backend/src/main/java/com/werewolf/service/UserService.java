@@ -10,6 +10,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.ThreadLocalRandom;
 
 @Service
 @RequiredArgsConstructor
@@ -19,15 +20,25 @@ public class UserService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     
+    // 玩家默认头像池（注册时随机分配）
+    private static final String[] DEFAULT_AVATARS = {
+        "/avatars/default-male-warm.png",
+        "/avatars/default-male-cool.png",
+        "/avatars/default-female-warm.png",
+        "/avatars/default-female-cool.png"
+    };
+    
     /**
      * 注册账号密码用户
      */
     @Transactional
     public User register(String username, String password, String email) {
+        String randomAvatar = DEFAULT_AVATARS[ThreadLocalRandom.current().nextInt(DEFAULT_AVATARS.length)];
         User user = User.builder()
                 .username(username)
                 .password(passwordEncoder.encode(password))
                 .email(email)
+                .avatarUrl(randomAvatar)
                 .loginType(User.LoginType.APP)
                 .totalGames(0)
                 .winGames(0)

@@ -58,7 +58,7 @@ export default function Login() {
 
       {/* Logo */}
       <View className='logo-section'>
-        <Text className='logo-icon'>🐺</Text>
+        
         <Text className='logo-title'>狼人杀</Text>
         <Text className='logo-subtitle'>AI 对战平台</Text>
       </View>

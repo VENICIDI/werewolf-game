@@ -1,10 +1,15 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
 import Taro, { useRouter } from '@tarojs/taro'
-import { View, Text, Button, ScrollView, Input } from '@tarojs/components'
+import { View, Text, Button, ScrollView, Input, Image } from '@tarojs/components'
 import { getGameStatus, getGameSnapshot, GamePhase, GameStatus, Role } from '../../../api/game'
-import { get, post } from '../../../utils/request'
+import { get, post, getResourceUrl } from '../../../utils/request'
 import { wsManager } from '../../../utils/websocket'
 import { IconWolf, IconPlayer, IconRobot, IconSkull, IconMoon, IconSun, IconCrystalBall, IconPotion, IconShield, IconCrosshair, IconChat, IconVote, IconScale, IconTimer, IconLock } from '../../../components/Icons'
+import imgVillagerWin from '../../../assets/images/endings/villager-victory.png'
+import imgWerewolfWin from '../../../assets/images/endings/werewolf-victory.png'
+import imgBgNight from '../../../assets/images/backgrounds/bg-night-village.png'
+import imgBgDay from '../../../assets/images/backgrounds/bg-day.png'
+import imgTable from '../../../assets/images/table-texture.png'
 import './index.scss'
 
 interface PlayerInfo {
@@ -58,6 +63,8 @@ export default function GamePlay() {
   // 计算剩余时间:Math.max(0, (endsAt - (Date.now() + serverClockOffset)) / 1000)
   const serverClockOffsetRef = useRef<number>(0)
   const [showRoleModal, setShowRoleModal] = useState(false)
+  // 游戏结算信息
+  const [gameOverInfo, setGameOverInfo] = useState<{ winner: string; message: string } | null>(null)
   // ✨ 女巫信息
   const [witchInfo, setWitchInfo] = useState<{
     hasSave: boolean, hasPoison: boolean,
@@ -418,13 +425,9 @@ export default function GamePlay() {
 
   const handleGameOver = useCallback((message: any) => {
     const data = message.data
-    Taro.showModal({
-      title: '游戏结束',
-      content: data.message || '游戏已结束',
-      showCancel: false,
-      success: () => {
-        Taro.switchTab({ url: '/pages/room-list/index' })
-      }
+    setGameOverInfo({
+      winner: data.winner || '',
+      message: data.message || '游戏已结束'
     })
   }, [])
 
@@ -550,8 +553,8 @@ export default function GamePlay() {
     const data = message.data
     const isWolf = data?.isWerewolf
     Taro.showModal({
-      title: '🔮 查验结果',
-      content: data?.message || `${data?.targetSeat}号玩家是${isWolf ? '🐺 狼人' : '👤 好人'}`,
+      title: '◆ 查验结果',
+      content: data?.message || `${data?.targetSeat}号玩家是${isWolf ? '狼人' : '好人'}`,
       showCancel: false,
     })
   }, [])
@@ -756,10 +759,10 @@ export default function GamePlay() {
     const targetSeat = witchInfo?.killTargetSeat
     const targetName = witchInfo?.killTargetName
     const confirmText = targetSeat
-      ? `确定要使用【解药】救活 ${targetSeat}号 ${targetName || ''} 吗？\n\n⚠️ 解药整局仅一次，使用后不可撤销。`
-      : `确定要使用【解药】吗？\n\n⚠️ 解药整局仅一次，使用后不可撤销。`
+      ? `确定要使用【解药】救活 ${targetSeat}号 ${targetName || ''} 吗？\n\n注意: 解药整局仅一次，使用后不可撤销。`
+      : `确定要使用【解药】吗？\n\n注意: 解药整局仅一次，使用后不可撤销。`
     const res = await Taro.showModal({
-      title: '💊 使用解药确认',
+      title: '◆ 使用解药确认',
       content: confirmText,
       confirmText: '确认救人',
       confirmColor: '#2e7d32',
@@ -775,9 +778,9 @@ export default function GamePlay() {
     console.log('[BTN] 🔒 开始发送解药请求')
     try {
       await post(`/games/${game.gameId}/action`, { action: 'save' })
-      markSubmitted(`💊 已使用解药救 ${targetSeat || ''}号`)
+      markSubmitted(`◆ 已使用解药救 ${targetSeat || ''}号`)
       setWitchAction('none')
-      Taro.showToast({ title: '💊 已使用解药', icon: 'none' })
+      Taro.showToast({ title: '◆ 已使用解药', icon: 'none' })
       console.log('[BTN] ✅ 解药请求成功')
     } catch (error: any) {
       console.warn('[Game] 解药行动失败:', error?.message, error)
@@ -807,10 +810,10 @@ export default function GamePlay() {
     }
     const target = game.players.find(p => p.playerId === selectedTarget)
     const confirmText = target
-      ? `确定要使用【毒药】毒杀 ${target.seatNumber}号 ${target.username || ''} 吗？\n\n⚠️ 毒药整局仅一次，使用后不可撤销。\n⚠️ 误毒好人将大幅增加狼人胜率。`
-      : `确定要使用【毒药】吗？\n\n⚠️ 毒药整局仅一次，使用后不可撤销。`
+      ? `确定要使用【毒药】毒杀 ${target.seatNumber}号 ${target.username || ''} 吗？\n\n注意: 毒药整局仅一次，使用后不可撤销。\n注意: 误毒好人将大幅增加狼人胜率。`
+      : `确定要使用【毒药】吗？\n\n注意: 毒药整局仅一次，使用后不可撤销。`
     const res = await Taro.showModal({
-      title: '☠️ 使用毒药确认',
+      title: '◆ 使用毒药确认',
       content: confirmText,
       confirmText: '确认毒杀',
       confirmColor: '#d32f2f',
@@ -829,9 +832,9 @@ export default function GamePlay() {
         action: 'poison',
         targetId: selectedTarget,
       })
-      markSubmitted(`☠️ 已毒杀 ${target?.seatNumber || ''}号 ${target?.username || ''}`)
+      markSubmitted(`◆ 已毒杀 ${target?.seatNumber || ''}号 ${target?.username || ''}`)
       setWitchAction('none')
-      Taro.showToast({ title: '☠️ 已使用毒药', icon: 'none' })
+      Taro.showToast({ title: '◆ 已使用毒药', icon: 'none' })
       console.log('[BTN] ✅ 毒药请求成功')
     } catch (error: any) {
       console.warn('[Game] 毒药行动失败:', error?.message, error)
@@ -884,11 +887,11 @@ export default function GamePlay() {
       })
       const target = game.players.find(p => p.playerId === selectedTarget)
       const actionLabel: Record<string, string> = {
-        kill: '🐺 已选择击杀',
-        check: '🔮 已查验',
-        guard: '🛡️ 已守护',
-        vote: '🗳️ 已投票给',
-        shoot: '🎯 已开枪击毙',
+        kill: '◆ 已选择击杀',
+        check: '◆ 已查验',
+        guard: '◆ 已守护',
+        vote: '◆ 已投票给',
+        shoot: '◆ 已开枪击毙',
       }
       markSubmitted(`${actionLabel[actionType] || '✅ 已行动'} ${target?.seatNumber || ''}号 ${target?.username || ''}`)
       console.log(`[BTN] ✅ ${actionType} 请求成功，锁定 key=${game.phase}:${game.round}`)
@@ -896,8 +899,8 @@ export default function GamePlay() {
       if (actionType === 'check' && res) {
         const isWolf = res.isWerewolf
         Taro.showModal({
-          title: '🔮 查验结果',
-          content: res.message || `${res.targetSeat}号玩家是${isWolf ? '🐺 狼人' : '👤 好人'}`,
+          title: '◆ 查验结果',
+          content: res.message || `${res.targetSeat}号玩家是${isWolf ? '狼人' : '好人'}`,
           showCancel: false,
         })
       }
@@ -925,8 +928,8 @@ export default function GamePlay() {
       return
     }
     const res = await Taro.showModal({
-      title: '🌙 确认放弃用药',
-      content: '确定本轮不使用解药和毒药吗？\n\n⚠️ 本轮放弃后，今晚被狼人刀到的玩家将死亡。',
+      title: '◆ 确认放弃用药',
+      content: '确定本轮不使用解药和毒药吗？\n\n注意: 本轮放弃后，今晚被狼人刀到的玩家将死亡。',
       confirmText: '确认放弃',
       confirmColor: '#8a7a68',
       cancelText: '再想想',
@@ -936,7 +939,7 @@ export default function GamePlay() {
     submittingRef.current = true
     try {
       await post(`/games/${game.gameId}/action`, { action: 'skip' })
-      markSubmitted('🌙 本轮已放弃用药')
+      markSubmitted('◆ 本轮已放弃用药')
       Taro.showToast({ title: '已跳过', icon: 'none' })
       console.log('[BTN] ✅ 女巫跳过成功')
     } catch (error: any) {
@@ -960,7 +963,7 @@ export default function GamePlay() {
     submittingRef.current = true
     try {
       await post(`/games/${game.gameId}/action`, { action: 'skip' })
-      markSubmitted('🌙 已跳过本轮行动')
+      markSubmitted('◆ 已跳过本轮行动')
       Taro.showToast({ title: '已跳过', icon: 'none' })
       console.log('[BTN] ✅ 跳过成功')
     } catch (error: any) {
@@ -978,6 +981,20 @@ export default function GamePlay() {
       UNKNOWN: '未知'
     }
     return map[role || ''] || role || '未知'
+  }
+
+  // 角色立绘图片映射
+  const getRoleImage = (role?: string) => {
+    const map: Record<string, string> = {
+      VILLAGER: require('../../../assets/images/roles/villager.png'),
+      WEREWOLF: require('../../../assets/images/roles/werewolf.png'),
+      SEER: require('../../../assets/images/roles/seer.png'),
+      WITCH: require('../../../assets/images/roles/witch.png'),
+      HUNTER: require('../../../assets/images/roles/hunter.png'),
+      GUARD: require('../../../assets/images/roles/guard.png'),
+      IDIOT: require('../../../assets/images/roles/idiot.png'),
+    }
+    return map[role || ''] || map['VILLAGER']
   }
 
   // 判断当前阶段是否可以发送聊天消息（讨论阶段轮流发言）
@@ -1061,6 +1078,9 @@ export default function GamePlay() {
 
   return (
     <View className={`game-play-container ${phaseDisplay.bg}`}>
+      {/* 背景氛围图 */}
+      <Image className='bg-atmosphere' src={phaseDisplay.bg === 'night' ? imgBgNight : imgBgDay} mode='aspectFill' />
+
       {/* 顶部信息栏 */}
       <View className='top-bar'>
         <View className='round-info'>
@@ -1098,6 +1118,7 @@ export default function GamePlay() {
       <View className='round-table-section'>
         {/* 圆桌桌面 */}
         <View className='table-surface'>
+          <Image className='table-bg-img' src={imgTable} mode='aspectFill' />
           <View className='table-center'>
             {renderPhaseIcon(phaseDisplay.iconType, 36)}
             {game?.myRole === 'WEREWOLF' && game?.teammates && game.teammates.length > 0 && (
@@ -1151,6 +1172,7 @@ export default function GamePlay() {
                 <View className='seat-avatar'>
                   {player.status === 'DEAD' ? <IconSkull size={20} />
                     : (isTeammate || (isMe && game?.myRole === 'WEREWOLF')) ? <IconWolf size={20} />
+                    : player.avatarUrl ? <image src={getResourceUrl(player.avatarUrl)} className='avatar-img' style={{ width: '40px', height: '40px', borderRadius: '50%' }} />
                     : player.isAi ? <IconRobot size={20} /> : <IconPlayer size={20} />}
                   {/* 投票得票气泡 */}
                   {showVoteUI && receivedVotes > 0 && (
@@ -1178,7 +1200,7 @@ export default function GamePlay() {
           const allVoted = total > 0 && voted >= total
           return (
             <View className='vote-panel'>
-              <Text className='vote-panel-title'>🗳 投票进行中</Text>
+              <Text className='vote-panel-title'>◆ 投票进行中</Text>
               <Text className='vote-panel-desc'>
                 {allVoted
                   ? '全员已投票，等待阶段结束后公布结果…'
@@ -1218,7 +1240,7 @@ export default function GamePlay() {
         return (
           <View className={`vote-panel ${isFinal ? 'final' : ''}`}>
             <Text className={`vote-panel-title ${isFinal ? 'danger' : ''}`}>
-              {isFinal ? '⚖ 放逐结果' : '🗳 实时投票'}
+              {isFinal ? '◆ 放逐结果' : '◆ 实时投票'}
             </Text>
 
             {/* 处决结论 */}
@@ -1226,8 +1248,8 @@ export default function GamePlay() {
               <View className={`vote-verdict ${voteResult.eliminatedPlayerId ? 'eliminated' : 'safe'}`}>
                 <Text className='vote-verdict-text'>
                   {voteResult.eliminatedPlayerId
-                    ? `⚔ ${voteResult.eliminatedSeat}号 ${voteResult.eliminatedName || ''} 被放逐`
-                    : (voteResult.isTie ? '⚖ 平票，无人被放逐' : '🕊 无人被放逐')}
+                    ? `◆ ${voteResult.eliminatedSeat}号 ${voteResult.eliminatedName || ''} 被放逐`
+                    : (voteResult.isTie ? '◆ 平票，无人被放逐' : '◆ 无人被放逐')}
                 </Text>
               </View>
             )}
@@ -1243,7 +1265,7 @@ export default function GamePlay() {
                       <View className='vote-bar-header'>
                         <Text className={`vote-bar-name ${isEliminated ? 'danger' : ''}`}>
                           {target ? `${target.seatNumber}号 ${target.username}` : `ID ${targetId}`}
-                          {isEliminated && ' ⚔'}
+                          {isEliminated && ' ✕'}
                         </Text>
                         <Text className={`vote-bar-count ${isEliminated ? 'danger' : ''}`}>{count}票</Text>
                       </View>
@@ -1327,10 +1349,10 @@ export default function GamePlay() {
               {/* 药水状态 */}
               <View style={{ display: 'flex', justifyContent: 'center', gap: '16px', marginBottom: '10px' }}>
                 <Text style={{ fontSize: '12px', color: witchInfo?.hasSave ? '#4caf50' : '#666' }}>
-                  💊 解药{witchInfo?.hasSave ? '✓' : '✗ 已用'}
+                  ◆ 解药{witchInfo?.hasSave ? '✓' : '✗ 已用'}
                 </Text>
                 <Text style={{ fontSize: '12px', color: witchInfo?.hasPoison ? '#9c27b0' : '#666' }}>
-                  ☠️ 毒药{witchInfo?.hasPoison ? '✓' : '✗ 已用'}
+                  ◆ 毒药{witchInfo?.hasPoison ? '✓' : '✗ 已用'}
                 </Text>
               </View>
 
@@ -1338,7 +1360,7 @@ export default function GamePlay() {
               {witchInfo?.killTargetSeat ? (
                 <View style={{ padding: '10px 14px', marginBottom: '12px', background: 'rgba(255,60,60,0.12)', borderRadius: '8px', border: '1.5px solid rgba(255,60,60,0.4)', textAlign: 'center' }}>
                   <Text style={{ fontSize: '16px', color: '#ff4444', fontWeight: 'bold', display: 'block' }}>
-                    💀 今晚 {witchInfo.killTargetSeat}号 {witchInfo.killTargetName} 被狼人杀害
+                    ◆ 今晚 {witchInfo.killTargetSeat}号 {witchInfo.killTargetName} 被狼人杀害
                   </Text>
                   {witchInfo?.hasSave && (
                     <Text style={{ fontSize: '12px', color: '#4caf50', display: 'block', marginTop: '4px' }}>
@@ -1349,7 +1371,7 @@ export default function GamePlay() {
               ) : (
                 <View style={{ padding: '8px 14px', marginBottom: '12px', background: 'rgba(100,100,100,0.1)', borderRadius: '8px', textAlign: 'center' }}>
                   <Text style={{ fontSize: '13px', color: '#8a7a68' }}>
-                    🌙 今晚是平安夜，无人被杀
+                    ◆ 今晚是平安夜，无人被杀
                   </Text>
                 </View>
               )}
@@ -1372,7 +1394,7 @@ export default function GamePlay() {
                     }}
                     onClick={() => { setWitchAction('save'); setSelectedTarget(null) }}
                   >
-                    💊 解药·救人
+                    ◆ 解药·救人
                   </Button>
                 )}
                 {/* 中间分隔 */}
@@ -1395,7 +1417,7 @@ export default function GamePlay() {
                     }}
                     onClick={() => { setWitchAction('poison'); setSelectedTarget(null) }}
                   >
-                    ☠️ 毒药·毒人
+                    ◆ 毒药·毒人
                   </Button>
                 )}
                 {/* 跳过 */}
@@ -1404,7 +1426,7 @@ export default function GamePlay() {
                   style={{ background: 'rgba(30,26,22,0.9)', border: '1.5px solid rgba(74,61,48,0.4)', boxShadow: 'none', flex: '1', minWidth: '100px', maxWidth: '150px', color: '#8a7a68' }}
                   onClick={handleWitchSkip}
                 >
-                  🌙 不使用
+                  ◆ 不使用
                 </Button>
               </View>
 
@@ -1419,7 +1441,7 @@ export default function GamePlay() {
                   border: '2.5px solid #4caf50',
                   boxShadow: '0 0 16px rgba(76,175,80,0.35)',
                 }}>
-                  <Text style={{ fontSize: '28px', display: 'block', marginBottom: '4px' }}>💊</Text>
+                  <Text style={{ fontSize: '16px', display: 'block', marginBottom: '4px', color: '#4caf50', fontWeight: 'bold' }}>解药</Text>
                   <Text style={{ color: '#a5d6a7', fontSize: '12px', display: 'block', marginBottom: '4px' }}>
                     — 解药行动 —
                   </Text>
@@ -1457,7 +1479,7 @@ export default function GamePlay() {
                   border: '2.5px solid #d32f2f',
                   boxShadow: '0 0 16px rgba(211,47,47,0.35)',
                 }}>
-                  <Text style={{ fontSize: '28px', display: 'block', marginBottom: '4px' }}>☠️</Text>
+                  <Text style={{ fontSize: '16px', display: 'block', marginBottom: '4px', color: '#c62828', fontWeight: 'bold' }}>毒药</Text>
                   <Text style={{ color: '#ef9a9a', fontSize: '12px', display: 'block', marginBottom: '4px' }}>
                     — 毒药行动 · 危险 —
                   </Text>
@@ -1489,7 +1511,7 @@ export default function GamePlay() {
                     disabled={!selectedTarget}
                   >
                     {selectedTarget
-                      ? `☠️ 确认毒 ${game?.players.find(p => p.playerId === selectedTarget)?.seatNumber}号`
+                      ? `◆ 确认毒 ${game?.players.find(p => p.playerId === selectedTarget)?.seatNumber}号`
                       : '请先选择目标'}
                   </Button>
                 </View>
@@ -1507,12 +1529,12 @@ export default function GamePlay() {
             <View>
               {canHunterShoot && game?.myRole === 'HUNTER' && (
                 <Text style={{ display: 'block', textAlign: 'center', marginBottom: '6px', color: '#ff6b6b', fontSize: '13px', fontWeight: 'bold' }}>
-                  🔫 你已死亡！请选择开枪带走一个人
+                  ◆ 你已死亡！请选择开枪带走一个人
                 </Text>
               )}
               <Text className='action-hint'>
                 {selectedTarget
-                  ? `⚔ 目标：${game?.players.find(p => p.playerId === selectedTarget)?.username}`
+                  ? `◆ 目标：${game?.players.find(p => p.playerId === selectedTarget)?.username}`
                   : '☞ 请点击上方选择目标'}
               </Text>
               <View style={{ display: 'flex', gap: '10px' }}>
@@ -1541,7 +1563,7 @@ export default function GamePlay() {
       {/* 聊天区域 */}
       <View className='chat-section'>
         <View className='chat-header'>
-          <Text className='chat-title'>💬 消息</Text>
+          <Text className='chat-title'>◆ 消息</Text>
           {game?.phase === 'DISCUSSION' && currentSpeaker && (
             <Text className='chat-hint'>
               轮到 {currentSpeaker.seatNumber}号 {currentSpeaker.username} 发言
@@ -1598,9 +1620,11 @@ export default function GamePlay() {
         <View className='modal-overlay' onClick={() => setShowRoleModal(false)}>
           <View className='modal-content' onClick={(e) => e.stopPropagation()}>
             <Text className='modal-title'>—— 你的身份 ——</Text>
-            <Text style={{ display: 'block', textAlign: 'center', fontSize: '40px', marginBottom: '8px', filter: 'drop-shadow(0 4px 12px rgba(196, 26, 26, 0.4))' }}>
-              {game?.myRole === 'WEREWOLF' ? '🐺' : game?.myRole === 'SEER' ? '🔮' : game?.myRole === 'WITCH' ? '🧙' : game?.myRole === 'HUNTER' ? '🔫' : game?.myRole === 'GUARD' ? '🛡️' : game?.myRole === 'IDIOT' ? '🤡' : '👤'}
-            </Text>
+            <Image
+              style={{ display: 'block', width: '120px', height: '120px', margin: '0 auto 12px', borderRadius: '12px', border: '2px solid rgba(212,175,55,0.3)' }}
+              src={getRoleImage(game?.myRole)}
+              mode='aspectFit'
+            />
             <Text className='modal-role'>{getRoleName(game?.myRole)}</Text>
             <Text style={{ display: 'block', textAlign: 'center', fontSize: '11px', color: game?.myRole === 'WEREWOLF' ? '#ff4444' : '#4caf50', letterSpacing: '2px', marginBottom: '4px' }}>
               {game?.myRole === 'WEREWOLF' ? '狼人阵营' : '好人阵营'}
@@ -1612,7 +1636,7 @@ export default function GamePlay() {
             {game?.myRole === 'WEREWOLF' && game?.teammates && game.teammates.length > 0 && (
               <View style={{ padding: '8px 12px', marginBottom: '12px', background: 'rgba(180,40,40,0.15)', borderRadius: '6px', border: '1px solid rgba(180,40,40,0.3)' }}>
                 <Text style={{ display: 'block', fontSize: '12px', color: '#ff4444', textAlign: 'center', fontWeight: 'bold' }}>
-                  🐺 你的狼队友
+                  ◆ 你的狼队友
                 </Text>
                 <Text style={{ display: 'block', fontSize: '13px', color: '#ff6666', textAlign: 'center', marginTop: '4px' }}>
                   {game.teammates.map(tid => {
@@ -1624,6 +1648,28 @@ export default function GamePlay() {
             )}
             <Button className='modal-close' onClick={() => setShowRoleModal(false)}>
               ◈ 知道了 ◈
+            </Button>
+          </View>
+        </View>
+      )}
+
+      {/* 游戏结算浮层 */}
+      {gameOverInfo && (
+        <View className='game-over-overlay'>
+          <View className='game-over-content'>
+            <Image
+              className='game-over-banner'
+              src={gameOverInfo.winner === 'WEREWOLF' ? imgWerewolfWin : imgVillagerWin}
+              mode='aspectFill'
+            />
+            <View className='game-over-info'>
+              <Text className='game-over-title'>
+                {gameOverInfo.winner === 'WEREWOLF' ? '狼人阵营胜利' : '好人阵营胜利'}
+              </Text>
+              <Text className='game-over-msg'>{gameOverInfo.message}</Text>
+            </View>
+            <Button className='game-over-btn' onClick={() => Taro.switchTab({ url: '/pages/room-list/index' })}>
+              返回大厅
             </Button>
           </View>
         </View>

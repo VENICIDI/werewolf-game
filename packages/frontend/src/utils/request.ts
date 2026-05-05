@@ -4,6 +4,19 @@ import { checkLogin } from './auth-guard'
 // API 基础地址 - H5 环境使用相对路径走 devServer 代理，避免跨域问题
 const BASE_URL = process.env.TARO_ENV === 'h5' ? '/api' : 'http://localhost:8080/api'
 
+// 服务器基础地址（用于静态资源如头像）
+const SERVER_BASE = process.env.TARO_ENV === 'h5' ? '' : 'http://localhost:8080'
+
+/**
+ * 将后端返回的相对路径资源 URL 转为完整可访问的 URL
+ * 例如: /avatars/01-shadow-hunter.png -> http://localhost:8080/avatars/01-shadow-hunter.png
+ */
+export const getResourceUrl = (path: string | undefined | null): string => {
+  if (!path) return ''
+  if (path.startsWith('http://') || path.startsWith('https://')) return path
+  return `${SERVER_BASE}${path}`
+}
+
 // 请求拦截
 const request = (options: any) => {
   // 获取 Token

@@ -7,6 +7,7 @@ import { getUserInfo } from '../../api/auth'
 import { checkLogin } from '../../utils/auth-guard'
 import { isLoggedIn } from '../../api/auth'
 import { wsManager, WebSocketState } from '../../utils/websocket'
+import { getResourceUrl } from '../../utils/request'
 import { IconBack, IconSwords, IconPlayer, IconRobot, IconCrown, IconWolf, IconMoon, IconLock, IconChat, IconCheck, IconPlus } from '../../components/Icons'
 import './index.scss'
 
@@ -530,7 +531,7 @@ export default function Room() {
                   >
                     <View className='seat-avatar-room'>
                       {player.avatarUrl ? (
-                        <image src={player.avatarUrl} className='avatar-img' />
+                        <image src={getResourceUrl(player.avatarUrl)} className='avatar-img' style={{ width: '36px', height: '36px', borderRadius: '50%' }} />
                       ) : (
                         player.isAi ? <IconRobot size={18} /> : player.isHost ? <IconCrown size={18} /> : <IconWolf size={18} />
                       )}

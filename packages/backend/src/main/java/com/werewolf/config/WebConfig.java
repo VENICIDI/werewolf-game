@@ -23,6 +23,14 @@ public class WebConfig implements WebMvcConfigurer {
                 .excludePathPatterns("/api/auth/**");
     }
     
+    @Override
+    public void addResourceHandlers(org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry registry) {
+        registry.addResourceHandler("/avatars/**")
+                .addResourceLocations("classpath:/static/avatars/");
+        registry.addResourceHandler("/images/**")
+                .addResourceLocations("classpath:/static/images/");
+    }
+    
     /**
      * RestTemplate Bean，用于调用微信接口
      */

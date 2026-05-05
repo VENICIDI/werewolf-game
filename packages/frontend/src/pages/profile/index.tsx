@@ -42,7 +42,7 @@ export default function Profile() {
     return (
       <View className='profile-container'>
         <View className='not-logged-in'>
-          <Text className='avatar-placeholder'>👤</Text>
+          <Text className='avatar-placeholder'>◆</Text>
           <Text className='hint'>登录后查看个人信息</Text>
           <Button className='btn-login' onClick={goToLogin}>立即登录</Button>
         </View>
