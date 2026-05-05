@@ -99,6 +99,8 @@ class SpeechGenerator:
         context: str,
     ) -> Dict[str, Any]:
         """构建 Prompt 变量"""
+        import random
+        
         # 记忆上下文
         memory_ctx = agent.memory.get_full_context()
         
@@ -118,6 +120,19 @@ class SpeechGenerator:
         
         # 发言引导
         guidance = agent.strategy.get_speech_guidance(agent, game_state)
+        
+        # 随机化发言风格提示（避免每局相同输入导致相同输出）
+        style_hints = [
+            "这次发言请直接切入重点，不要说'我分析一下'这类开头",
+            "这次发言请从具体某个玩家的行为入手，不要泛泛而谈",
+            "这次发言请用质疑的语气，直接点名你最怀疑的人",
+            "这次发言请简短有力，不要超过3句话",
+            "这次发言请针对某个具体事件或细节来分析",
+            "这次请用反问句开头，引起其他玩家注意",
+            "这次请先表态投谁，再解释理由",
+            "这次请站在帮助好人的角度发言，给出明确建议",
+        ]
+        random_hint = random.choice(style_hints)
         
         # RAG 知识（如果可用）
         rag_context = ""
@@ -145,7 +160,7 @@ class SpeechGenerator:
             "game_context": game_context,
             "memory_context": memory_ctx.get("timeline", ""),
             "reasoning_context": reasoning_ctx + rag_context,
-            "speech_guidance": guidance,
+            "speech_guidance": guidance + f"\n\n发言风格要求: {random_hint}",
             "speech_context": context,
             "alive_players": alive_str,
             "deaths": memory_ctx.get("deaths", "无"),
