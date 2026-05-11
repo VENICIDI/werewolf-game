@@ -23,8 +23,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # 先装依赖（缓存层）
 COPY requirements.txt ./
-# pip 26+ 默认不再带 pkg_resources，老库的 setup.py 容易挂；锁定 pip 并显式装 setuptools
-RUN pip install -i https://mirrors.tencent.com/pypi/simple/ --upgrade "pip<25" "setuptools>=68" wheel \
+# 关键：setuptools 80+ 移除了 pkg_resources，老库 setup.py 会挂，
+# 所以锁在 <80。pip 镜像自带 24.0 够用，不升级。
+RUN pip install -i https://mirrors.tencent.com/pypi/simple/ "setuptools>=68,<80" "wheel<0.46" \
  && pip install -i https://mirrors.tencent.com/pypi/simple/ -r requirements.txt
 
 # 拷业务代码
