@@ -9,12 +9,12 @@ python-multipart==0.0.6
 # 模型大小约 480MB，中文识别效果好，推理速度适中
 openai-whisper==20231117
 
-# ============ TTS: VITS (文字转语音) ============
-# HuggingFace 模型: facebook/mms-tts-zho
-# 基于 VITS 架构的中文语音合成，模型约 75MB
-# 完全离线运行，无需联网
+# ============ TTS: edge-tts (微软 Edge 免费 TTS) ============
+# 实际使用 edge-tts，无需下载模型，联网调用微软 endpoint
+# 之前 README 写的 facebook/mms-tts-zho 已替换
+edge-tts>=6.1.0
 
-# ============ 共享依赖 (STT + TTS 都需要) ============
+# ============ 共享依赖 (STT 需要) ============
 torch>=2.0.0
 torchaudio>=2.0.0
 transformers>=4.36.0

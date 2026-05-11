@@ -1,14 +1,14 @@
 server:
-  port: 8088
+  port: ${SERVER_PORT:8088}
 
 spring:
   application:
     name: werewolf-backend
   
   datasource:
-    url: jdbc:mysql://localhost:3306/werewolf?useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
-    username: werewolf
-    password: werewolf123
+    url: jdbc:mysql://${MYSQL_HOST:localhost}:${MYSQL_PORT:3306}/${MYSQL_DATABASE:werewolf}?useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
+    username: ${MYSQL_USERNAME:werewolf}
+    password: ${MYSQL_PASSWORD:werewolf123}
     driver-class-name: com.mysql.cj.jdbc.Driver
   
   jpa:
@@ -21,10 +21,10 @@ spring:
         format_sql: false
   
   redis:
-    host: localhost
-    port: 6379
-    password: 
-    database: 0
+    host: ${REDIS_HOST:localhost}
+    port: ${REDIS_PORT:6379}
+    password: ${REDIS_PASSWORD:}
+    database: ${REDIS_DATABASE:0}
     timeout: 6000ms
     lettuce:
       pool:
@@ -40,8 +40,8 @@ spring:
 
 # JWT配置
 jwt:
-  secret: werewolf-secret-key-2024-very-long-and-secure-key-for-jwt-signing
-  expiration: 86400000  # 24小时
+  secret: ${JWT_SECRET:werewolf-secret-key-2024-very-long-and-secure-key-for-jwt-signing}
+  expiration: ${JWT_EXPIRATION:86400000}  # 24小时
 
 # 微信配置
 wechat:
