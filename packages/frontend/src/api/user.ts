@@ -1,7 +1,7 @@
 import Taro from '@tarojs/taro'
 import { put } from '../utils/request'
 
-const SERVER_HOST = process.env.TARO_ENV === 'h5' ? '' : 'http://192.168.0.109:8080'
+const SERVER_HOST = process.env.TARO_ENV === 'h5' ? '' : 'http://10.0.0.240:8088'
 const BASE_URL = process.env.TARO_ENV === 'h5' ? '/api' : `${SERVER_HOST}/api`
 
 /**

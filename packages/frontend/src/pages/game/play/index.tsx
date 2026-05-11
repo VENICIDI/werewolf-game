@@ -1,11 +1,11 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
 import Taro, { useRouter, useDidHide } from '@tarojs/taro'
-import { View, Text, Button, ScrollView, Input, Image } from '@tarojs/components'
+import { View, Text, Button, Image } from '@tarojs/components'
 import { getGameStatus, getGameSnapshot, GamePhase, GameStatus, Role } from '../../../api/game'
 import { get, post, getResourceUrl } from '../../../utils/request'
 import { wsManager } from '../../../utils/websocket'
 import { bgm } from '../../../utils/bgm'
-import { IconWolf, IconPlayer, IconRobot, IconSkull, IconMoon, IconSun, IconCrystalBall, IconPotion, IconShield, IconCrosshair, IconChat, IconVote, IconScale, IconTimer, IconLock } from '../../../components/Icons'
+import { IconWolf, IconPlayer, IconRobot, IconSkull, IconMoon, IconSun, IconCrystalBall, IconPotion, IconShield, IconCrosshair, IconChat, IconVote, IconScale, IconTimer, IconLock, IconMic } from '../../../components/Icons'
 import './index.scss'
 
 // 大图通过后端静态资源网络加载，不打包进小程序
@@ -95,6 +95,11 @@ export default function GamePlay() {
     eliminatedName?: string
     message: string
   } | null>(null)
+
+  // ✨ 语音输入：录音状态
+  const [isRecording, setIsRecording] = useState(false)
+  const [isTranscribing, setIsTranscribing] = useState(false)
+  const recorderRef = useRef<any>(null)
 
   // 初始化：通过 API 获取游戏状态
   useEffect(() => {
@@ -1073,6 +1078,85 @@ export default function GamePlay() {
     setSpeakTimeLeft(0)
   }
 
+  // ✨ 语音输入：长按开始录音
+  const startRecord = () => {
+    if (!canChat()) {
+      Taro.showToast({ title: '还没轮到你发言', icon: 'none' })
+      return
+    }
+    if (isRecording || isTranscribing) return
+
+    // 小程序录音管理器
+    if (!recorderRef.current) {
+      recorderRef.current = Taro.getRecorderManager()
+      recorderRef.current.onStart(() => {
+        console.log('[REC] 录音开始')
+        setIsRecording(true)
+      })
+      recorderRef.current.onStop((res: any) => {
+        console.log('[REC] 录音结束', res)
+        setIsRecording(false)
+        if (res.duration && res.duration < 500) {
+          Taro.showToast({ title: '说话时间太短', icon: 'none' })
+          return
+        }
+        uploadAndTranscribe(res.tempFilePath)
+      })
+      recorderRef.current.onError((err: any) => {
+        console.error('[REC] 录音错误', err)
+        setIsRecording(false)
+        Taro.showToast({ title: '录音失败：' + (err.errMsg || ''), icon: 'none' })
+      })
+    }
+
+    recorderRef.current.start({
+      duration: 60000,            // 最长 60s
+      sampleRate: 16000,
+      numberOfChannels: 1,
+      encodeBitRate: 48000,
+      format: 'mp3',
+    })
+  }
+
+  // ✨ 语音输入：松开结束录音
+  const stopRecord = () => {
+    if (!isRecording) return
+    recorderRef.current?.stop()
+  }
+
+  // ✨ 上传音频到 STT 服务并把识别结果作为聊天发出
+  const uploadAndTranscribe = (filePath: string) => {
+    setIsTranscribing(true)
+    const apiBase = Taro.getStorageSync('api_base_url') || ''
+    // STT 服务在 8001 端口，独立于业务后端
+    const sttBase = apiBase.replace(/:\d+$/, ':8001')
+    Taro.uploadFile({
+      url: `${sttBase}/api/stt/transcribe`,
+      filePath,
+      name: 'audio',
+      formData: { language: 'zh' },
+      success: (res) => {
+        try {
+          const body = typeof res.data === 'string' ? JSON.parse(res.data) : res.data
+          const text = body?.data?.text?.trim()
+          if (text) {
+            wsManager.sendChat(text)
+          } else {
+            Taro.showToast({ title: '没听清，请重试', icon: 'none' })
+          }
+        } catch (e) {
+          console.error('[STT] 解析失败', e, res.data)
+          Taro.showToast({ title: '识别失败', icon: 'none' })
+        }
+      },
+      fail: (err) => {
+        console.error('[STT] 上传失败', err)
+        Taro.showToast({ title: '上传失败：' + (err.errMsg || ''), icon: 'none' })
+      },
+      complete: () => setIsTranscribing(false),
+    })
+  }
+
   const currentSpeaker = game?.players.find(p => p.playerId === currentSpeakerId)
 
   const phaseDisplay = getPhaseDisplay()
@@ -1569,52 +1653,30 @@ export default function GamePlay() {
         </View>
       )}
 
-      {/* 聊天区域 */}
-      <View className='chat-section'>
-        <View className='chat-header'>
-          <Text className='chat-title'>◆ 消息</Text>
-          {game?.phase === 'DISCUSSION' && currentSpeaker && (
-            <Text className='chat-hint'>
-              轮到 {currentSpeaker.seatNumber}号 {currentSpeaker.username} 发言
-            </Text>
-          )}
-        </View>
-        <ScrollView className='chat-messages' scrollY scrollWithAnimation>
-          {chatMessages.length === 0 ? (
-            <View style={{ textAlign: 'center', padding: '20px', color: '#8a7a68' }}>
-              暗夜寂静...
-            </View>
-          ) : (
-            chatMessages.map((msg, index) => (
-              <View key={index} className={`chat-item ${msg.senderId === game?.myPlayerId ? 'me' : ''}`}>
-                <Text className='chat-sender'>{msg.senderName}:</Text>
-                <Text className='chat-content'>{msg.content}</Text>
-              </View>
-            ))
-          )}
-        </ScrollView>
-
-        {/* 聊天输入框 - 讨论阶段可用 */}
+      {/* 语音输入：浮动话筒按钮（替代原消息区+输入框）*/}
+      <View className='mic-bar'>
         {canChat() ? (
-          <View className='chat-input-row'>
-            <Input
-              className='chat-input'
-              placeholder='发表你的看法...'
-              value={chatInput}
-              onInput={(e) => setChatInput(e.detail.value)}
-              onConfirm={handleSendChat}
-            />
-            <Button className='chat-send-btn' onClick={handleSendChat}>
-              发送
+          <View className='mic-wrap'>
+            <Button
+              className={`mic-btn ${isRecording ? 'recording' : ''} ${isTranscribing ? 'transcribing' : ''}`}
+              onTouchStart={startRecord}
+              onTouchEnd={stopRecord}
+              onTouchCancel={stopRecord}
+              disabled={isTranscribing}
+            >
+              <IconMic size={36} color='#fff' />
             </Button>
-            <Button className='chat-skip-btn' onClick={handleSkipSpeech}>
-              结束发言
-            </Button>
+            <Text className='mic-hint'>
+              {isTranscribing ? '识别中…' : isRecording ? '松开发送，上滑取消' : '按住 说话'}
+            </Text>
           </View>
         ) : (
-          <View className='chat-input-disabled'>
-            <Text className='chat-disabled-text'>
-              {game?.phase === 'DISCUSSION' ? `当前发言人：${currentSpeaker ? `${currentSpeaker.seatNumber}号 ${currentSpeaker.username}` : '等待切换'}` :
+          <View className='mic-wrap disabled'>
+            <View className='mic-btn idle'>
+              <IconMic size={36} color='#5a4a3a' />
+            </View>
+            <Text className='mic-hint dim'>
+              {game?.phase === 'DISCUSSION' ? `等待 ${currentSpeaker ? `${currentSpeaker.seatNumber}号 ${currentSpeaker.username}` : '发言人'}` :
                game?.phase === 'VOTING' ? '投票阶段，禁止发言' :
                game?.phase === 'EXECUTION' ? '处决阶段，静默等待' :
                ['NIGHT_START', 'WEREWOLF', 'SEER', 'WITCH', 'GUARD', 'HUNTER'].includes(game?.phase || '') ? '夜晚降临，保持沉默' :

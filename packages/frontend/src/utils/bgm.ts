@@ -16,7 +16,7 @@ class BgmManager {
 
   /** 获取 BGM 的完整 URL */
   private getUrl(): string {
-    const serverBase = process.env.TARO_ENV === 'h5' ? '' : 'http://192.168.0.109:8080'
+    const serverBase = process.env.TARO_ENV === 'h5' ? '' : 'http://10.0.0.240:8088'
     return `${serverBase}${BGM_PATH}`
   }
 

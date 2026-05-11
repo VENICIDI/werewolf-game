@@ -35,7 +35,7 @@ if [ -z "$JAVA_HOME" ] && [ -d "/opt/homebrew/opt/openjdk" ]; then
 fi
 
 # -------------------- 端口配置 --------------------
-BACKEND_PORT=8080
+BACKEND_PORT=8088
 FRONTEND_PORT=10086
 AI_SERVICE_PORT=8000
 AI_SPEECH_PORT=8001
@@ -423,7 +423,9 @@ start_backend() {
     fi
 
     log_info "使用 $mvn_cmd 启动后端..."
-    nohup $mvn_cmd spring-boot:run > "$LOG_DIR/backend.log" 2>&1 &
+    # 防止 WorkBuddy 注入的 SERVER__PORT 覆盖，显式传 --server.port
+    unset SERVER__PORT SERVER_PORT PORT
+    nohup $mvn_cmd spring-boot:run -Dspring-boot.run.arguments="--server.port=$BACKEND_PORT" > "$LOG_DIR/backend.log" 2>&1 &
     local pid=$!
     echo "$pid" > "$PID_DIR/backend.pid"
 
@@ -739,9 +741,9 @@ show_status() {
 
     # Backend
     if check_port $BACKEND_PORT; then
-        echo -e "  后端 (8080)       ${GREEN}● 运行中${NC}"
+        echo -e "  后端 ($BACKEND_PORT)       ${GREEN}● 运行中${NC}"
     else
-        echo -e "  后端 (8080)       ${RED}○ 已停止${NC}"
+        echo -e "  后端 ($BACKEND_PORT)       ${RED}○ 已停止${NC}"
     fi
 
     # Frontend
@@ -822,7 +824,7 @@ show_help() {
     echo -e "${CYAN}单独服务:${NC}"
     echo "  infra           启动基础设施 (MySQL + Redis)"
     echo "  infra:stop      停止基础设施"
-    echo "  backend         启动后端服务 (Spring Boot :8080)"
+    echo "  backend         启动后端服务 (Spring Boot :8088)"
     echo "  backend:stop    停止后端服务"
     echo "  frontend        启动前端服务 (Taro H5 :10086)"
     echo "  frontend:stop   停止前端服务"
