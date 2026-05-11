@@ -21,18 +21,6 @@ spring:
         dialect: org.hibernate.dialect.MySQL8Dialect
         format_sql: false
   
-  redis:
-    host: ${REDIS_HOST:localhost}
-    port: ${REDIS_PORT:6379}
-    password: ${REDIS_PASSWORD:}
-    database: ${REDIS_DATABASE:0}
-    timeout: 6000ms
-    lettuce:
-      pool:
-        max-active: 8
-        max-idle: 8
-        min-idle: 0
-  
   # 文件上传（头像）
   servlet:
     multipart:
