@@ -5,6 +5,7 @@ import { getGameStatus, getGameSnapshot, GamePhase, GameStatus, Role } from '../
 import { get, post, getResourceUrl } from '../../../utils/request'
 import { wsManager } from '../../../utils/websocket'
 import { bgm } from '../../../utils/bgm'
+import { ttsPlayer } from '../../../utils/tts'
 import { IconWolf, IconPlayer, IconRobot, IconSkull, IconMoon, IconSun, IconCrystalBall, IconPotion, IconShield, IconCrosshair, IconChat, IconVote, IconScale, IconTimer, IconLock, IconMic } from '../../../components/Icons'
 import './index.scss'
 
@@ -124,7 +125,8 @@ export default function GamePlay() {
 
     return () => {
       wsManager.disconnect()
-      // 离开游戏页面：恢复背景音乐
+      // 离开游戏页面：停止 TTS 播放 + 恢复背景音乐
+      ttsPlayer.stop()
       bgm.ensurePlaying()
     }
   }, [])
@@ -412,14 +414,28 @@ export default function GamePlay() {
     currentSpeakerIdRef.current = currentSpeakerId
   }, [currentSpeakerId])
 
+  // ✨ game 的 ref 镜像，供 handlePlayerChat 判断 senderId 是否为 AI
+  const gameRef = useRef<GameData | null>(null)
+  useEffect(() => {
+    gameRef.current = game
+  }, [game])
+
   const handlePlayerChat = useCallback((message: any) => {
     const senderId = message.senderId
+    const content = message.data?.content || ''
     setChatMessages(prev => [...prev, {
       senderId,
       senderName: message.senderName,
-      content: message.data?.content || '',
+      content,
       timestamp: message.timestamp
     }])
+
+    // ✨ AI 发言：走 TTS 播放（排队，不会抢声道）
+    const sender = gameRef.current?.players?.find(p => p.playerId === senderId)
+    if (sender?.isAi && content) {
+      ttsPlayer.enqueue(content, senderId)
+    }
+
     // ✨ 仅当前发言人的聊天才触发"刚说话"高亮,避免延迟/异常消息让非当前发言人变绿
     if (senderId !== currentSpeakerIdRef.current) {
       return
@@ -441,7 +457,8 @@ export default function GamePlay() {
       winner: data.winner || '',
       message: data.message || '游戏已结束'
     })
-    // 游戏结束时恢复背景音乐（用户即将返回非游戏页面）
+    // 游戏结束时停止 TTS + 恢复背景音乐
+    ttsPlayer.stop()
     bgm.ensurePlaying()
   }, [])
 
