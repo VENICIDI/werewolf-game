@@ -27,7 +27,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # 依赖层
 COPY requirements.txt ./
-RUN pip install -i https://mirrors.tencent.com/pypi/simple/ --upgrade pip \
+# 注意：pip 26+ 默认不再带 pkg_resources，openai-whisper 的 setup.py 还在用，
+# 所以必须显式升级 setuptools/wheel；同时锁定 pip 在已知兼容版本
+RUN pip install -i https://mirrors.tencent.com/pypi/simple/ --upgrade "pip<25" "setuptools>=68" wheel \
  && pip install -i https://mirrors.tencent.com/pypi/simple/ -r requirements.txt
 
 # 业务代码

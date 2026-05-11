@@ -6,7 +6,8 @@ spring:
     name: werewolf-backend
   
   datasource:
-    url: jdbc:mysql://${MYSQL_HOST:localhost}:${MYSQL_PORT:3306}/${MYSQL_DATABASE:werewolf}?useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
+    # 微信云托管预置了 MYSQL_ADDRESS=host:port 格式；本地开发仍可用 MYSQL_HOST+MYSQL_PORT 分开注入
+    url: jdbc:mysql://${MYSQL_ADDRESS:${MYSQL_HOST:localhost}:${MYSQL_PORT:3306}}/${MYSQL_DATABASE:werewolf}?useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&createDatabaseIfNotExist=true
     username: ${MYSQL_USERNAME:werewolf}
     password: ${MYSQL_PASSWORD:werewolf123}
     driver-class-name: com.mysql.cj.jdbc.Driver
