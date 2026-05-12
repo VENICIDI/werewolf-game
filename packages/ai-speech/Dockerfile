@@ -43,8 +43,12 @@ ARG PIP_INDEX=https://mirrors.tencent.com/pypi/simple/
 RUN pip install -i ${PIP_INDEX} "setuptools>=68,<80" "wheel<0.46"
 
 # 2) 关键：单独装 CPU 版 torch（云托管无 GPU），避免被 whisper/transformers 拖来 2GB+ CUDA 工具链
-RUN pip install --index-url https://download.pytorch.org/whl/cpu \
-      "torch==2.2.2+cpu" "torchaudio==2.2.2+cpu"
+# 改用阿里云 PyTorch CPU 镜像（国内可达），原 download.pytorch.org 在云托管构建机
+# 拉 186MB wheel 经常超时中断（典型表现：日志停在 "Downloading torch-...whl (186.8 MB)" 然后构建失败）。
+# 阿里云镜像里 torch CPU 最新到 2.1.2-cp311，对 openai-whisper 20231117 完全够用。
+RUN pip install --no-cache-dir --retries 5 --timeout 600 \
+      --index-url https://mirrors.aliyun.com/pytorch-wheels/cpu/ \
+      "torch==2.1.2+cpu" "torchaudio==2.1.2+cpu"
 
 # 3) 先装非 whisper 的依赖（torch/torchaudio 已是 CPU 版，pip 会跳过）
 RUN grep -v -E "^(openai-whisper|#|$)" requirements.txt > /tmp/req-no-whisper.txt \

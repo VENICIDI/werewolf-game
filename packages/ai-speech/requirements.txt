@@ -15,9 +15,11 @@ openai-whisper==20231117
 edge-tts>=6.1.0
 
 # ============ 共享依赖 (STT 需要) ============
-torch>=2.0.0
-torchaudio>=2.0.0
-transformers>=4.36.0
+# 注意：torch/torchaudio 在 Dockerfile 里单独从阿里云 CPU 镜像装 2.1.2+cpu
+# 这里写区间是为了让 pip install -r 检测到主环境已装的版本满足、跳过重装
+torch>=2.1,<2.2
+torchaudio>=2.1,<2.2
+transformers>=4.36.0,<4.45.0
 
 # ============ 音频处理 ============
 soundfile>=0.12.0
