@@ -43,12 +43,16 @@ ARG PIP_INDEX=https://mirrors.tencent.com/pypi/simple/
 RUN pip install -i ${PIP_INDEX} "setuptools>=68,<80" "wheel<0.46"
 
 # 2) 关键：单独装 CPU 版 torch（云托管无 GPU），避免被 whisper/transformers 拖来 2GB+ CUDA 工具链
-# 改用阿里云 PyTorch CPU 镜像（国内可达），原 download.pytorch.org 在云托管构建机
-# 拉 186MB wheel 经常超时中断（典型表现：日志停在 "Downloading torch-...whl (186.8 MB)" 然后构建失败）。
-# 阿里云镜像里 torch CPU 最新到 2.1.2-cp311，对 openai-whisper 20231117 完全够用。
+# 历史踩坑：
+#   v1: --index-url=download.pytorch.org/whl/cpu  → 国内拉 186MB wheel 中途超时
+#   v2: --index-url=mirrors.aliyun.com/pytorch-wheels/cpu/ → 阿里云只是目录列表非 PEP503 索引，pip 找不到包
+# 现方案：用清华源（完整 PyPI 镜像，国内 CDN，云托管必定可达）装 torch==2.1.2
+#   PyPI 上 torch 2.x 的 manylinux wheel 自带 MKL 是 CPU 版（约 670MB），
+#   不会拖来 cuDNN/NCCL/cuBLAS 那 2GB+ CUDA 工具链。
+#   不写 +cpu local version，因为 PyPI 索引里没有，那是 download.pytorch.org 才有的别名。
 RUN pip install --no-cache-dir --retries 5 --timeout 600 \
-      --index-url https://mirrors.aliyun.com/pytorch-wheels/cpu/ \
-      "torch==2.1.2+cpu" "torchaudio==2.1.2+cpu"
+      -i https://pypi.tuna.tsinghua.edu.cn/simple/ \
+      "torch==2.1.2" "torchaudio==2.1.2"
 
 # 3) 先装非 whisper 的依赖（torch/torchaudio 已是 CPU 版，pip 会跳过）
 RUN grep -v -E "^(openai-whisper|#|$)" requirements.txt > /tmp/req-no-whisper.txt \
