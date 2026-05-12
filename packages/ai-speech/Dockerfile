@@ -44,14 +44,21 @@ RUN pip install -i ${PIP_INDEX} "setuptools>=68,<80" "wheel<0.46"
 
 # 2) 关键：单独装 CPU 版 torch（云托管无 GPU），避免被 whisper/transformers 拖来 2GB+ CUDA 工具链
 # 历史踩坑：
-#   v1: --index-url=download.pytorch.org/whl/cpu  → 国内拉 186MB wheel 中途超时
+#   v1: --index-url=download.pytorch.org/whl/cpu       → 国内拉 186MB wheel 中途超时
 #   v2: --index-url=mirrors.aliyun.com/pytorch-wheels/cpu/ → 阿里云只是目录列表非 PEP503 索引，pip 找不到包
-# 现方案：用清华源（完整 PyPI 镜像，国内 CDN，云托管必定可达）装 torch==2.1.2
-#   PyPI 上 torch 2.x 的 manylinux wheel 自带 MKL 是 CPU 版（约 670MB），
-#   不会拖来 cuDNN/NCCL/cuBLAS 那 2GB+ CUDA 工具链。
-#   不写 +cpu local version，因为 PyPI 索引里没有，那是 download.pytorch.org 才有的别名。
-RUN pip install --no-cache-dir --retries 5 --timeout 600 \
-      -i https://pypi.tuna.tsinghua.edu.cn/simple/ \
+#   v3: -i pypi.tuna.tsinghua.edu.cn/simple/           → 清华对 torch 大 wheel 限流，403 Forbidden
+# 现方案 v4：直接用腾讯云镜像源（云托管在腾讯云上，亲妈源，无限流）
+#   - 主源 mirrors.tencent.com（公网 CDN，含完整 PyPI 镜像）
+#   - 备源 mirrors.cloud.tencent.com（同 CDN 备用域名）
+#   - PyPI 上 torch 2.x 的 manylinux wheel 自带 MKL 是 CPU 版（约 670MB），
+#     不会拖来 cuDNN/NCCL/cuBLAS 那 2GB+ CUDA 工具链。
+#   - 不写 +cpu local version，因为公网 PyPI 索引里没有，那是 download.pytorch.org 才有的别名。
+#   - --retries 10 + --timeout 900：拉 670MB 大文件留足余量
+RUN pip install --no-cache-dir --retries 10 --timeout 900 \
+      -i https://mirrors.tencent.com/pypi/simple/ \
+      --extra-index-url https://mirrors.cloud.tencent.com/pypi/simple/ \
+      --trusted-host mirrors.tencent.com \
+      --trusted-host mirrors.cloud.tencent.com \
       "torch==2.1.2" "torchaudio==2.1.2"
 
 # 3) 先装非 whisper 的依赖（torch/torchaudio 已是 CPU 版，pip 会跳过）
