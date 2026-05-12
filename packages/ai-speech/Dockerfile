@@ -42,14 +42,18 @@ ARG PIP_INDEX=https://mirrors.tencent.com/pypi/simple/
 # 1) 主环境锁版本：setuptools<80 保留 pkg_resources
 RUN pip install -i ${PIP_INDEX} "setuptools>=68,<80" "wheel<0.46"
 
-# 2) 先装非 whisper 的依赖（含 numpy/torch/transformers 等）
+# 2) 关键：单独装 CPU 版 torch（云托管无 GPU），避免被 whisper/transformers 拖来 2GB+ CUDA 工具链
+RUN pip install --index-url https://download.pytorch.org/whl/cpu \
+      "torch==2.2.2+cpu" "torchaudio==2.2.2+cpu"
+
+# 3) 先装非 whisper 的依赖（torch/torchaudio 已是 CPU 版，pip 会跳过）
 RUN grep -v -E "^(openai-whisper|#|$)" requirements.txt > /tmp/req-no-whisper.txt \
  && pip install -i ${PIP_INDEX} -r /tmp/req-no-whisper.txt
 
-# 3) 补上 whisper 自己的运行时依赖（避免 --no-build-isolation 时缺包）
+# 4) 补上 whisper 自己的运行时依赖（避免 --no-build-isolation 时缺包）
 RUN pip install -i ${PIP_INDEX} numba tqdm more-itertools tiktoken
 
-# 4) 单独装 whisper，关掉隔离 build env，强制使用主环境 setuptools<80
+# 5) 单独装 whisper，关掉隔离 build env，强制使用主环境 setuptools<80
 RUN pip install -i ${PIP_INDEX} --no-build-isolation openai-whisper==20231117
 
 # 业务代码

@@ -23,10 +23,18 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # 先装依赖（缓存层）
 COPY requirements.txt ./
-# 关键：setuptools 80+ 移除了 pkg_resources，老库 setup.py 会挂，
-# 所以锁在 <80。pip 镜像自带 24.0 够用，不升级。
-RUN pip install -i https://mirrors.tencent.com/pypi/simple/ "setuptools>=68,<80" "wheel<0.46" \
- && pip install -i https://mirrors.tencent.com/pypi/simple/ -r requirements.txt
+ARG PIP_INDEX=https://mirrors.tencent.com/pypi/simple/
+
+# 1) 主环境锁 setuptools<80（保留 pkg_resources，避免老库 setup.py 报 ModuleNotFoundError）
+RUN pip install -i ${PIP_INDEX} "setuptools>=68,<80" "wheel<0.46"
+
+# 2) 关键：单独装 CPU 版 torch（云托管无 GPU），避免被 sentence-transformers 拖来 2GB+ CUDA 13 工具链
+#    走 PyTorch 官方 CPU index，腾讯云镜像也接受 extra-index-url 兜底
+RUN pip install --index-url https://download.pytorch.org/whl/cpu \
+      "torch==2.2.2+cpu"
+
+# 3) 装 requirements.txt 其余依赖（pip 检测到 torch 已存在，不会再去拉 GPU 版）
+RUN pip install -i ${PIP_INDEX} -r requirements.txt
 
 # 拷业务代码
 COPY . .
