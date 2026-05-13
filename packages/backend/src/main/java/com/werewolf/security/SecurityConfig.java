@@ -52,6 +52,8 @@ public class SecurityConfig {
             .authorizeHttpRequests(auth -> auth
                 // 公开接口
                 .requestMatchers("/api/auth/**").permitAll()
+                .requestMatchers("/api/tts/**").permitAll()
+                .requestMatchers("/api/stt/**").permitAll()
                 .requestMatchers("/ws/**").permitAll()
                 .requestMatchers("/error").permitAll()
                 

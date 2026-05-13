@@ -1145,10 +1145,9 @@ export default function GamePlay() {
   const uploadAndTranscribe = (filePath: string) => {
     setIsTranscribing(true)
     const apiBase = Taro.getStorageSync('api_base_url') || ''
-    // STT 服务在 8001 端口，独立于业务后端
-    const sttBase = apiBase.replace(/:\d+$/, ':8001')
+    // STT 已合并到主后端（Spring Boot 8088 → 代理 Fish Audio /v1/asr）
     Taro.uploadFile({
-      url: `${sttBase}/api/stt/transcribe`,
+      url: `${apiBase}/api/stt/transcribe`,
       filePath,
       name: 'audio',
       formData: { language: 'zh' },

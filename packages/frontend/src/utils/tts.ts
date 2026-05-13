@@ -3,9 +3,14 @@ import Taro from '@tarojs/taro'
 /**
  * TTS 播放器 - AI 发言文字 → 语音播放
  *
- * 后端：packages/ai-speech  POST /api/tts/synthesize/json
+ * 后端：packages/backend  POST /api/tts/synthesize/json
+ *       内部代理转发到 Fish Audio https://api.fish.audio/v1/tts
  *       请求：{ text, speaking_rate? }
  *       响应：{ success, data: { audio_base64, content_type, size } }
+ *
+ * 历史背景：
+ *   - 2026-05 之前由 packages/ai-speech (FastAPI + edge-tts) 跑在 8001
+ *   - 2026-05-13 改为 Spring Boot 后端代理 Fish Audio API，ai-speech 服务下线
  *
  * 实现：
  *   - 串行队列：同时多条发言入队，按序播放，不会抢声道
@@ -16,10 +21,10 @@ import Taro from '@tarojs/taro'
 const TTS_PATH = '/api/tts/synthesize/json'
 
 function getTtsBaseUrl(): string {
-  // STT/TTS 服务单独跑在 8001
+  // 直接复用主后端（Spring Boot），端口 8088
   return process.env.TARO_ENV === 'h5'
-    ? 'http://localhost:8001'
-    : 'http://10.0.0.240:8001'
+    ? 'http://localhost:8088'
+    : 'http://10.0.0.240:8088'
 }
 
 interface QueueItem {
