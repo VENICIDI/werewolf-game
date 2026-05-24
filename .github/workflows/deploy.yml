@@ -1,0 +1,120 @@
+name: Deploy on Push
+
+on:
+  push:
+    branches: [master, main]
+
+jobs:
+  detect-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Detect changed packages
+        id: changes
+        run: |
+          # 获取变更文件列表（与上一次 commit 的 diff）
+          if [ "${{ github.event.before }}" = "0000000000000000000000000000000000000000" ]; then
+            # 首次推送，所有文件都是"变更"
+            FILES=$(git diff --name-only ${{ github.event.after }}^ ${{ github.event.after }} || git ls-files)
+          else
+            FILES=$(git diff --name-only ${{ github.event.before }} ${{ github.event.after }})
+          fi
+
+          echo "Changed files:"
+          echo "$FILES"
+          echo ""
+
+          BACKEND_CHANGED=false
+          AI_CHANGED=false
+          COMPOSE_CHANGED=false
+
+          for f in $FILES; do
+            case "$f" in
+              packages/backend/*|pom.xml)
+                BACKEND_CHANGED=true
+                ;;
+              packages/ai-service/*)
+                AI_CHANGED=true
+                ;;
+              docker-compose.prod.yml|docker-compose.yml|.github/workflows/*)
+                COMPOSE_CHANGED=true
+                ;;
+            esac
+          done
+
+          # compose 或共享文件变更 → 全部重建
+          if [ "$COMPOSE_CHANGED" = true ]; then
+            BACKEND_CHANGED=true
+            AI_CHANGED=true
+          fi
+
+          echo "backend_changed=$BACKEND_CHANGED" >> $GITHUB_OUTPUT
+          echo "ai_changed=$AI_CHANGED" >> $GITHUB_OUTPUT
+          echo "compose_changed=$COMPOSE_CHANGED" >> $GITHUB_OUTPUT
+
+          echo "### Deploy Plan" >> $GITHUB_STEP_SUMMARY
+          echo "| Package | Rebuild |" >> $GITHUB_STEP_SUMMARY
+          echo "|---------|---------|" >> $GITHUB_STEP_SUMMARY
+          echo "| backend | $BACKEND_CHANGED |" >> $GITHUB_STEP_SUMMARY
+          echo "| ai-service | $AI_CHANGED |" >> $GITHUB_STEP_SUMMARY
+
+      - name: SSH pull & selective deploy
+        uses: appleboy/ssh-action@v1
+        with:
+          host: 39.96.170.159
+          username: root
+          password: ${{ secrets.ECS_PASSWORD }}
+          script: |
+            cd /opt/werewolf-game
+
+            # 拉取最新代码
+            git pull origin master
+
+            if [ "${{ steps.changes.outputs.backend_changed }}" = "true" ] && [ "${{ steps.changes.outputs.ai_changed }}" = "true" ]; then
+              echo ">>> 两个包都有变更，全部重建"
+              docker compose -f docker-compose.prod.yml build --no-cache
+              docker compose -f docker-compose.prod.yml up -d
+            elif [ "${{ steps.changes.outputs.backend_changed }}" = "true" ]; then
+              echo ">>> 仅 backend 变更，只重建 backend"
+              docker compose -f docker-compose.prod.yml build --no-cache werewolf-backend
+              docker compose -f docker-compose.prod.yml up -d werewolf-backend
+            elif [ "${{ steps.changes.outputs.ai_changed }}" = "true" ]; then
+              echo ">>> 仅 ai-service 变更，只重建 ai-service"
+              docker compose -f docker-compose.prod.yml build --no-cache werewolf-ai
+              docker compose -f docker-compose.prod.yml up -d werewolf-ai
+            else
+              echo ">>> 无需重建的变更，跳过部署"
+            fi
+
+            echo ">>> 当前容器状态:"
+            docker compose -f docker-compose.prod.yml ps
+
+      - name: Health check
+        if: steps.changes.outputs.backend_changed == 'true' || steps.changes.outputs.ai_changed == 'true'
+        uses: appleboy/ssh-action@v1
+        with:
+          host: 39.96.170.159
+          username: root
+          password: ${{ secrets.ECS_PASSWORD }}
+          script: |
+            echo ">>> 等待服务启动..."
+            sleep 10
+
+            # backend 健康检查（用实际API接口）
+            if [ "${{ steps.changes.outputs.backend_changed }}" = "true" ]; then
+              echo ">>> 检查 backend (8088)..."
+              curl -sf http://127.0.0.1:8088/api/rooms && echo " - Backend OK" || echo " - Backend FAILED"
+            fi
+
+            # ai-service 健康检查
+            if [ "${{ steps.changes.outputs.ai_changed }}" = "true" ]; then
+              echo ">>> 检查 ai-service (8000)..."
+              curl -sf http://127.0.0.1:8000/ && echo " - AI Service OK" || echo " - AI Service FAILED"
+            fi
+
+            # 清理无用镜像
+            docker image prune -f
