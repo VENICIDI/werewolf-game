@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
-import Taro, { getCurrentInstance, useDidShow } from '@tarojs/taro'
+import Taro, { getCurrentInstance } from '@tarojs/taro'
 import { View, Text, Button, Input, ScrollView } from '@tarojs/components'
 import { getRoomDetail, createRoom, leaveRoom, setReady, addAiPlayer, removeAiPlayer } from '../../api/room'
 import { startGame } from '../../api/game'
@@ -8,7 +8,6 @@ import { checkLogin } from '../../utils/auth-guard'
 import { isLoggedIn } from '../../api/auth'
 import { wsManager, WebSocketState } from '../../utils/websocket'
 import { getResourceUrl } from '../../utils/request'
-import { bgm } from '../../utils/bgm'
 import { IconBack, IconSwords, IconPlayer, IconRobot, IconCrown, IconWolf, IconMoon, IconLock, IconChat, IconCheck, IconPlus } from '../../components/Icons'
 import './index.scss'
 
@@ -59,11 +58,6 @@ export default function Room() {
   const { router } = getCurrentInstance()
   const roomCode = router?.params?.code
   const action = router?.params?.action
-
-  // 非游戏页面：页面显示时恢复 BGM（从游戏返回时也会触发）
-  useDidShow(() => {
-    bgm.ensurePlaying()
-  })
 
   useEffect(() => {
     console.log('[Room] useEffect 触发, action:', action, 'roomCode:', roomCode, 'isLoggedIn:', isLoggedIn())
@@ -186,7 +180,15 @@ export default function Room() {
     const gameId = message.data?.gameId
     console.log('[Room] 收到 GAME_START, gameId:', gameId)
     if (gameId && roomCode) {
-      // 先断开房间页的 WebSocket，防止残留连接
+      // 先清理本页注册的所有 WebSocket 监听器，避免游戏内继续收到房间消息
+      wsManager.off('JOIN_ROOM', handlePlayerJoin)
+      wsManager.off('LEAVE_ROOM', handlePlayerLeave)
+      wsManager.off('ROOM_UPDATE', handleRoomUpdate)
+      wsManager.off('PLAYER_READY', handlePlayerReady)
+      wsManager.off('PLAYER_CHAT', handlePlayerChat)
+      wsManager.off('HEARTBEAT_ACK', handleHeartbeatAck)
+      wsManager.off('GAME_START', handleGameStart)
+      // 再断开房间页的 WebSocket
       wsManager.disconnect()
       Taro.setStorageSync('currentRoomCode', roomCode)
       Taro.setStorageSync('currentGameId', gameId)

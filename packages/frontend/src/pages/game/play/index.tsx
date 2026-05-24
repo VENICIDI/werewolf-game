@@ -9,12 +9,12 @@ import { ttsPlayer } from '../../../utils/tts'
 import { IconWolf, IconPlayer, IconRobot, IconSkull, IconMoon, IconSun, IconCrystalBall, IconPotion, IconShield, IconCrosshair, IconChat, IconVote, IconScale, IconTimer, IconLock, IconMic } from '../../../components/Icons'
 import './index.scss'
 
-// 大图通过后端静态资源网络加载，不打包进小程序
-const imgVillagerWin = getResourceUrl('/images/villager-victory.png')
-const imgWerewolfWin = getResourceUrl('/images/werewolf-victory.png')
-const imgBgNight = getResourceUrl('/images/backgrounds/bg-night-village.png')
-const imgBgDay = getResourceUrl('/images/backgrounds/bg-day.png')
-const imgTable = getResourceUrl('/images/table-texture.png')
+// 游戏图片：打包在前端本地，不依赖服务器
+const imgVillagerWin = require('../../../assets/images/villager-victory.png')
+const imgWerewolfWin = require('../../../assets/images/werewolf-victory.png')
+const imgBgNight = require('../../../assets/images/backgrounds/bg-night-village.png')
+const imgBgDay = require('../../../assets/images/backgrounds/bg-day.png')
+const imgTable = require('../../../assets/images/table-texture.png')
 
 interface PlayerInfo {
   playerId: number
@@ -120,14 +120,12 @@ export default function GamePlay() {
     if (roomCode) {
       connectWebSocket(String(roomCode))
     }
-    // 进入游戏进行中页面：暂停背景音乐（由其他页面负责播放）
+    // 进入游戏进行中页面：暂停背景音乐
     bgm.pause()
 
     return () => {
       wsManager.disconnect()
-      // 离开游戏页面：停止 TTS 播放 + 恢复背景音乐
       ttsPlayer.stop()
-      bgm.ensurePlaying()
     }
   }, [])
 
@@ -457,9 +455,8 @@ export default function GamePlay() {
       winner: data.winner || '',
       message: data.message || '游戏已结束'
     })
-    // 游戏结束时停止 TTS + 恢复背景音乐
+    // 游戏结束时停止 TTS
     ttsPlayer.stop()
-    bgm.ensurePlaying()
   }, [])
 
   const handleDeathAnnounce = useCallback((message: any) => {
@@ -1014,16 +1011,16 @@ export default function GamePlay() {
     return map[role || ''] || role || '未知'
   }
 
-  // 角色立绘图片映射（通过后端静态资源网络加载）
+  // 角色立绘图片映射（打包在前端本地，不依赖服务器）
   const getRoleImage = (role?: string) => {
     const map: Record<string, string> = {
-      VILLAGER: getResourceUrl('/images/roles/villager.png'),
-      WEREWOLF: getResourceUrl('/images/roles/werewolf.png'),
-      SEER: getResourceUrl('/images/roles/seer.png'),
-      WITCH: getResourceUrl('/images/roles/witch.png'),
-      HUNTER: getResourceUrl('/images/roles/hunter.png'),
-      GUARD: getResourceUrl('/images/roles/guard.png'),
-      IDIOT: getResourceUrl('/images/roles/idiot.png'),
+      VILLAGER: require('../../../assets/images/roles/villager.png'),
+      WEREWOLF: require('../../../assets/images/roles/werewolf.png'),
+      SEER: require('../../../assets/images/roles/seer.png'),
+      WITCH: require('../../../assets/images/roles/witch.png'),
+      HUNTER: require('../../../assets/images/roles/hunter.png'),
+      GUARD: require('../../../assets/images/roles/guard.png'),
+      IDIOT: require('../../../assets/images/roles/idiot.png'),
     }
     return map[role || ''] || map['VILLAGER']
   }

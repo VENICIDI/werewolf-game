@@ -5,7 +5,7 @@ import LoginModal from './components/LoginModal'
 import './app.scss'
 
 // 全局配置：H5 走 dev server proxy 用相对路径；小程序必须用局域网 IP（localhost 在手机上指向手机自己）
-const API_BASE_URL = process.env.TARO_ENV === 'h5' ? 'http://localhost:8088' : 'http://10.0.0.240:8088'
+const API_BASE_URL = process.env.NODE_ENV === 'development' ? 'http://localhost:8088' : 'http://39.96.170.159:8088'
 Taro.setStorageSync('api_base_url', API_BASE_URL)
 
 function App({ children }: PropsWithChildren<any>) {

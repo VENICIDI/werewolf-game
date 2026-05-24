@@ -4,19 +4,46 @@ import { checkLogin } from './auth-guard'
 // 后端服务器地址
 // H5 环境使用相对路径走 devServer 代理，避免跨域问题
 // 小程序环境使用局域网 IP（真机调试需要手机和电脑在同一 WiFi 下）
-const SERVER_HOST = process.env.TARO_ENV === 'h5' ? '' : 'http://10.0.0.240:8088'
-const BASE_URL = process.env.TARO_ENV === 'h5' ? '/api' : `${SERVER_HOST}/api`
+const SERVER_HOST = process.env.NODE_ENV === 'development' ? '' : 'http://39.96.170.159:8088'
+const BASE_URL = process.env.NODE_ENV === 'development' ? '/api' : `${SERVER_HOST}/api`
 
-// 服务器基础地址（用于静态资源如头像）
+// 服务器基础地址（仅用于用户上传的动态资源如头像）
 const SERVER_BASE = SERVER_HOST
 
 /**
  * 将后端返回的相对路径资源 URL 转为完整可访问的 URL
- * 例如: /avatars/01-shadow-hunter.png -> http://10.0.0.240:8088/avatars/01-shadow-hunter.png
+ * - 预设资源（/avatars/*.png）走前端本地打包
+ * - 用户上传资源（/uploads/*）走服务器地址
  */
+// 预设头像静态映射（Taro 不支持完全动态 require，需要静态列出）
+const avatarMap: Record<string, string> = {
+  '01-shadow-hunter.png': require('../assets/avatars/01-shadow-hunter.png'),
+  '02-moonwalker.png': require('../assets/avatars/02-moonwalker.png'),
+  '03-silver-wolf.png': require('../assets/avatars/03-silver-wolf.png'),
+  '04-bloodclaw.png': require('../assets/avatars/04-bloodclaw.png'),
+  '05-night-owl.png': require('../assets/avatars/05-night-owl.png'),
+  '06-mist-oracle.png': require('../assets/avatars/06-mist-oracle.png'),
+  '07-iron-guard.png': require('../assets/avatars/07-iron-guard.png'),
+  '08-viper.png': require('../assets/avatars/08-viper.png'),
+  '09-lone-wolf.png': require('../assets/avatars/09-lone-wolf.png'),
+  '10-night-watchman.png': require('../assets/avatars/10-night-watchman.png'),
+  '11-specter.png': require('../assets/avatars/11-specter.png'),
+  '12-black-raven.png': require('../assets/avatars/12-black-raven.png'),
+  'default-female-cool.png': require('../assets/avatars/default-female-cool.png'),
+  'default-female-warm.png': require('../assets/avatars/default-female-warm.png'),
+  'default-male-cool.png': require('../assets/avatars/default-male-cool.png'),
+  'default-male-warm.png': require('../assets/avatars/default-male-warm.png'),
+}
+
 export const getResourceUrl = (path: string | undefined | null): string => {
   if (!path) return ''
   if (path.startsWith('http://') || path.startsWith('https://')) return path
+  // 预设头像：使用前端打包的本地资源
+  if (path.startsWith('/avatars/')) {
+    const filename = path.split('/').pop() || ''
+    const local = avatarMap[filename]
+    if (local) return local
+  }
   return `${SERVER_BASE}${path}`
 }
 

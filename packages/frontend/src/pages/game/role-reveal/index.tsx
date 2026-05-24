@@ -2,18 +2,16 @@ import { useEffect, useState } from 'react'
 import Taro from '@tarojs/taro'
 import { View, Text, Button, Image } from '@tarojs/components'
 import { Role } from '../../../api/game'
-import { getResourceUrl } from '../../../utils/request'
-import { bgm } from '../../../utils/bgm'
 import './index.scss'
 
-// 角色立绘通过后端静态资源网络加载，不打包进小程序
-const imgWerewolf = getResourceUrl('/images/roles/werewolf.png')
-const imgSeer = getResourceUrl('/images/roles/seer.png')
-const imgWitch = getResourceUrl('/images/roles/witch.png')
-const imgHunter = getResourceUrl('/images/roles/hunter.png')
-const imgGuard = getResourceUrl('/images/roles/guard.png')
-const imgVillager = getResourceUrl('/images/roles/villager.png')
-const imgIdiot = getResourceUrl('/images/roles/idiot.png')
+// 角色立绘：打包在前端本地，不依赖服务器
+const imgWerewolf = require('../../../assets/images/roles/werewolf.png')
+const imgSeer = require('../../../assets/images/roles/seer.png')
+const imgWitch = require('../../../assets/images/roles/witch.png')
+const imgHunter = require('../../../assets/images/roles/hunter.png')
+const imgGuard = require('../../../assets/images/roles/guard.png')
+const imgVillager = require('../../../assets/images/roles/villager.png')
+const imgIdiot = require('../../../assets/images/roles/idiot.png')
 
 interface RoleInfo {
   id: string
@@ -121,9 +119,6 @@ export default function RoleReveal() {
   const [countdown, setCountdown] = useState(3)
 
   useEffect(() => {
-    // 角色揭示属于游戏进行中，暂停背景音乐
-    bgm.pause()
-
     // 从路由参数获取角色
     const { router } = Taro.getCurrentInstance()
     const roleParam = router?.params?.role as Role

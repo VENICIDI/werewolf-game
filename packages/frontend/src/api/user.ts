@@ -1,8 +1,8 @@
 import Taro from '@tarojs/taro'
 import { put } from '../utils/request'
 
-const SERVER_HOST = process.env.TARO_ENV === 'h5' ? '' : 'http://10.0.0.240:8088'
-const BASE_URL = process.env.TARO_ENV === 'h5' ? '/api' : `${SERVER_HOST}/api`
+const SERVER_HOST = process.env.NODE_ENV === 'development' ? '' : 'http://39.96.170.159:8088'
+const BASE_URL = process.env.NODE_ENV === 'development' ? '/api' : `${SERVER_HOST}/api`
 
 /**
  * 上传头像文件（用 Taro.uploadFile 走 multipart）

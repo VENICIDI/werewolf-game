@@ -24,7 +24,7 @@ class WebSocketManager {
   private onOpenCallback: (() => void) | null = null
   private onCloseCallback: (() => void) | null = null
   private onErrorCallback: ((error: any) => void) | null = null
-  // ✨ 重连成功回调 — 业务层用它触发状态快照拉取
+  // 重连成功回调
   private onReconnectedCallback: (() => void) | null = null
   // 标记本次 connectSocket 是初次还是重连
   private isReconnecting: boolean = false
@@ -47,7 +47,7 @@ class WebSocketManager {
         return
       }
 
-      const wsHost = process.env.TARO_ENV === 'h5' ? 'localhost:8088' : '10.0.0.240:8088'
+      const wsHost = process.env.NODE_ENV === 'development' ? 'localhost:8088' : '39.96.170.159:8088'
       const wsUrl = `ws://${wsHost}/ws/room/${roomCode}?token=${token}`
       console.log('[WS] 连接:', wsUrl)
       this.state = WebSocketState.CONNECTING
@@ -72,7 +72,6 @@ class WebSocketManager {
             this.reconnectAttempts = 0
             this.startHeartbeat()
             if (this.isReconnecting) {
-              // ✨ 重连成功 — 业务层应在此处拉取完整快照同步状态
               if (this.onReconnectedCallback) this.onReconnectedCallback()
               this.isReconnecting = false
             }
@@ -114,7 +113,7 @@ class WebSocketManager {
   // 断开连接
   disconnect(): void {
     this.stopHeartbeat()
-    this.reconnectAttempts = this.maxReconnectAttempts // 阻止重连
+    this.reconnectAttempts = this.maxReconnectAttempts
     if (this.socketTask) {
       this.socketTask.close({})
       this.socketTask = null
@@ -146,7 +145,7 @@ class WebSocketManager {
     this.send('PLAYER_CHAT', { content })
   }
 
-  // 结束当前讨论阶段发言 (跳过剩余时间)
+  // 结束当前讨论阶段发言
   sendSkipSpeech(): void {
     this.send('SKIP_SPEECH', {})
   }
@@ -195,7 +194,7 @@ class WebSocketManager {
     this.onErrorCallback = callback
   }
 
-  // ✨ 设置重连成功回调 — 在重连后业务层应拉取完整状态快照同步
+  // 设置重连成功回调
   setOnReconnected(callback: () => void): void {
     this.onReconnectedCallback = callback
   }
@@ -252,7 +251,6 @@ class WebSocketManager {
       console.log(`[WS] 尝试重连... (${this.reconnectAttempts}/${this.maxReconnectAttempts})`)
 
       setTimeout(() => {
-        // ✨ 标记本次连接为"重连",供 onOpen 里触发 onReconnectedCallback
         this.isReconnecting = true
         this.connect(roomCode).catch(() => {
           this.isReconnecting = false

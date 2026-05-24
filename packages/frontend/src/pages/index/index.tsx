@@ -7,8 +7,8 @@ import { bgm } from '../../utils/bgm'
 import { IconSwords, IconCrown, IconPlayer } from '../../components/Icons'
 import './index.scss'
 
-// 首页海报通过后端静态资源网络加载
-const homePoster = getResourceUrl('/images/home-poster.png')
+// 首页海报：打包在前端本地
+const homePoster = require('../../assets/images/home-poster.png')
 
 export default function Index() {
   const [loggedIn, setLoggedIn] = useState(false)

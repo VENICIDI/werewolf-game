@@ -2,29 +2,22 @@ import Taro from '@tarojs/taro'
 
 /**
  * 背景音乐管理器 - 使用 InnerAudioContext 播放游戏 BGM
- * 
- * 在小程序中 InnerAudioContext 不支持本地文件路径，
- * 所以 BGM 通过后端静态资源服务提供。
+ *
+ * BGM 打包在前端 assets 中，不依赖后端服务器。
  */
 
-const BGM_PATH = '/audio/bgm.mp3'
+const bgmSrc = require('../assets/audio/bgm.mp3')
 
 class BgmManager {
   private audioCtx: Taro.InnerAudioContext | null = null
   private volume: number = 0.3 // 默认音量 30%（背景音乐不宜太响）
   private playing: boolean = false
 
-  /** 获取 BGM 的完整 URL */
-  private getUrl(): string {
-    const serverBase = process.env.TARO_ENV === 'h5' ? '' : 'http://10.0.0.240:8088'
-    return `${serverBase}${BGM_PATH}`
-  }
-
   /** 初始化音频上下文（懒加载） */
   private init() {
     if (this.audioCtx) return
     this.audioCtx = Taro.createInnerAudioContext()
-    this.audioCtx.src = this.getUrl()
+    this.audioCtx.src = bgmSrc
     this.audioCtx.loop = true
     this.audioCtx.volume = this.volume
     this.audioCtx.obeyMuteSwitch = false // iOS 静音模式下仍播放

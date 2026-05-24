@@ -22,9 +22,9 @@ const TTS_PATH = '/api/tts/synthesize/json'
 
 function getTtsBaseUrl(): string {
   // 直接复用主后端（Spring Boot），端口 8088
-  return process.env.TARO_ENV === 'h5'
+  return process.env.NODE_ENV === 'development'
     ? 'http://localhost:8088'
-    : 'http://10.0.0.240:8088'
+    : 'http://39.96.170.159:8088'
 }
 
 interface QueueItem {

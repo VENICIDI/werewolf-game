@@ -1,8 +1,7 @@
 import { useState } from 'react'
-import Taro, { useDidShow } from '@tarojs/taro'
+import Taro from '@tarojs/taro'
 import { View, Text, Input, Button } from '@tarojs/components'
 import { login, wxLogin, saveAuth } from '../../api/auth'
-import { bgm } from '../../utils/bgm'
 import './index.scss'
 
 export default function Login() {
@@ -10,11 +9,6 @@ export default function Login() {
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [wxLoading, setWxLoading] = useState(false)
-
-  // 非游戏页面：保持 BGM 播放
-  useDidShow(() => {
-    bgm.ensurePlaying()
-  })
 
   const handleLogin = async () => {
     // 表单验证

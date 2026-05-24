@@ -3,7 +3,6 @@ import Taro, { useDidShow } from '@tarojs/taro'
 import { View, Text, Button, Image } from '@tarojs/components'
 import { isLoggedIn, getUserInfo, clearAuth } from '../../api/auth'
 import { getResourceUrl } from '../../utils/request'
-import { bgm } from '../../utils/bgm'
 import './index.scss'
 
 export default function Profile() {
@@ -12,7 +11,6 @@ export default function Profile() {
 
   useDidShow(() => {
     checkLoginStatus()
-    bgm.ensurePlaying()
   })
 
   const checkLoginStatus = () => {
