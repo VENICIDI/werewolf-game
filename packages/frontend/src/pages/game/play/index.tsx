@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
 import Taro, { useRouter, useDidHide } from '@tarojs/taro'
+import { Capacitor } from '@capacitor/core'
 import { View, Text, Button, Image } from '@tarojs/components'
 import { getGameStatus, getGameSnapshot, GamePhase, GameStatus, Role } from '../../../api/game'
 import { get, post, getResourceUrl } from '../../../utils/request'
@@ -1102,6 +1103,24 @@ export default function GamePlay() {
     }
     if (isRecording || isTranscribing) return
 
+    // Android 平台：先用 Permissions API 预检，若已被永久拒绝直接提示去设置
+    if (Capacitor.isNativePlatform() && navigator.permissions) {
+      try {
+        const result = await navigator.permissions.query({ name: 'microphone' as PermissionName })
+        if (result.state === 'denied') {
+          Taro.showModal({
+            title: '需要麦克风权限',
+            content: '请前往手机「设置 → 应用 → 狼人杀 → 权限 → 麦克风」，开启后返回重试。',
+            showCancel: false,
+            confirmText: '知道了',
+          })
+          return
+        }
+      } catch (_) {
+        // 某些 WebView 不支持 permissions.query，忽略继续走 getUserMedia
+      }
+    }
+
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: { sampleRate: 16000, channelCount: 1, echoCancellation: true }
@@ -1157,9 +1176,13 @@ export default function GamePlay() {
         err?.name === 'PermissionDeniedError' ||
         (typeof err?.message === 'string' && err.message.toLowerCase().includes('permission'))
       if (isPermissionDenied) {
+        // Android App vs H5浏览器给出不同引导
+        const isAndroid = Capacitor.isNativePlatform()
         Taro.showModal({
           title: '需要麦克风权限',
-          content: '请在浏览器地址栏左侧点击 🔒 / ⓘ 图标 → 网站设置 → 麦克风 → 允许，然后刷新页面重试。',
+          content: isAndroid
+            ? '请前往手机「设置 → 应用 → 狼人杀 → 权限 → 麦克风」，开启后返回重试。'
+            : '请在浏览器地址栏左侧点击 🔒 / ⓘ 图标 → 网站设置 → 麦克风 → 允许，然后刷新页面重试。',
           showCancel: false,
           confirmText: '知道了',
         })
