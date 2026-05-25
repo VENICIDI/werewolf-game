@@ -282,7 +282,7 @@ start_infra_docker() {
 
     log_info "等待 MySQL 就绪..."
     local count=0
-    while ! docker exec werewolf-mysql mysqladmin ping -h localhost -u root -proot123 --silent 2>/dev/null; do
+    while ! docker exec werewolf-mysql mysqladmin ping -h localhost -u root -p123456 --silent 2>/dev/null; do
         if [ $count -ge 60 ]; then
             log_error "MySQL 启动超时"
             return 1

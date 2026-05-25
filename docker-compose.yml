@@ -1,11 +1,9 @@
-version: '3.8'
-
 services:
   mysql:
     image: mysql:8.0
     container_name: werewolf-mysql
     environment:
-      MYSQL_ROOT_PASSWORD: root123
+      MYSQL_ROOT_PASSWORD: "123456"
       MYSQL_DATABASE: werewolf
       MYSQL_USER: werewolf
       MYSQL_PASSWORD: werewolf123
@@ -24,16 +22,6 @@ services:
     volumes:
       - redis-data:/data
 
-  # 可选：向量数据库用于 RAG
-  chroma:
-    image: chromadb/chroma:latest
-    container_name: werewolf-chroma
-    ports:
-      - "8000:8000"
-    volumes:
-      - chroma-data:/chroma/chroma
-
 volumes:
   mysql-data:
   redis-data:
-  chroma-data:
