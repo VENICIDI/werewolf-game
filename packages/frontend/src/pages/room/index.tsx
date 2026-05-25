@@ -11,6 +11,9 @@ import { getResourceUrl } from '../../utils/request'
 import { IconBack, IconSwords, IconPlayer, IconRobot, IconCrown, IconWolf, IconMoon, IconLock, IconChat, IconCheck, IconPlus } from '../../components/Icons'
 import './index.scss'
 
+// H5/App 端 Taro 渲染需要额外安全区补偿
+const isH5 = process.env.TARO_ENV === 'h5'
+
 interface Player {
   userId: number
   username: string
@@ -470,7 +473,7 @@ export default function Room() {
         <View className='nav-placeholder'></View>
       </View>
 
-      <ScrollView className='room-body' scrollY>
+      <ScrollView className={`room-body${isH5 ? ' h5-safe-fix' : ''}`} scrollY>
         {/* 房间信息卡片 */}
         <View className='room-info-card'>
           <View className='info-row'>
@@ -622,7 +625,7 @@ export default function Room() {
       </ScrollView>
 
       {/* 底部操作栏 */}
-      <View className='bottom-bar'>
+      <View className={`bottom-bar${isH5 ? ' h5-safe-fix' : ''}`}>
         <Button className='bar-btn leave-btn' onClick={handleLeaveRoom}>
           退出猎场
         </Button>

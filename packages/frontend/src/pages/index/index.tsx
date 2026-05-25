@@ -7,6 +7,9 @@ import { bgm } from '../../utils/bgm'
 import { IconSwords, IconCrown, IconPlayer } from '../../components/Icons'
 import './index.scss'
 
+// H5/App 端 Taro 渲染 TabBar，需要补偿底部间距
+const isH5 = process.env.TARO_ENV === 'h5'
+
 // 首页海报：打包在前端本地
 const homePoster = require('../../assets/images/home-poster.png')
 
@@ -112,7 +115,7 @@ export default function Index() {
       </View>
 
       {/* 底部操作面板 */}
-      <View className='bottom-panel'>
+      <View className={`bottom-panel${isH5 ? ' h5-tabbar-fix' : ''}`}>
         <View className='panel-title'>
           <Text className='game-title'>狼 人 杀</Text>
           <Text className='game-sub'>WEREWOLF</Text>

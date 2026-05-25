@@ -164,6 +164,11 @@
   z-index: 3;
   /* H5 兼容：左右 padding 改小，避免按钮在宽屏下过窄或位置乱 */
   padding: 0 20px calc(24px + env(safe-area-inset-bottom));
+
+  /* H5/App 端补偿 Taro 渲染 TabBar 的高度，小程序原生 TabBar 不需要 */
+  &.h5-tabbar-fix {
+    padding-bottom: calc(24px + 56px + env(safe-area-inset-bottom));
+  }
   font-family: 'LXGW WenKai', sans-serif;
   display: flex;
   flex-direction: column;
