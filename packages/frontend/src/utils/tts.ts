@@ -135,13 +135,8 @@ class TtsPlayer {
         return filePath
       }
 
-      // H5：构造 blob URL
-      const binary = atob(b64)
-      const len = binary.length
-      const bytes = new Uint8Array(len)
-      for (let i = 0; i < len; i++) bytes[i] = binary.charCodeAt(i)
-      const blob = new Blob([bytes], { type: 'audio/mpeg' })
-      return URL.createObjectURL(blob)
+      // H5 / Capacitor：使用 data URI（blob URL 在 Capacitor WebView 中不可靠）
+      return `data:audio/mpeg;base64,${b64}`
     } catch (e) {
       console.warn('[TTS] 合成失败:', e)
       return null
@@ -159,11 +154,6 @@ class TtsPlayer {
 
       const cleanup = () => {
         try { ctx.destroy() } catch (e) { /* ignore */ }
-        // H5 blob 清理
-        if (process.env.TARO_ENV === 'h5' && src.startsWith('blob:')) {
-          try { URL.revokeObjectURL(src) } catch (e) { /* ignore */ }
-        }
-        // 小程序本地文件：保留几秒后由系统清理 USER_DATA_PATH；一次性文件不必主动删
         if (this.audioCtx === ctx) this.audioCtx = null
       }
 

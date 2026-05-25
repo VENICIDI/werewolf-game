@@ -37,13 +37,22 @@ wechat:
   appid: ${WECHAT_APPID:wxb0e543c0df784e35}  # 微信小程序 AppID
   secret: ${WECHAT_SECRET:c3abbc8261dd6f3435ad45e4afcf5b38}  # 微信小程序 AppSecret
 
-# Fish Audio TTS + ASR 配置（替代原 ai-speech edge-tts + whisper 服务）
-fish-audio:
-  api-key: ${FISH_AUDIO_API_KEY:fe6fc826f6de4bd2887989eb6c383f7c}
-  api-url: ${FISH_AUDIO_API_URL:https://api.fish.audio/v1/tts}
-  asr-url: ${FISH_AUDIO_ASR_URL:https://api.fish.audio/v1/asr}
-  model: ${FISH_AUDIO_MODEL:s2-pro}
-  reference-id: ${FISH_AUDIO_REFERENCE_ID:}  # 留空使用默认音色
+# TTS 配置 — 2026-05-24 从 Fish Audio 迁移到 SiliconFlow CosyVoice2
+#   原因：国内服务器无法直连 api.fish.audio（连接超时）
+#   API 格式兼容 OpenAI Audio Speech
+tts:
+  api-key: ${TTS_API_KEY:${SILICONFLOW_API_KEY:sk-whyjuwbwynlkfcjjebdxdaosuimrumsejeaedlezkdazfexj}}
+  api-url: ${TTS_API_URL:https://api.siliconflow.cn/v1/audio/speech}
+  model: ${TTS_MODEL:FunAudioLLM/CosyVoice2-0.5B}
+  voice: ${TTS_VOICE:FunAudioLLM/CosyVoice2-0.5B:alex}
+
+# ASR 配置 — 2026-05-24 从 Fish Audio 迁移到 SiliconFlow SenseVoiceSmall
+#   原因：国内服务器无法直连 api.fish.audio（连接超时）
+#   API 格式兼容 OpenAI Audio Transcriptions
+stt:
+  api-key: ${STT_API_KEY:${SILICONFLOW_API_KEY:sk-whyjuwbwynlkfcjjebdxdaosuimrumsejeaedlezkdazfexj}}
+  api-url: ${STT_API_URL:https://api.siliconflow.cn/v1/audio/transcriptions}
+  model: ${STT_MODEL:FunAudioLLM/SenseVoiceSmall}
 
 # 日志（详细配置见 logback-spring.xml）
 logging:

@@ -683,6 +683,24 @@
       font-style: italic;
     }
   }
+
+  .skip-speech-btn {
+    margin-top: 12px;
+    padding: 8px 24px;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 20px;
+
+    .skip-speech-text {
+      font-size: 13px;
+      color: var(--gold-dim);
+      letter-spacing: 1px;
+    }
+
+    &:active {
+      background: rgba(255, 255, 255, 0.2);
+    }
+  }
 }
 
 @keyframes micPulse {

@@ -37,6 +37,9 @@
     "test:frontend": "cd packages/frontend && npm test"
   },
   "devDependencies": {
-    "concurrently": "^8.2.0"
+    "ajv": "^8.20.0",
+    "concurrently": "^8.2.0",
+    "webpack": "^5.89.0",
+    "webpack-dev-server": "^4.15.1"
   }
 }

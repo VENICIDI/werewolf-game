@@ -1,0 +1,373 @@
+{
+  "paragraphs_with_citations": [
+    {
+      "para_index": 78,
+      "text_preview": "在技术层面，传统在线狼人杀平台主要解决的是“多人实时对局”这一类工程问题：通过房间管理、角色分配、流程控制以及客户端与服务器之间的实时通信，让多名玩家能够在同一",
+      "citations": [
+        1
+      ]
+    },
+    {
+      "para_index": 79,
+      "text_preview": "与此同时，以ChatGPT为代表的LLM在近两年取得了突破性进展，其在自然语言理解、上下文推理与角色扮演等任务上展现出的能力，为社交推理类游戏的智能化提供了全新",
+      "citations": [
+        2,
+        3
+      ]
+    },
+    {
+      "para_index": 85,
+      "text_preview": "在理论层面，狼人杀是一类典型的不完全信息博弈：参与者只能观察到对局中的部分公开信息，必须依靠对其他玩家发言、投票与行为的归纳推理来形成对真相的判断。这与Texa",
+      "citations": [
+        4
+      ]
+    },
+    {
+      "para_index": 86,
+      "text_preview": "在工程层面，本课题的研究成果具有较为明确的应用价值。首先，本系统构建了一个具备小程序与App双端能力的在线狼人杀平台，前端采用Taro跨端框架[5]，通过一套代",
+      "citations": [
+        5,
+        6,
+        7
+      ]
+    },
+    {
+      "para_index": 91,
+      "text_preview": "在学术层面，狼人杀的相关研究主要集中在三个方向。第一类研究关注狼人杀玩家的社群行为、社交认同与文化传播[4]，通过问卷调查与社群民族志的方法，探讨玩家在虚拟空间",
+      "citations": [
+        4,
+        8
+      ]
+    },
+    {
+      "para_index": 93,
+      "text_preview": "以GPT系列、LLaMA系列、通义千问、文心一言、混元大模型等为代表的大语言模型，已经在自然语言理解、代码生成、对话系统等任务中取得了显著效果[2]。参数规模上",
+      "citations": [
+        2
+      ]
+    },
+    {
+      "para_index": 94,
+      "text_preview": "在LLM Agent方向，研究者们提出了一系列推理框架。Yao等人在年提出的ReAct（Reasoning + Acting）框架[12]，通过让模型在“思考—",
+      "citations": [
+        12,
+        13,
+        9
+      ]
+    },
+    {
+      "para_index": 95,
+      "text_preview": "在多智能体方向，已有研究将LLM作为博弈参与者，探索其在谈判、合作与对抗任务中的可控性[10]。Park等人在“Generative Agents”中构建了个L",
+      "citations": [
+        10,
+        14
+      ]
+    },
+    {
+      "para_index": 97,
+      "text_preview": "RAG技术由Facebook AI Research团队在年的论文《Retrieval-Augmented Generation for Knowledge-I",
+      "citations": [
+        15,
+        1
+      ]
+    },
+    {
+      "para_index": 98,
+      "text_preview": "近年来，RAG已被应用于软件工程辅助、垂直领域问答[2]、教育教辅系统[3]、医疗诊断辅助、法律文书生成等多个场景，形成了较为成熟的工程范式：嵌入向量化、向量数",
+      "citations": [
+        2,
+        3
+      ]
+    },
+    {
+      "para_index": 118,
+      "text_preview": "LLM是指参数规模超过十亿、基于Transformer架构并在海量文本语料上进行自回归预训练的神经网络模型。Transformer架构由Vaswani等人在年的",
+      "citations": [
+        16
+      ]
+    },
+    {
+      "para_index": 120,
+      "text_preview": "自年月ChatGPT发布以来，大语言模型迅速完成了从研究界向产业界的迁移。GPT-4在多项学术与职业考试上达到了人类专家水平；Anthropic的Claude系",
+      "citations": [
+        2
+      ]
+    },
+    {
+      "para_index": 121,
+      "text_preview": "推理智能体是一种以LLM为认知核心、以外部工具与记忆为感知与执行手段的Agent系统，其核心思想是将复杂任务分解为可执行的中间步骤，通过链式推理（Chain-o",
+      "citations": [
+        17,
+        9
+      ]
+    },
+    {
+      "para_index": 130,
+      "text_preview": "RAG是一种将外部知识库与大语言模型推理过程耦合的技术范式[1][1]。其核心思想是在模型生成回复之前，先根据当前查询从知识库中检索出若干条相关文档，再将文档内",
+      "citations": [
+        1
+      ]
+    },
+    {
+      "para_index": 131,
+      "text_preview": "RAG的典型实现通常由四个核心阶段组成：文档预处理、嵌入与索引、相似度检索、Prompt拼接与生成[3]。在文档预处理阶段，原始文档需要按一定策略切分为合适粒度",
+      "citations": [
+        3
+      ]
+    },
+    {
+      "para_index": 137,
+      "text_preview": "在向量数据库选型方面，FAISS（Facebook AI Similarity Search）作为最早的向量检索库具有性能极致但缺乏服务化能力的特点；Milvu",
+      "citations": [
+        18
+      ]
+    },
+    {
+      "para_index": 139,
+      "text_preview": "Taro是京东凹凸实验室于年开源的跨端开发框架，其核心能力是将一套基于React/Vue的代码编译为微信小程序、支付宝小程序、字节跳动小程序、百度智能小程序、Q",
+      "citations": [
+        5,
+        6
+      ]
+    },
+    {
+      "para_index": 140,
+      "text_preview": "Taro 4.x的运行时方案[19]在原理上类似于React Native，但其底层渲染目标不是原生UI，而是各小程序平台所提供的WXML/AXML组件树。具体",
+      "citations": [
+        19
+      ]
+    },
+    {
+      "para_index": 141,
+      "text_preview": "React作为当前前端领域最主流的视图框架之一，其组件化、声明式渲染与单向数据流等特性[7]，为本系统的前端模块化开发提供了坚实基础。React Hooks的引",
+      "citations": [
+        7
+      ]
+    },
+    {
+      "para_index": 144,
+      "text_preview": "Spring Boot是基于Spring生态构建的一站式应用框架[20]，由Pivotal团队于年首次发布，通过约定优于配置与内嵌容器（Embedded Tom",
+      "citations": [
+        20
+      ]
+    },
+    {
+      "para_index": 146,
+      "text_preview": "在实时通信方面，狼人杀的游戏进程包含夜晚、白天、发言、投票等多个强同步阶段，任何玩家的动作都需要实时广播给其他参与者。传统的实时通信方案主要包括以下三种：HTT",
+      "citations": [
+        8
+      ]
+    },
+    {
+      "para_index": 156,
+      "text_preview": "在技术可行性方面，本系统所采用的核心技术栈——Taro跨端框架、Spring Boot后端框架、WebSocket实时通信协议、MySQL与Redis数据库、C",
+      "citations": [
+        19
+      ]
+    },
+    {
+      "para_index": 166,
+      "text_preview": "在非功能性需求方面，系统需要满足以下约束[6]。第一，响应时延方面，在路AI玩家并发参与的场景下，单次对局端到端响应时延不超过秒，这意味着从玩家触发行动到其他玩",
+      "citations": [
+        6
+      ]
+    },
+    {
+      "para_index": 203,
+      "text_preview": "在RESTful接口方面，系统后端基于Spring MVC框架[20]对外提供标准的HTTP接口，涵盖用户认证、房间管理、对局历史查询等非实时场景。所有接口遵循",
+      "citations": [
+        20
+      ]
+    },
+    {
+      "para_index": 236,
+      "text_preview": "在向量嵌入模型的选型上，本系统综合评测了[1]text2vec-base-chinese、BGE-Base-zh、BGE-Large-zh、m3e-base与O",
+      "citations": [
+        1
+      ]
+    },
+    {
+      "para_index": 257,
+      "text_preview": "后端基于Spring Boot 3.2构建[20]，采用经典的Controller—Service—Repository三层结构，辅以独立的Gateway、Ga",
+      "citations": [
+        20
+      ]
+    },
+    {
+      "para_index": 266,
+      "text_preview": "实时通信基于Spring Boot WebSocket与STOMP实现[8]，所有房间内消息统一走/topic/room/{roomId}广播频道，玩家私有消息",
+      "citations": [
+        8
+      ]
+    },
+    {
+      "para_index": 298,
+      "text_preview": "RAG检索模块的实际召回效果如图6-3所示。通过构造组典型对局情境[3]（涵盖查杀局、金水局、悬局、铁三局等），系统在Top-5召回命中率上达到82.4%，相较",
+      "citations": [
+        3
+      ]
+    }
+  ],
+  "reference_list": [
+    {
+      "number": 1,
+      "text": "张犬俊,谢杨,房春荣,等.检索增强生成在软件工程中的应用综述[J/OL].软件学报, 1-24[2025-12-27]."
+    },
+    {
+      "number": 2,
+      "text": "竹倩叶.基于大语言模型的垂直领域对话系统的设计与实现[D].北京:北京邮电大学, 2025."
+    },
+    {
+      "number": 3,
+      "text": "汪洋,孙华锐,阮琦锋,等.基于大语言模型+知识库的交互式教辅系统的构建与实践[J/OL].物理与工程, 1-8[2026-03-05]. https://doi.org/10.27024/j.wlygc.2025.06.12.02."
+    },
+    {
+      "number": 4,
+      "text": "康宁.虚拟与现实交融下的游戏社群认同[D].杭州:浙江大学, 2023.DOI:10.27461/d.cnki.gzjdx.2023.003554."
+    },
+    {
+      "number": 5,
+      "text": "赵林林.深入浅出React开发指南[M].北京:机械工业出版社, 2023: 1-492."
+    },
+    {
+      "number": 6,
+      "text": "宁肖.基于小程序框架的跨平台开发研究和实践[J].电子技术与软件工程, 2023(02): 17-20.DOI:10.20109/j.cnki.etse.2023.02.005."
+    },
+    {
+      "number": 7,
+      "text": "王硕,祁欣颖. React Native的跨平台移动应用开发实践[J].信息与电脑(理论版), 2024, 36(07): 119-121."
+    },
+    {
+      "number": 8,
+      "text": "龙举兵,罗忠巍. HTTP轮询、SSE和WebSocket的IoT的Web管理系统的研究和应用[J].软件工程, 2026, 29(02): 55-61. DOI:10.19644/j.cnki.issn2096-1472.2026.002.011."
+    },
+    {
+      "number": 9,
+      "text": "林鑫.面向多步问答的知识推理方法研究[D].合肥:中国科学技术大学, 2025.DOI:10.27517/d.cnki.gzkju.2025.000573."
+    },
+    {
+      "number": 10,
+      "text": "刘百合,纪志坚,康力凡.基于博弈的随机多智能体系统能控性[J/OL].复杂系统与复杂性科学, 1-9[2026-03-05]. https://link.cnki.net/urlid/37.1402.N.20260209.1249.002."
+    },
+    {
+      "number": 11,
+      "text": "中国音数协游戏工委,中国游戏产业研究院. 2024年中国游戏产业报告[R].北京:中国音数协游戏工委, 2024."
+    },
+    {
+      "number": 12,
+      "text": "Yao S, Zhao J, Yu D, et al. ReAct: Synergizing Reasoning and Acting in Language Models[C]//The Eleventh International Conference on Learning Representations. Kigali: ICLR, 2023."
+    },
+    {
+      "number": 13,
+      "text": "Shinn N, Cassano F, Gopinath A, et al. Reflexion: Language Agents with Verbal Reinforcement Learning[C]//Advances in Neural Information Processing Systems 36. New Orleans: NeurIPS, 2023."
+    },
+    {
+      "number": 14,
+      "text": "Park J S, O’Brien J, Cai C J, et al. Generative Agents: Interactive Simulacra of Human Behavior[C]//Proceedings of the 36th Annual ACM Symposium on User Interface Software and Technology. San Francisco: ACM, 2023: 1-22."
+    },
+    {
+      "number": 15,
+      "text": "Lewis P, Perez E, Piktus A, et al. Retrieval-Augmented Generation for Knowledge-Intensive NLP Tasks[C]//Advances in Neural Information Processing Systems 33. Virtual: NeurIPS, 2020: 9459-9474."
+    },
+    {
+      "number": 16,
+      "text": "Vaswani A, Shazeer N, Parmar N, et al. Attention is All You Need[C]//Advances in Neural Information Processing Systems 30. Long Beach: NIPS, 2017: 5998-6008."
+    },
+    {
+      "number": 17,
+      "text": "Wei J, Wang X, Schuurmans D, et al. Chain-of-Thought Prompting Elicits Reasoning in Large Language Models[C]//Advances in Neural Information Processing Systems 35. New Orleans: NeurIPS, 2022: 24824-24837."
+    },
+    {
+      "number": 18,
+      "text": "Chroma. Chroma: the AI-native open-source embedding database[EB/OL]. (2024). https://www.trychroma.com/."
+    },
+    {
+      "number": 19,
+      "text": "京东凹凸实验室. Taro 4.x跨端开发框架文档[EB/OL]. (2024). https://taro.jd.com/."
+    },
+    {
+      "number": 20,
+      "text": "Pivotal Software. Spring Boot Reference Documentation 3.2.x[EB/OL]. (2024). https://docs.spring.io/spring-boot/docs/3.2.x/reference/."
+    }
+  ],
+  "duplicate_citations": {
+    "1": [
+      78,
+      97,
+      130,
+      236
+    ],
+    "2": [
+      79,
+      93,
+      98,
+      120
+    ],
+    "3": [
+      79,
+      98,
+      131,
+      298
+    ],
+    "4": [
+      85,
+      91
+    ],
+    "5": [
+      86,
+      139
+    ],
+    "6": [
+      86,
+      139,
+      166
+    ],
+    "7": [
+      86,
+      141
+    ],
+    "8": [
+      91,
+      146,
+      266
+    ],
+    "9": [
+      94,
+      121
+    ],
+    "19": [
+      140,
+      156
+    ],
+    "20": [
+      144,
+      203,
+      257
+    ]
+  },
+  "unused_references": [
+    11
+  ],
+  "out_of_order": true,
+  "citation_order_in_text": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    12,
+    13,
+    9,
+    10,
+    14,
+    15,
+    16,
+    17,
+    18,
+    19,
+    20
+  ]
+}

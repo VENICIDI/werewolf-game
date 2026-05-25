@@ -16,12 +16,13 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
- * Fish Audio TTS 代理服务
+ * TTS 代理服务（SiliconFlow CosyVoice2）
  *
- * <p>把前端的 TTS 请求转发到 Fish Audio 官方 HTTP API：
- * <pre>POST https://api.fish.audio/v1/tts</pre>
+ * <p>2026-05-24 从 Fish Audio 迁移到 SiliconFlow，
+ * 原因：国内服务器无法直连 api.fish.audio（连接超时）。
  *
- * <p>之所以走后端代理而不是前端直调，是为了不把 api-key 暴露在小程序包里。
+ * <p>API 格式兼容 OpenAI Audio Speech：
+ * <pre>POST https://api.siliconflow.cn/v1/audio/speech</pre>
  *
  * <p>响应给前端的格式与历史 ai-speech 服务保持一致：
  * <pre>
@@ -36,18 +37,17 @@ public class TtsService {
 
     private final RestTemplate restTemplate;
 
-    @Value("${fish-audio.api-key:}")
+    @Value("${tts.api-key:${siliconflow.tts.api-key:}}")
     private String apiKey;
 
-    @Value("${fish-audio.api-url:https://api.fish.audio/v1/tts}")
+    @Value("${tts.api-url:https://api.siliconflow.cn/v1/audio/speech}")
     private String apiUrl;
 
-    @Value("${fish-audio.model:s2-pro}")
+    @Value("${tts.model:FunAudioLLM/CosyVoice2-0.5B}")
     private String model;
 
-    /** 可选，默认音色（reference_id），不配则用 Fish Audio 默认音色。 */
-    @Value("${fish-audio.reference-id:}")
-    private String defaultReferenceId;
+    @Value("${tts.voice:FunAudioLLM/CosyVoice2-0.5B:alex}")
+    private String defaultVoice;
 
     /** 单次合成上限，与原 ai-speech 行为保持一致。前端会先截断，这里再做兜底。 */
     private static final int MAX_TEXT_LEN = 500;
@@ -56,54 +56,31 @@ public class TtsService {
      * 合成一段文本，返回 mp3 字节流。
      *
      * @param text          要合成的文本
-     * @param speakingRate  语速倍率（0.5~2.0），传 null 用默认 1.0
+     * @param speakingRate  语速倍率（0.5~2.0），传 null 用默认 1.0（当前接口不支持速率调节，忽略此参数）
      * @return mp3 字节
      * @throws IllegalStateException 配置缺失
-     * @throws RuntimeException      Fish Audio 调用失败
+     * @throws RuntimeException      TTS 调用失败
      */
     public byte[] synthesize(String text, Double speakingRate) {
         if (apiKey == null || apiKey.isBlank()) {
-            throw new IllegalStateException("fish-audio.api-key 未配置");
+            throw new IllegalStateException("tts.api-key 未配置");
         }
         if (text == null || text.isBlank()) {
             throw new IllegalArgumentException("text 不能为空");
         }
 
         String safeText = text.length() > MAX_TEXT_LEN ? text.substring(0, MAX_TEXT_LEN) : text;
-        double rate = speakingRate == null ? 1.0 : Math.max(0.5, Math.min(2.0, speakingRate));
 
-        // 用 LinkedHashMap 保持字段顺序，方便排查日志
+        // SiliconFlow TTS 兼容 OpenAI Audio Speech 格式
         Map<String, Object> body = new LinkedHashMap<>();
-        body.put("text", safeText);
-        if (defaultReferenceId != null && !defaultReferenceId.isBlank()) {
-            body.put("reference_id", defaultReferenceId);
-        }
-        body.put("temperature", 0.7);
-        body.put("top_p", 0.7);
-
-        Map<String, Object> prosody = new LinkedHashMap<>();
-        prosody.put("speed", rate);
-        prosody.put("volume", 0);
-        prosody.put("normalize_loudness", true);
-        body.put("prosody", prosody);
-
-        body.put("chunk_length", 300);
-        body.put("normalize", true);
-        body.put("format", "mp3");
-        body.put("sample_rate", 44100);
-        body.put("mp3_bitrate", 128);
-        body.put("latency", "normal");
-        body.put("max_new_tokens", 1024);
-        body.put("repetition_penalty", 1.2);
-        body.put("min_chunk_length", 50);
-        body.put("condition_on_previous_chunks", true);
-        body.put("early_stop_threshold", 1);
+        body.put("model", model);
+        body.put("input", safeText);
+        body.put("voice", defaultVoice);
+        body.put("response_format", "mp3");
 
         HttpHeaders headers = new HttpHeaders();
         headers.setBearerAuth(apiKey);
         headers.setContentType(MediaType.APPLICATION_JSON);
-        // Fish Audio 支持通过自定义 header 切换模型版本（s2-pro / speech-1.6 / ...）
-        headers.set("model", model);
 
         HttpEntity<Map<String, Object>> req = new HttpEntity<>(body, headers);
 
@@ -113,15 +90,15 @@ public class TtsService {
             byte[] audio = resp.getBody();
             long cost = System.currentTimeMillis() - start;
             int size = audio == null ? 0 : audio.length;
-            log.info("[TTS] fish-audio ok, text_len={}, rate={}, mp3_size={}B, cost={}ms",
-                    safeText.length(), rate, size, cost);
+            log.info("[TTS] SiliconFlow ok, text_len={}, mp3_size={}B, cost={}ms",
+                    safeText.length(), size, cost);
             if (audio == null || audio.length == 0) {
-                throw new RuntimeException("Fish Audio 返回空响应");
+                throw new RuntimeException("TTS 返回空响应");
             }
             return audio;
         } catch (Exception e) {
             long cost = System.currentTimeMillis() - start;
-            log.error("[TTS] fish-audio 调用失败: cost={}ms, err={}", cost, e.getMessage());
+            log.error("[TTS] SiliconFlow 调用失败: cost={}ms, err={}", cost, e.getMessage());
             throw new RuntimeException("TTS 合成失败: " + e.getMessage(), e);
         }
     }

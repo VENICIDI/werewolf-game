@@ -139,6 +139,9 @@ export default function Room() {
   }
 
   const handlePlayerJoin = useCallback((message: any) => {
+    // 忽略自己的重连事件（后端每次 WebSocket 连接都会广播 JOIN_ROOM）
+    const userInfo = getUserInfo()
+    if (message.senderId === userInfo?.id) return
     Taro.showToast({ title: `${message.senderName} 加入了房间`, icon: 'none' })
     if (roomCode) fetchRoomDetail(roomCode)
   }, [roomCode])

@@ -1,0 +1,71 @@
+version: '3.8'
+
+# ============================================================
+# 狼人杀游戏 - 生产环境 Docker Compose
+# 部署: docker compose -f docker-compose.prod.yml up -d
+# ============================================================
+
+services:
+  werewolf-backend:
+    build:
+      context: ./packages/backend
+      dockerfile: Dockerfile
+    container_name: werewolf-backend
+    restart: always
+    network_mode: host
+    environment:
+      SERVER_PORT: 8088
+      MYSQL_HOST: 127.0.0.1
+      MYSQL_PORT: 3306
+      MYSQL_DATABASE: werewolf
+      MYSQL_USERNAME: root
+      MYSQL_PASSWORD: "123456"
+      REDIS_HOST: 127.0.0.1
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ""
+      REDIS_DATABASE: "0"
+      AI_SERVICE_URL: http://127.0.0.1:8000
+      WECHAT_APPID: wxb0e543c0df784e35
+      WECHAT_SECRET: c3abbc8261dd6f3435ad45e4afcf5b38
+      JWT_SECRET: "miIl8SU-TNlEAck7Tn_xAGtXCQA7ckwjAFXzncNH7Pbuwripf07jpN1cMPfpu5Mc"
+      JAVA_OPTS: "-Xms256m -Xmx512m"
+    volumes:
+      - backend-logs:/app/logs
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:8088/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 120s
+
+  werewolf-ai:
+    build:
+      context: ./packages/ai-service
+      dockerfile: Dockerfile.prod
+    container_name: werewolf-ai
+    restart: always
+    network_mode: host
+    environment:
+      SERVICE_HOST: 0.0.0.0
+      SERVICE_PORT: 8000
+      OPENAI_API_KEY: "sk-bac4e42dadd24679a47196b639103565"
+      OPENAI_BASE_URL: https://api.deepseek.com
+      OPENAI_MODEL: deepseek-v4-flash
+      JAVA_BACKEND_URL: http://127.0.0.1:8088
+      CHROMA_PERSIST_DIR: /app/chroma_db
+      USE_LOCAL_EMBEDDING: "false"
+      EMBEDDING_API_KEY: "sk-whyjuwbwynlkfcjjebdxdaosuimrumsejeaedlezkdazfexj"
+      EMBEDDING_BASE_URL: https://api.siliconflow.cn/v1
+      EMBEDDING_MODEL: BAAI/bge-m3
+    volumes:
+      - chroma-data:/app/chroma_db
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 180s
+
+volumes:
+  backend-logs:
+  chroma-data:

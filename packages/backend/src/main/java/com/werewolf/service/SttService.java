@@ -13,13 +13,17 @@ import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestTemplate;
 
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
- * Fish Audio ASR 代理服务
+ * ASR 代理服务（SiliconFlow SenseVoiceSmall）
  *
- * <p>把前端上传的录音转写为文本：
- * <pre>POST https://api.fish.audio/v1/asr   (multipart/form-data)</pre>
+ * <p>2026-05-24 从 Fish Audio 迁移到 SiliconFlow，
+ * 原因：国内服务器无法直连 api.fish.audio（连接超时）。
+ *
+ * <p>API 格式兼容 OpenAI Audio Transcriptions：
+ * <pre>POST https://api.siliconflow.cn/v1/audio/transcriptions</pre>
  *
  * <p>响应保持与原 ai-speech /api/stt/transcribe 一致：
  * <pre>{ "success": true, "data": { "text": "...", "language": "zh", "duration": 5.17 } }</pre>
@@ -31,24 +35,27 @@ public class SttService {
 
     private final RestTemplate restTemplate;
 
-    @Value("${fish-audio.api-key:}")
+    @Value("${stt.api-key:${siliconflow.stt.api-key:}}")
     private String apiKey;
 
-    @Value("${fish-audio.asr-url:https://api.fish.audio/v1/asr}")
-    private String asrUrl;
+    @Value("${stt.api-url:https://api.siliconflow.cn/v1/audio/transcriptions}")
+    private String apiUrl;
+
+    @Value("${stt.model:FunAudioLLM/SenseVoiceSmall}")
+    private String model;
 
     /**
      * 上传一段音频，返回识别结果。
      *
      * @param audioBytes 音频原始字节（建议 mp3/wav，<=20MB）
-     * @param filename   原文件名（透传给 Fish Audio，便于后端按扩展名识别）
+     * @param filename   原文件名（透传给 API，便于按扩展名识别）
      * @param language   语言代码（zh/en/...），可空
-     * @return Fish Audio 原始响应 Map
+     * @return 响应 Map（包含 text 等字段）
      */
     @SuppressWarnings("unchecked")
     public Map<String, Object> transcribe(byte[] audioBytes, String filename, String language) {
         if (apiKey == null || apiKey.isBlank()) {
-            throw new IllegalStateException("fish-audio.api-key 未配置");
+            throw new IllegalStateException("stt.api-key 未配置");
         }
         if (audioBytes == null || audioBytes.length == 0) {
             throw new IllegalArgumentException("audio 为空");
@@ -66,30 +73,31 @@ public class SttService {
             }
         };
 
+        // SiliconFlow 兼容 OpenAI Audio Transcriptions 格式
         MultiValueMap<String, Object> body = new LinkedMultiValueMap<>();
-        body.add("audio", audioResource);
+        body.add("file", audioResource);
+        body.add("model", model);
         if (language != null && !language.isBlank()) {
             body.add("language", language);
         }
-        body.add("ignore_timestamps", "true");
 
         HttpEntity<MultiValueMap<String, Object>> req = new HttpEntity<>(body, headers);
 
         long start = System.currentTimeMillis();
         try {
-            ResponseEntity<Map> resp = restTemplate.postForEntity(asrUrl, req, Map.class);
+            ResponseEntity<Map> resp = restTemplate.postForEntity(apiUrl, req, Map.class);
             long cost = System.currentTimeMillis() - start;
             Map<String, Object> data = resp.getBody();
             String text = data == null ? null : String.valueOf(data.getOrDefault("text", ""));
-            log.info("[STT] fish-audio ok, audio={}B, cost={}ms, text_len={}",
+            log.info("[STT] SiliconFlow ok, audio={}B, cost={}ms, text_len={}",
                     audioBytes.length, cost, text == null ? 0 : text.length());
             if (data == null) {
-                throw new RuntimeException("Fish Audio ASR 返回空响应");
+                throw new RuntimeException("ASR 返回空响应");
             }
             return data;
         } catch (Exception e) {
             long cost = System.currentTimeMillis() - start;
-            log.error("[STT] fish-audio 调用失败: cost={}ms, err={}", cost, e.getMessage());
+            log.error("[STT] SiliconFlow 调用失败: cost={}ms, err={}", cost, e.getMessage());
             throw new RuntimeException("STT 转写失败: " + e.getMessage(), e);
         }
     }

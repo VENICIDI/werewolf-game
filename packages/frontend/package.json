@@ -47,12 +47,16 @@
     "@babel/preset-env": "^7.23.0",
     "@babel/preset-react": "^7.22.0",
     "@babel/preset-typescript": "^7.23.0",
+    "@capacitor/android": "^8.3.4",
+    "@capacitor/cli": "^8.3.4",
+    "@capacitor/core": "^8.3.4",
     "@tarojs/cli": "3.6.23",
     "@tarojs/webpack5-runner": "3.6.23",
     "@types/react": "^18.2.0",
     "@types/webpack-env": "^1.18.0",
     "@typescript-eslint/eslint-plugin": "^6.0.0",
     "@typescript-eslint/parser": "^6.0.0",
+    "ajv": "^8.20.0",
     "babel-preset-taro": "3.6.23",
     "css-loader": "^6.8.0",
     "eslint": "^8.50.0",
@@ -63,6 +67,7 @@
     "sass-loader": "^13.3.0",
     "style-loader": "^3.3.0",
     "typescript": "^5.2.0",
-    "webpack": "^5.89.0"
+    "webpack": "^5.89.0",
+    "webpack-dev-server": "^4.15.1"
   }
 }

@@ -20,6 +20,8 @@ class WebSocketManager {
   private reconnectInterval: number = 3000
   private heartbeatInterval: number = 30000
   private heartbeatTimer: any = null
+  private reconnectTimer: any = null
+  private intentionalClose: boolean = false
   private messageHandlers: Map<string, MessageHandler[]> = new Map()
   private onOpenCallback: (() => void) | null = null
   private onCloseCallback: (() => void) | null = null
@@ -31,6 +33,12 @@ class WebSocketManager {
 
   // 连接 WebSocket（兼容微信小程序和 H5）
   connect(roomCode: string): Promise<void> {
+    // 清除待执行的重连定时器，防止竞争
+    this.clearReconnectTimer()
+
+    // 标记为主动关闭，防止旧 socket 的 onClose 触发重连
+    this.intentionalClose = true
+
     // 先关闭已有连接，防止连到旧房间
     if (this.socketTask) {
       try {
@@ -70,6 +78,7 @@ class WebSocketManager {
             console.log('[WS] 连接已建立', this.isReconnecting ? '(重连)' : '(首次)')
             this.state = WebSocketState.OPEN
             this.reconnectAttempts = 0
+            this.intentionalClose = false
             this.startHeartbeat()
             if (this.isReconnecting) {
               if (this.onReconnectedCallback) this.onReconnectedCallback()
@@ -84,11 +93,14 @@ class WebSocketManager {
           })
 
           task.onClose(() => {
-            console.log('[WS] 连接关闭')
+            console.log('[WS] 连接关闭', this.intentionalClose ? '(主动)' : '(异常)')
             this.state = WebSocketState.CLOSED
             this.stopHeartbeat()
             if (this.onCloseCallback) this.onCloseCallback()
-            this.attemptReconnect(roomCode)
+            // 仅在非主动关闭时触发重连
+            if (!this.intentionalClose) {
+              this.attemptReconnect(roomCode)
+            }
           })
 
           task.onError((error) => {
@@ -112,6 +124,8 @@ class WebSocketManager {
 
   // 断开连接
   disconnect(): void {
+    this.intentionalClose = true
+    this.clearReconnectTimer()
     this.stopHeartbeat()
     this.reconnectAttempts = this.maxReconnectAttempts
     if (this.socketTask) {
@@ -248,16 +262,26 @@ class WebSocketManager {
   private attemptReconnect(roomCode: string): void {
     if (this.reconnectAttempts < this.maxReconnectAttempts) {
       this.reconnectAttempts++
-      console.log(`[WS] 尝试重连... (${this.reconnectAttempts}/${this.maxReconnectAttempts})`)
+      // 指数退避: 2s, 4s, 8s, 16s, 32s
+      const delay = Math.min(2000 * Math.pow(2, this.reconnectAttempts - 1), 32000)
+      console.log(`[WS] 尝试重连... (${this.reconnectAttempts}/${this.maxReconnectAttempts}), ${delay}ms后`)
 
-      setTimeout(() => {
+      this.reconnectTimer = setTimeout(() => {
         this.isReconnecting = true
         this.connect(roomCode).catch(() => {
           this.isReconnecting = false
         })
-      }, this.reconnectInterval)
+      }, delay)
     } else {
       console.error('[WS] 重连次数已达上限')
+    }
+  }
+
+  // 清除重连定时器
+  private clearReconnectTimer(): void {
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer)
+      this.reconnectTimer = null
     }
   }
 }

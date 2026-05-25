@@ -100,7 +100,9 @@ export default function GamePlay() {
   // ✨ 语音输入：录音状态
   const [isRecording, setIsRecording] = useState(false)
   const [isTranscribing, setIsTranscribing] = useState(false)
-  const recorderRef = useRef<any>(null)
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null)
+  const audioChunksRef = useRef<Blob[]>([])
+  const streamRef = useRef<MediaStream | null>(null)
 
   // 初始化：通过 API 获取游戏状态
   useEffect(() => {
@@ -1092,82 +1094,102 @@ export default function GamePlay() {
     setSpeakTimeLeft(0)
   }
 
-  // ✨ 语音输入：长按开始录音
-  const startRecord = () => {
+  // ✨ 语音输入：长按开始录音（使用 Web MediaRecorder API）
+  const startRecord = async () => {
     if (!canChat()) {
       Taro.showToast({ title: '还没轮到你发言', icon: 'none' })
       return
     }
     if (isRecording || isTranscribing) return
 
-    // 小程序录音管理器
-    if (!recorderRef.current) {
-      recorderRef.current = Taro.getRecorderManager()
-      recorderRef.current.onStart(() => {
-        console.log('[REC] 录音开始')
-        setIsRecording(true)
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: { sampleRate: 16000, channelCount: 1, echoCancellation: true }
       })
-      recorderRef.current.onStop((res: any) => {
-        console.log('[REC] 录音结束', res)
-        setIsRecording(false)
-        if (res.duration && res.duration < 500) {
-          Taro.showToast({ title: '说话时间太短', icon: 'none' })
-          return
-        }
-        uploadAndTranscribe(res.tempFilePath)
-      })
-      recorderRef.current.onError((err: any) => {
-        console.error('[REC] 录音错误', err)
-        setIsRecording(false)
-        Taro.showToast({ title: '录音失败：' + (err.errMsg || ''), icon: 'none' })
-      })
-    }
+      streamRef.current = stream
+      audioChunksRef.current = []
 
-    recorderRef.current.start({
-      duration: 60000,            // 最长 60s
-      sampleRate: 16000,
-      numberOfChannels: 1,
-      encodeBitRate: 48000,
-      format: 'mp3',
-    })
+      // 优先使用 webm 格式，兼容大多数浏览器
+      const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+        ? 'audio/webm;codecs=opus'
+        : MediaRecorder.isTypeSupported('audio/webm')
+          ? 'audio/webm'
+          : ''
+
+      const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined)
+      mediaRecorderRef.current = recorder
+
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) {
+          audioChunksRef.current.push(e.data)
+        }
+      }
+
+      recorder.onstop = () => {
+        setIsRecording(false)
+        stream.getTracks().forEach(t => t.stop())
+        streamRef.current = null
+
+        if (audioChunksRef.current.length === 0) return
+
+        const blob = new Blob(audioChunksRef.current, { type: recorder.mimeType || 'audio/webm' })
+        // 转为 File 对象用于上传
+        const file = new File([blob], 'recording.webm', { type: recorder.mimeType || 'audio/webm' })
+        uploadAndTranscribe(file)
+      }
+
+      recorder.onerror = (e) => {
+        console.error('[REC] 录音错误', e)
+        setIsRecording(false)
+        stream.getTracks().forEach(t => t.stop())
+        streamRef.current = null
+        Taro.showToast({ title: '录音失败', icon: 'none' })
+      }
+
+      recorder.start()
+      setIsRecording(true)
+      console.log('[REC] 录音开始')
+    } catch (err: any) {
+      console.error('[REC] 获取麦克风失败', err)
+      Taro.showToast({ title: '请允许麦克风权限', icon: 'none' })
+    }
   }
 
   // ✨ 语音输入：松开结束录音
   const stopRecord = () => {
-    if (!isRecording) return
-    recorderRef.current?.stop()
+    if (!isRecording || !mediaRecorderRef.current) return
+    if (mediaRecorderRef.current.state === 'recording') {
+      mediaRecorderRef.current.stop()
+    }
   }
 
   // ✨ 上传音频到 STT 服务并把识别结果作为聊天发出
-  const uploadAndTranscribe = (filePath: string) => {
+  const uploadAndTranscribe = (file: File) => {
     setIsTranscribing(true)
     const apiBase = Taro.getStorageSync('api_base_url') || ''
-    // STT 已合并到主后端（Spring Boot 8088 → 代理 Fish Audio /v1/asr）
-    Taro.uploadFile({
-      url: `${apiBase}/api/stt/transcribe`,
-      filePath,
-      name: 'audio',
-      formData: { language: 'zh' },
-      success: (res) => {
-        try {
-          const body = typeof res.data === 'string' ? JSON.parse(res.data) : res.data
-          const text = body?.data?.text?.trim()
-          if (text) {
-            wsManager.sendChat(text)
-          } else {
-            Taro.showToast({ title: '没听清，请重试', icon: 'none' })
-          }
-        } catch (e) {
-          console.error('[STT] 解析失败', e, res.data)
-          Taro.showToast({ title: '识别失败', icon: 'none' })
-        }
-      },
-      fail: (err) => {
-        console.error('[STT] 上传失败', err)
-        Taro.showToast({ title: '上传失败：' + (err.errMsg || ''), icon: 'none' })
-      },
-      complete: () => setIsTranscribing(false),
+    const formData = new FormData()
+    formData.append('audio', file)
+    formData.append('language', 'zh')
+
+    fetch(`${apiBase}/api/stt/transcribe`, {
+      method: 'POST',
+      body: formData,
     })
+    .then(async (res) => {
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      const body = await res.json()
+      const text = body?.data?.text?.trim()
+      if (text) {
+        wsManager.sendChat(text)
+      } else {
+        Taro.showToast({ title: '没听清，请重试', icon: 'none' })
+      }
+    })
+    .catch((err) => {
+      console.error('[STT] 上传失败', err)
+      Taro.showToast({ title: '上传失败', icon: 'none' })
+    })
+    .finally(() => setIsTranscribing(false))
   }
 
   const currentSpeaker = game?.players.find(p => p.playerId === currentSpeakerId)
@@ -1670,18 +1692,22 @@ export default function GamePlay() {
       <View className='mic-bar'>
         {canChat() ? (
           <View className='mic-wrap'>
-            <Button
+            <View
               className={`mic-btn ${isRecording ? 'recording' : ''} ${isTranscribing ? 'transcribing' : ''}`}
-              onTouchStart={startRecord}
-              onTouchEnd={stopRecord}
-              onTouchCancel={stopRecord}
-              disabled={isTranscribing}
+              onPointerDown={startRecord}
+              onPointerUp={stopRecord}
+              onPointerLeave={stopRecord}
+              onPointerCancel={stopRecord}
             >
               <IconMic size={36} color='#fff' />
-            </Button>
+            </View>
             <Text className='mic-hint'>
               {isTranscribing ? '识别中…' : isRecording ? '松开发送，上滑取消' : '按住 说话'}
             </Text>
+            {/* 结束发言按钮 */}
+            <View className='skip-speech-btn' onClick={handleSkipSpeech}>
+              <Text className='skip-speech-text'>结束发言</Text>
+            </View>
           </View>
         ) : (
           <View className='mic-wrap disabled'>

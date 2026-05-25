@@ -21,6 +21,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
@@ -45,6 +46,9 @@ public class AIPlayerBridge {
     private final RoomWebSocketHandler webSocketHandler;
     private final RestTemplate restTemplate = new RestTemplate();
     private final ObjectMapper objectMapper = new ObjectMapper();
+
+    /** 缓存 AI 最近一次发言的文本长度，用于预估 TTS 等待时间 */
+    private final ConcurrentHashMap<String, Integer> lastSpeechLengths = new ConcurrentHashMap<>();
 
     @Value("${ai.service.url:http://localhost:8000}")
     private String aiServiceUrl;
@@ -359,13 +363,14 @@ public class AIPlayerBridge {
     }
 
     /**
-     * AI 发言 + 异步推进讨论
-     * 
+     * AI 发言 + 等待 TTS 播放 + 异步推进讨论
+     *
      * 由 DiscussionManager 在"轮到 AI 发言"时调用:
      * 1. 调 Python LLM 生成发言内容
      * 2. 广播为 PLAYER_CHAT
      * 3. 推送 PLAYER_SPEECH 事件给所有 AI (更新记忆)
-     * 4. 回调 onFinished(true/false) 通知 DiscussionManager 推进
+     * 4. 根据文本长度预估 TTS 播放时长，等待播放完成
+     * 5. 回调 onFinished(true/false) 通知 DiscussionManager 推进
      *
      * @param gameId     游戏 id
      * @param aiPlayer   AI 玩家
@@ -378,12 +383,54 @@ public class AIPlayerBridge {
                 ok = doExecuteAISpeech(gameId, aiPlayer);
             } catch (Exception e) {
                 log.error("AI 玩家 {} 发言执行异常", aiPlayer.getId(), e);
-            } finally {
-                try {
-                    onFinished.accept(ok);
-                } catch (Exception ignored) {}
             }
+
+            // AI 发言成功时，等待 TTS 播放完成后再推进
+            if (ok) {
+                try {
+                    int contentLen = getAISpeechContentLength(gameId, aiPlayer);
+                    long waitMs = estimateTtsDurationMs(contentLen);
+                    if (waitMs > 0) {
+                        log.info("[TTS-WAIT] AI {} ({}号) 等待 TTS 播放: text_len={}, wait={}ms",
+                                aiPlayer.getId(), aiPlayer.getSeatNumber(), contentLen, waitMs);
+                        Thread.sleep(waitMs);
+                    }
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                } catch (Exception e) {
+                    log.warn("[TTS-WAIT] 计算等待时间异常: {}", e.getMessage());
+                }
+            }
+
+            try {
+                onFinished.accept(ok);
+            } catch (Exception ignored) {}
         });
+    }
+
+    /**
+     * 根据文本长度预估 TTS 播放时长（毫秒）
+     * 中文 ~4字/秒，加上 TTS 合成延迟 ~1.5s
+     * 最少等待 3s，最多等待 speakTimeMs
+     */
+    private long estimateTtsDurationMs(int textLen) {
+        // 中文约 4 字/秒，英文约 3 词/秒，取保守值 3.5 字/秒
+        double secondsPerChar = 1.0 / 3.5;
+        double speechSeconds = textLen * secondsPerChar;
+        // 加上 TTS 合成网络延迟（前端请求+合成+播放缓冲）
+        double totalSeconds = speechSeconds + 2.0;
+        long ms = (long) (totalSeconds * 1000);
+        return Math.max(3000, Math.min(ms, 60000)); // 3s ~ 60s
+    }
+
+    /**
+     * 获取 AI 最近一次发言的文本长度（从上次广播的内容推断）
+     * 简化实现：从内存缓存中取最后一次发言长度
+     */
+    private int getAISpeechContentLength(Long gameId, Player aiPlayer) {
+        String key = gameId + ":" + aiPlayer.getId();
+        Integer len = lastSpeechLengths.get(key);
+        return len != null ? len : 50; // 默认 50 字（约 14 秒）
     }
 
     /**
@@ -616,6 +663,10 @@ public class AIPlayerBridge {
         log.info("AI 玩家 {} ({}号) 发言成功: {}...",
                 aiPlayer.getId(), aiPlayer.getSeatNumber(),
                 content.length() > 30 ? content.substring(0, 30) : content);
+
+        // 缓存发言长度，供 TTS 等待计算使用
+        lastSpeechLengths.put(gameId + ":" + aiPlayer.getId(), content.length());
+
         return true;
     }
 
