@@ -677,9 +677,13 @@
 // ================ 底部操作栏 ================
 .bottom-bar {
   position: fixed;
-  bottom: 0; left: 0; right: 0;
+  bottom: 0;
+  /* H5 居中：用 left 50% + translate 代替 left:0/right:0 + margin:auto，
+     避免在宽屏时按钮超出容器或错位 */
+  left: 50%;
+  transform: translateX(-50%);
+  width: 100%;
   max-width: 480px;
-  margin: 0 auto;
   padding: 12px 16px;
   padding-bottom: calc(12px + env(safe-area-inset-bottom));
   background: linear-gradient(180deg, rgba(8, 6, 4, 0) 0%, rgba(8, 6, 4, 0.96) 25%, rgba(8, 6, 4, 0.99) 100%);

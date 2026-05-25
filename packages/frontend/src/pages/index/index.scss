@@ -162,7 +162,8 @@
   left: 0;
   right: 0;
   z-index: 3;
-  padding: 0 48px 24px;
+  /* H5 兼容：左右 padding 改小，避免按钮在宽屏下过窄或位置乱 */
+  padding: 0 20px calc(24px + env(safe-area-inset-bottom));
   font-family: 'LXGW WenKai', sans-serif;
   display: flex;
   flex-direction: column;
@@ -172,6 +173,8 @@
 
 .action-card {
   width: 100%;
+  /* H5 下 Taro Button 编译后宽度需要显式限制 */
+  max-width: 380px;
   padding: 14px 24px;
   border-radius: 0;
   position: relative;

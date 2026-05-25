@@ -1151,7 +1151,21 @@ export default function GamePlay() {
       console.log('[REC] 录音开始')
     } catch (err: any) {
       console.error('[REC] 获取麦克风失败', err)
-      Taro.showToast({ title: '请允许麦克风权限', icon: 'none' })
+      // 区分"未授权"和其他错误，给出更明确的引导
+      const isPermissionDenied =
+        err?.name === 'NotAllowedError' ||
+        err?.name === 'PermissionDeniedError' ||
+        (typeof err?.message === 'string' && err.message.toLowerCase().includes('permission'))
+      if (isPermissionDenied) {
+        Taro.showModal({
+          title: '需要麦克风权限',
+          content: '请在浏览器地址栏左侧点击 🔒 / ⓘ 图标 → 网站设置 → 麦克风 → 允许，然后刷新页面重试。',
+          showCancel: false,
+          confirmText: '知道了',
+        })
+      } else {
+        Taro.showToast({ title: '麦克风启动失败，请重试', icon: 'none' })
+      }
     }
   }
 
