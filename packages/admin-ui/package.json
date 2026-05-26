@@ -1,0 +1,29 @@
+{
+  "name": "werewolf-admin-ui",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Werewolf RAG 管理后台（毕设答辩演示）",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build --outDir ../ai-service/admin_dist --emptyOutDir",
+    "build:standalone": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "axios": "^1.7.7",
+    "echarts": "^5.5.1",
+    "element-plus": "^2.8.7",
+    "marked": "^14.1.3",
+    "pinia": "^2.2.4",
+    "vue": "^3.5.12",
+    "vue-router": "^4.4.5"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^5.1.4",
+    "sass": "^1.79.5",
+    "unplugin-auto-import": "^0.18.3",
+    "unplugin-vue-components": "^0.27.4",
+    "vite": "^5.4.10"
+  }
+}

@@ -34,7 +34,10 @@
     "logs:speech": "./start.sh logs speech",
     "test": "npm run test:backend && npm run test:frontend",
     "test:backend": "cd packages/backend && ./mvnw test",
-    "test:frontend": "cd packages/frontend && npm test"
+    "test:frontend": "cd packages/frontend && npm test",
+    "admin:install": "cd packages/admin-ui && npm install",
+    "admin:dev": "cd packages/admin-ui && npm run dev",
+    "admin:build": "cd packages/admin-ui && npm run build"
   },
   "devDependencies": {
     "ajv": "^8.20.0",

@@ -12,8 +12,9 @@ Embedding 策略:
 - 可通过环境变量切换为 OpenAI Embedding API
 """
 import os
+import time
 import logging
-from typing import List, Optional, Dict
+from typing import List, Optional, Dict, Tuple
 from pathlib import Path
 
 from langchain_community.vectorstores import Chroma
@@ -21,6 +22,8 @@ from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_community.document_loaders import DirectoryLoader, TextLoader
 from langchain_core.documents import Document
 from langchain_core.retrievers import BaseRetriever
+
+from services import rag_log_service
 
 logger = logging.getLogger(__name__)
 
@@ -262,31 +265,103 @@ class RAGService:
         self,
         query_text: str,
         role_filter: Optional[str] = None,
-        k: int = 3
+        k: int = 3,
+        source: str = "api",
+        game_id: Optional[str] = None,
+        player_id: Optional[int] = None,
     ) -> List[Document]:
         """
-        查询知识库
-        
-        Args:
-            query_text: 查询文本
-            role_filter: 按角色过滤
-            k: 返回结果数量
-            
-        Returns:
-            List[Document]: 检索结果
+        查询知识库（同步），自动记录检索日志
         """
-        retriever = self.get_retriever(role_filter=role_filter, k=k)
-        return retriever.get_relevant_documents(query_text)
-    
+        docs_with_scores = self.query_with_scores(
+            query_text=query_text,
+            role_filter=role_filter,
+            k=k,
+            source=source,
+            game_id=game_id,
+            player_id=player_id,
+        )
+        return [doc for doc, _ in docs_with_scores]
+
     async def aquery(
         self,
         query_text: str,
         role_filter: Optional[str] = None,
-        k: int = 3
+        k: int = 3,
+        source: str = "api",
+        game_id: Optional[str] = None,
+        player_id: Optional[int] = None,
     ) -> List[Document]:
-        """异步查询"""
-        retriever = self.get_retriever(role_filter=role_filter, k=k)
-        return await retriever.aget_relevant_documents(query_text)
+        """异步查询，自动记录检索日志"""
+        # Chroma 暂未稳定支持异步带分数检索，这里同步走以拿到 score
+        return self.query(
+            query_text=query_text,
+            role_filter=role_filter,
+            k=k,
+            source=source,
+            game_id=game_id,
+            player_id=player_id,
+        )
+
+    def query_with_scores(
+        self,
+        query_text: str,
+        role_filter: Optional[str] = None,
+        k: int = 3,
+        source: str = "api",
+        game_id: Optional[str] = None,
+        player_id: Optional[int] = None,
+    ) -> List[Tuple[Document, float]]:
+        """
+        查询并返回 (Document, similarity_score) 列表
+
+        score 含义:
+        - 使用 Chroma 的 similarity_search_with_relevance_scores
+        - 范围一般在 [0, 1]，越大越相关
+        """
+        if not self.vectorstore:
+            return []
+
+        filter_dict = {"role": role_filter} if role_filter else None
+        t0 = time.perf_counter()
+        try:
+            results = self.vectorstore.similarity_search_with_relevance_scores(
+                query_text, k=k, filter=filter_dict
+            )
+        except Exception as e:
+            logger.error(f"similarity_search_with_relevance_scores failed: {e}")
+            results = []
+        duration_ms = (time.perf_counter() - t0) * 1000
+
+        # 记录日志
+        try:
+            log_items = []
+            for doc, score in results:
+                snippet = (doc.page_content or "").strip().replace("\n", " ")
+                if len(snippet) > 200:
+                    snippet = snippet[:200] + "..."
+                log_items.append({
+                    "source": Path(doc.metadata.get("source", "unknown")).name,
+                    "role": doc.metadata.get("role"),
+                    "doc_type": doc.metadata.get("doc_type"),
+                    "game_phase": doc.metadata.get("game_phase"),
+                    "score": round(float(score), 4),
+                    "snippet": snippet,
+                })
+            rag_log_service.log_retrieval(
+                query=query_text,
+                role_filter=role_filter,
+                top_k=k,
+                results=log_items,
+                duration_ms=duration_ms,
+                source=source,
+                game_id=game_id,
+                player_id=player_id,
+            )
+        except Exception as e:
+            logger.warning(f"Failed to write RAG log: {e}")
+
+        return results
     
     def format_docs(self, docs: List[Document]) -> str:
         """格式化文档为文本"""
