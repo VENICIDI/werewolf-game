@@ -62,7 +62,15 @@ async def lifespan(app: FastAPI):
     # Initialize AgentManager with services
     logger.info("Initializing Agent Manager...")
     agent_manager.set_services(llm_service, rag_service)
-    
+
+    # 注入 LLM 到 QueryRewriter（让 HyDE / Multi-Query 可用）
+    try:
+        from services.query_rewriter import get_query_rewriter
+        get_query_rewriter(llm_service=llm_service)
+        logger.info("QueryRewriter initialized with LLM")
+    except Exception as e:
+        logger.warning(f"QueryRewriter init skipped: {e}")
+
     logger.info("Werewolf AI Service started successfully!")
     
     yield

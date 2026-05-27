@@ -52,3 +52,66 @@
   - 文档类型：新增 sheriff（警徽）、case_study（实战案例）
   - 游戏阶段（新维度）：sheriff_election / night / vote / discussion
   - 难度等级（新维度）：beginner / advanced（根据文件名和内容关键词推断）
+
+### [D1] 混合检索 + Rerank + Query 改写 — 2026-05-27
+
+将单路向量召回升级为**多阶段检索管线**，覆盖业界主流 RAG 优化方向。
+
+#### 1) 混合检索（Hybrid Retrieval）
+**新增文件：** `services/hybrid_retriever.py`
+- **稠密向量检索**：保留 Chroma + BGE Embedding（语义相似强项）
+- **稀疏 BM25 检索**：基于 `rank_bm25` + `jieba` 中文分词，捕获专有名词/术语精确命中（"警徽流2.0"/"悍跳"/"倒钩"等）
+- **RRF 融合**：`score_rrf(d) = Σ 1/(60 + rank_r(d))`，业界经典无参融合方案，对各路打分尺度不敏感
+- 默认开启 (`USE_HYBRID_RETRIEVAL=true`)，BM25 语料从 Chroma 中按需懒构建
+
+#### 2) Cross-Encoder 精排
+**新增文件：** `services/reranker_service.py`
+- 模型：`BAAI/bge-reranker-base`（中文专用 Cross-Encoder）
+- 范式：召回多 (`recall_k=20`) → 精排少 (`top_k=3~5`)
+- 输出 logit 经 sigmoid 归一化到 [0,1]
+- 模型懒加载（首次调用才下载 ~280MB），CPU 推理约 700ms / 20 候选
+- 默认 admin 调试器手动开启；agent 实时决策默认 `USE_RERANKER=false`，避免拖慢游戏节奏
+
+#### 3) Query 改写
+**新增文件：** `services/query_rewriter.py`
+- **HyDE**（Hypothetical Document Embeddings, Gao et al. ACL 2023）：让 LLM 先写一段假设性回答，用伪文档去检索，弥补 query-doc 语义鸿沟
+- **Multi-Query**：让 LLM 生成 N 个不同角度的改写 query，并行检索后合并候选
+- 两者均通过环境变量按需开启（默认 `none`），需要额外一次 LLM 调用（~5s）
+
+#### 4) RAG 服务重构
+**修改文件：** `services/rag_service.py`
+- 新增 `aquery_pipeline()` / `query_pipeline_sync()` 异步/同步管线入口
+- 返回 `stages: List[Dict]`，记录每一步的耗时、候选数、模型名
+- 检索日志 `extra` 字段新增 `pipeline` 和 `stages`，可在日志页查看完整追踪
+- 旧 API（`query / aquery / query_with_scores`）完全向后兼容
+
+#### 5) Admin UI 升级
+**修改文件：** `routers/admin.py`, `admin-ui/src/views/SearchPlayground.vue`, `SystemStatus.vue`
+- `/search` 接口新增 `use_hybrid / use_reranker / query_rewrite / recall_k` 参数
+- 调试器 UI 加入 4 个开关，支持实时对比不同 pipeline 组合的效果
+- **流水线可视化**：每次检索展示完整 stages（query 改写 → 双路召回 → RRF 融合 → Rerank），含每步耗时色阶（绿/黄/红）
+- 系统状态页流程图升级为 8 步完整管线
+
+#### 性能基准（24 chunks 知识库，本地 CPU）
+| 模式 | 总耗时 (缓存后) | 备注 |
+|---|---:|---|
+| 仅向量（baseline） | ~100ms | Chroma similarity_search |
+| 混合检索（向量 + BM25 + RRF） | ~10ms | 召回毫秒级，融合可忽略 |
+| 混合检索 + Rerank | ~750ms | rerank 是主要瓶颈，20 候选 / CPU |
+| 混合检索 + Rerank + HyDE | ~5.7s | HyDE 需一次 DeepSeek 调用 |
+
+#### 新增依赖
+```
+rank_bm25>=0.2.2
+jieba>=0.42.1
+```
+（reranker 复用已有 `sentence-transformers`）
+
+#### 环境变量
+```bash
+USE_HYBRID_RETRIEVAL=true       # 默认 true
+USE_RERANKER=false              # 默认 false（agent 实时调用关闭，admin 调试可手动开）
+USE_QUERY_REWRITE=none          # none / hyde / multi_query
+RERANK_RECALL_K=20              # 召回阶段每路保留数
+RERANKER_MODEL=BAAI/bge-reranker-base
+```

@@ -1,20 +1,36 @@
 """
-RAG 服务 - 基于 LangChain 的知识检索增强
+RAG 服务 - 基于 LangChain 的知识检索增强（带混合检索 + Rerank + Query 改写）
 
-使用组件:
-- Chroma: 向量数据库
-- HuggingFaceEmbeddings: 本地文本嵌入 (BAAI/bge-small-zh-v1.5)
-- RecursiveCharacterTextSplitter: 文档切片
-- DirectoryLoader: 文档加载
+检索管线 (可通过环境变量按需开关):
 
-Embedding 策略:
-- 默认使用本地 HuggingFace 模型 (免费，中文效果好)
-- 可通过环境变量切换为 OpenAI Embedding API
+    [用户 Query]
+         │
+         ├── (可选) Query Rewrite ── HyDE / Multi-Query
+         │
+         ▼
+    [稠密向量检索] (Chroma + BGE Embedding)  ─┐
+                                              ├── RRF 融合 (Reciprocal Rank Fusion)
+    [稀疏 BM25 检索] (jieba 分词 + Okapi)    ─┘
+                                              │
+                                              ▼
+                                      (可选) Cross-Encoder 精排
+                                       BAAI/bge-reranker-base
+                                              │
+                                              ▼
+                                       Top-K 命中切片
+
+环境变量:
+    USE_HYBRID_RETRIEVAL   true/false   是否启用 BM25 + 向量混合检索 (默认 true)
+    USE_RERANKER           true/false   是否启用 bge-reranker 精排    (默认 true)
+    USE_QUERY_REWRITE      none/hyde/multi_query  Query 改写策略     (默认 none)
+    RERANK_RECALL_K        int          融合阶段召回数量 (默认 20)
+    RERANKER_MODEL         str          reranker 模型 (默认 BAAI/bge-reranker-base)
 """
 import os
 import time
+import asyncio
 import logging
-from typing import List, Optional, Dict, Tuple
+from typing import List, Optional, Dict, Tuple, Any
 from pathlib import Path
 
 from langchain_community.vectorstores import Chroma
@@ -24,8 +40,20 @@ from langchain_core.documents import Document
 from langchain_core.retrievers import BaseRetriever
 
 from services import rag_log_service
+from services.hybrid_retriever import BM25Retriever, reciprocal_rank_fusion
+from services.reranker_service import get_reranker
+from services.query_rewriter import get_query_rewriter
 
 logger = logging.getLogger(__name__)
+
+
+def _env_bool(key: str, default: bool) -> bool:
+    return os.getenv(key, str(default)).strip().lower() in ("1", "true", "yes", "on")
+
+
+def _short(text: str, n: int = 80) -> str:
+    text = (text or "").strip().replace("\n", " ")
+    return text if len(text) <= n else text[:n] + "..."
 
 
 class RAGService:
@@ -54,6 +82,42 @@ class RAGService:
         self.vectorstore: Optional[Chroma] = None
         self._initialized = False
         self._load_or_create_vectorstore()
+
+        # BM25 检索器（懒构建）
+        self._bm25: Optional[BM25Retriever] = None
+        self._bm25_built_at: float = 0.0
+
+    # ------------------------------------------------------------------
+    # BM25 / Reranker 懒构建
+    # ------------------------------------------------------------------
+
+    def _get_bm25(self) -> Optional[BM25Retriever]:
+        """从 Chroma 中拉取所有 chunk 构建 BM25 语料"""
+        if self._bm25 is not None:
+            return self._bm25
+        if not self.vectorstore:
+            return None
+        try:
+            result = self.vectorstore._collection.get(include=["metadatas", "documents"])
+            metas = result.get("metadatas") or []
+            docs = result.get("documents") or []
+            if not docs:
+                return None
+            documents = [
+                Document(page_content=c or "", metadata=m or {})
+                for c, m in zip(docs, metas)
+            ]
+            self._bm25 = BM25Retriever(documents)
+            self._bm25_built_at = time.time()
+            logger.info(f"BM25 corpus built from Chroma: {len(documents)} docs")
+            return self._bm25
+        except Exception as e:
+            logger.warning(f"Failed to build BM25 corpus: {e}")
+            return None
+
+    def invalidate_bm25(self):
+        """重建知识库后调用，让 BM25 语料失效"""
+        self._bm25 = None
     
     def _init_embeddings(self):
         """
@@ -291,17 +355,23 @@ class RAGService:
         source: str = "api",
         game_id: Optional[str] = None,
         player_id: Optional[int] = None,
+        pipeline: Optional[Dict[str, Any]] = None,
     ) -> List[Document]:
-        """异步查询，自动记录检索日志"""
-        # Chroma 暂未稳定支持异步带分数检索，这里同步走以拿到 score
-        return self.query(
+        """
+        异步查询入口（默认走完整管线，可享受 LLM Query 改写）
+
+        若 pipeline.query_rewrite='none'（默认），与同步路径行为一致。
+        """
+        result = await self.aquery_pipeline(
             query_text=query_text,
             role_filter=role_filter,
             k=k,
             source=source,
             game_id=game_id,
             player_id=player_id,
+            pipeline=pipeline,
         )
+        return [h["doc"] for h in result["hits"]]
 
     def query_with_scores(
         self,
@@ -311,45 +381,287 @@ class RAGService:
         source: str = "api",
         game_id: Optional[str] = None,
         player_id: Optional[int] = None,
+        pipeline: Optional[Dict[str, Any]] = None,
     ) -> List[Tuple[Document, float]]:
         """
-        查询并返回 (Document, similarity_score) 列表
+        查询并返回 (Document, score) 列表（同步入口；管线包含 BM25 / Rerank）
 
-        score 含义:
-        - 使用 Chroma 的 similarity_search_with_relevance_scores
-        - 范围一般在 [0, 1]，越大越相关
+        Args:
+            pipeline: 覆盖默认 pipeline 配置 dict:
+                - use_hybrid: bool
+                - use_reranker: bool
+                - query_rewrite: 'none' / 'hyde' / 'multi_query'
+                - recall_k: int   召回阶段每路保留数
         """
-        if not self.vectorstore:
-            return []
+        result = self.query_pipeline_sync(
+            query_text=query_text,
+            role_filter=role_filter,
+            k=k,
+            source=source,
+            game_id=game_id,
+            player_id=player_id,
+            pipeline=pipeline,
+        )
+        return [(h["doc"], h["score"]) for h in result["hits"]]
 
-        filter_dict = {"role": role_filter} if role_filter else None
+    def query_pipeline_sync(
+        self,
+        query_text: str,
+        role_filter: Optional[str] = None,
+        k: int = 3,
+        source: str = "api",
+        game_id: Optional[str] = None,
+        player_id: Optional[int] = None,
+        pipeline: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        """同步入口（兼容老调用），不支持 LLM Query 改写"""
+        cfg = self._resolve_pipeline(pipeline, allow_llm_rewrite=False)
+        stages: List[Dict[str, Any]] = []
+        t_total = time.perf_counter()
+
+        candidates = self._recall_stage(query_text, role_filter, cfg, stages)
+        hits = self._rerank_stage(query_text, candidates, k, cfg, stages)
+        return self._finalize(query_text, role_filter, k, source, game_id, player_id,
+                              cfg, stages, hits, t_total)
+
+    async def aquery_pipeline(
+        self,
+        query_text: str,
+        role_filter: Optional[str] = None,
+        k: int = 3,
+        source: str = "api",
+        game_id: Optional[str] = None,
+        player_id: Optional[int] = None,
+        pipeline: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        """
+        异步管线入口（支持 LLM Query 改写）
+
+        返回 dict 包含:
+            - hits: [{rank, doc, score, source, role, doc_type, game_phase, content}]
+            - stages: List[Dict] 每个管线阶段的耗时与候选数
+            - pipeline: 实际使用的 pipeline 配置
+            - duration_ms: 总耗时
+        """
+        cfg = self._resolve_pipeline(pipeline, allow_llm_rewrite=True)
+        stages: List[Dict[str, Any]] = []
+        t_total = time.perf_counter()
+
+        # ========== 阶段 0: Query 改写 ==========
+        queries = await self._query_rewrite_stage(query_text, cfg, stages)
+
+        # ========== 阶段 1: 召回（每个 query 都走一遍） ==========
+        all_candidates: List[Tuple[Document, float]] = []
+        seen_keys = set()
+        for q in queries:
+            cands = self._recall_stage(q, role_filter, cfg, stages, q_label=q)
+            for doc, score in cands:
+                key = f"{doc.metadata.get('source')}::{hash(doc.page_content)}"
+                if key in seen_keys:
+                    continue
+                seen_keys.add(key)
+                all_candidates.append((doc, score))
+
+        # ========== 阶段 2: Rerank ==========
+        hits = self._rerank_stage(query_text, all_candidates, k, cfg, stages)
+
+        return self._finalize(query_text, role_filter, k, source, game_id, player_id,
+                              cfg, stages, hits, t_total)
+
+    # ------------------------------------------------------------------
+    # Pipeline stages
+    # ------------------------------------------------------------------
+
+    def _resolve_pipeline(
+        self,
+        override: Optional[Dict[str, Any]],
+        allow_llm_rewrite: bool,
+    ) -> Dict[str, Any]:
+        # 默认: 混合检索开，Rerank/Query 改写关
+        # （Rerank 与 LLM 改写有较大延迟，agent 实时决策默认不启用，仅在 admin 调试器中按需开启）
+        cfg = {
+            "use_hybrid": _env_bool("USE_HYBRID_RETRIEVAL", True),
+            "use_reranker": _env_bool("USE_RERANKER", False),
+            "query_rewrite": os.getenv("USE_QUERY_REWRITE", "none").strip().lower() or "none",
+            "recall_k": int(os.getenv("RERANK_RECALL_K", "20")),
+        }
+        if override:
+            for k in ("use_hybrid", "use_reranker", "query_rewrite", "recall_k"):
+                if k in override and override[k] is not None:
+                    cfg[k] = override[k]
+
+        # 同步入口禁用 LLM 改写
+        if not allow_llm_rewrite:
+            cfg["query_rewrite"] = "none"
+        if cfg["query_rewrite"] not in ("none", "hyde", "multi_query"):
+            cfg["query_rewrite"] = "none"
+        return cfg
+
+    async def _query_rewrite_stage(
+        self,
+        query: str,
+        cfg: Dict[str, Any],
+        stages: List[Dict[str, Any]],
+    ) -> List[str]:
+        mode = cfg.get("query_rewrite", "none")
+        if mode == "none":
+            return [query]
+
         t0 = time.perf_counter()
-        try:
-            results = self.vectorstore.similarity_search_with_relevance_scores(
-                query_text, k=k, filter=filter_dict
-            )
-        except Exception as e:
-            logger.error(f"similarity_search_with_relevance_scores failed: {e}")
-            results = []
-        duration_ms = (time.perf_counter() - t0) * 1000
+        rewriter = get_query_rewriter()
+        if not rewriter.is_available():
+            stages.append({"name": "query_rewrite", "mode": mode, "skipped": "rewriter unavailable",
+                           "duration_ms": 0.0, "queries": [query]})
+            return [query]
 
-        # 记录日志
+        if mode == "hyde":
+            hyde_doc = await rewriter.hyde(query)
+            queries = [hyde_doc] if hyde_doc else [query]
+            stages.append({
+                "name": "query_rewrite", "mode": "hyde",
+                "duration_ms": round((time.perf_counter() - t0) * 1000, 2),
+                "queries": [_short(hyde_doc or query, 80)],
+            })
+            return queries
+
+        if mode == "multi_query":
+            queries = await rewriter.multi_query(query, n=3)
+            stages.append({
+                "name": "query_rewrite", "mode": "multi_query",
+                "duration_ms": round((time.perf_counter() - t0) * 1000, 2),
+                "queries": [_short(q, 80) for q in queries],
+            })
+            return queries
+
+        return [query]
+
+    def _recall_stage(
+        self,
+        query: str,
+        role_filter: Optional[str],
+        cfg: Dict[str, Any],
+        stages: List[Dict[str, Any]],
+        q_label: Optional[str] = None,
+    ) -> List[Tuple[Document, float]]:
+        """召回阶段：向量 + (可选) BM25 + RRF 融合"""
+        filter_dict = {"role": role_filter} if role_filter else None
+        recall_k = max(cfg.get("recall_k", 20), 1)
+
+        # 向量召回
+        t_v = time.perf_counter()
         try:
-            log_items = []
-            for doc, score in results:
-                snippet = (doc.page_content or "").strip().replace("\n", " ")
-                if len(snippet) > 200:
-                    snippet = snippet[:200] + "..."
-                log_items.append({
-                    "source": Path(doc.metadata.get("source", "unknown")).name,
-                    "role": doc.metadata.get("role"),
-                    "doc_type": doc.metadata.get("doc_type"),
-                    "game_phase": doc.metadata.get("game_phase"),
-                    "score": round(float(score), 4),
-                    "snippet": snippet,
-                })
+            vec_hits = self.vectorstore.similarity_search_with_relevance_scores(
+                query, k=recall_k, filter=filter_dict
+            ) if self.vectorstore else []
+        except Exception as e:
+            logger.error(f"vector recall failed: {e}")
+            vec_hits = []
+        vec_ms = (time.perf_counter() - t_v) * 1000
+        stages.append({
+            "name": "vector_recall",
+            "duration_ms": round(vec_ms, 2),
+            "candidates": len(vec_hits),
+            "k": recall_k,
+            "q": _short(q_label or query, 60),
+        })
+
+        if not cfg.get("use_hybrid"):
+            return vec_hits
+
+        # BM25 召回
+        t_b = time.perf_counter()
+        bm25 = self._get_bm25()
+        bm25_hits = bm25.search(query, k=recall_k, filter_dict=filter_dict) if bm25 else []
+        bm25_ms = (time.perf_counter() - t_b) * 1000
+        stages.append({
+            "name": "bm25_recall",
+            "duration_ms": round(bm25_ms, 2),
+            "candidates": len(bm25_hits),
+            "k": recall_k,
+            "q": _short(q_label or query, 60),
+        })
+
+        # RRF 融合
+        if not bm25_hits:
+            return vec_hits
+        t_f = time.perf_counter()
+        fused = reciprocal_rank_fusion([vec_hits, bm25_hits], k_rrf=60, top_k=recall_k)
+        stages.append({
+            "name": "rrf_fusion",
+            "duration_ms": round((time.perf_counter() - t_f) * 1000, 2),
+            "candidates": len(fused),
+            "k_rrf": 60,
+        })
+        return fused
+
+    def _rerank_stage(
+        self,
+        query: str,
+        candidates: List[Tuple[Document, float]],
+        top_k: int,
+        cfg: Dict[str, Any],
+        stages: List[Dict[str, Any]],
+    ) -> List[Tuple[Document, float]]:
+        if not candidates:
+            return []
+        if not cfg.get("use_reranker"):
+            return candidates[:top_k]
+
+        t = time.perf_counter()
+        reranker = get_reranker()
+        reranked = reranker.rerank(query, candidates, top_n=top_k)
+        stages.append({
+            "name": "rerank",
+            "model": reranker.model_name,
+            "duration_ms": round((time.perf_counter() - t) * 1000, 2),
+            "in_candidates": len(candidates),
+            "out_candidates": len(reranked),
+        })
+        return reranked
+
+    def _finalize(
+        self,
+        query: str,
+        role_filter: Optional[str],
+        k: int,
+        source: str,
+        game_id: Optional[str],
+        player_id: Optional[int],
+        cfg: Dict[str, Any],
+        stages: List[Dict[str, Any]],
+        hits: List[Tuple[Document, float]],
+        t_total: float,
+    ) -> Dict[str, Any]:
+        duration_ms = (time.perf_counter() - t_total) * 1000
+
+        formatted_hits = []
+        log_items = []
+        for i, (doc, score) in enumerate(hits, start=1):
+            snippet = (doc.page_content or "").strip().replace("\n", " ")
+            snippet_short = snippet[:200] + "..." if len(snippet) > 200 else snippet
+            entry = {
+                "rank": i,
+                "doc": doc,
+                "score": round(float(score), 4),
+                "source": Path(doc.metadata.get("source", "unknown")).name,
+                "role": doc.metadata.get("role"),
+                "doc_type": doc.metadata.get("doc_type"),
+                "game_phase": doc.metadata.get("game_phase"),
+                "content": doc.page_content,
+            }
+            formatted_hits.append(entry)
+            log_items.append({
+                "source": entry["source"],
+                "role": entry["role"],
+                "doc_type": entry["doc_type"],
+                "game_phase": entry["game_phase"],
+                "score": entry["score"],
+                "snippet": snippet_short,
+            })
+
+        try:
             rag_log_service.log_retrieval(
-                query=query_text,
+                query=query,
                 role_filter=role_filter,
                 top_k=k,
                 results=log_items,
@@ -357,11 +669,20 @@ class RAGService:
                 source=source,
                 game_id=game_id,
                 player_id=player_id,
+                extra={"pipeline": cfg, "stages": stages},
             )
         except Exception as e:
             logger.warning(f"Failed to write RAG log: {e}")
 
-        return results
+        return {
+            "query": query,
+            "role_filter": role_filter,
+            "top_k": k,
+            "hits": formatted_hits,
+            "stages": stages,
+            "pipeline": cfg,
+            "duration_ms": round(duration_ms, 2),
+        }
     
     def format_docs(self, docs: List[Document]) -> str:
         """格式化文档为文本"""
@@ -433,11 +754,14 @@ class RAGService:
         # 重新加载
         doc_count = self.load_documents(docs_dir)
         self._initialized = True
-        
+
+        # 让 BM25 语料失效（下次检索时自动重建）
+        self.invalidate_bm25()
+
         stats = self.get_stats()
         stats["action"] = "rebuild"
         stats["documents_loaded"] = doc_count
-        
+
         return stats
 
 

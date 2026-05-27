@@ -43,6 +43,10 @@ class SearchRequest(BaseModel):
     query: str = Field(..., description="检索 query")
     top_k: int = Field(5, ge=1, le=20)
     role_filter: Optional[str] = Field(None, description="按角色过滤")
+    use_hybrid: Optional[bool] = Field(None, description="启用 BM25 + 向量混合检索")
+    use_reranker: Optional[bool] = Field(None, description="启用 bge-reranker 精排")
+    query_rewrite: Optional[str] = Field(None, description="Query 改写策略: none/hyde/multi_query")
+    recall_k: Optional[int] = Field(None, ge=1, le=50, description="召回阶段每路保留数")
 
 
 class SearchHit(BaseModel):
@@ -61,6 +65,8 @@ class SearchResponse(BaseModel):
     top_k: int
     duration_ms: float
     hits: List[SearchHit]
+    pipeline: dict
+    stages: List[dict]
 
 
 # ---------------------------------------------------------------------------
@@ -238,38 +244,49 @@ async def get_raw_document(name: str):
 
 @router.post("/knowledge/search", response_model=SearchResponse)
 async def search_knowledge(req: SearchRequest):
-    """RAG 检索调试器：返回带相似度分数的命中结果"""
+    """RAG 检索调试器：返回带相似度分数与流水线阶段信息的命中结果"""
     rag = get_rag_service()
     if not rag.is_available():
         raise HTTPException(status_code=503, detail="RAG 服务不可用")
 
-    t0 = time.perf_counter()
-    pairs = rag.query_with_scores(
+    pipeline_cfg = {
+        "use_hybrid": req.use_hybrid,
+        "use_reranker": req.use_reranker,
+        "query_rewrite": req.query_rewrite,
+        "recall_k": req.recall_k,
+    }
+    # 去掉值为 None 的字段，避免覆盖默认配置
+    pipeline_cfg = {k: v for k, v in pipeline_cfg.items() if v is not None}
+
+    result = await rag.aquery_pipeline(
         query_text=req.query,
         role_filter=req.role_filter,
         k=req.top_k,
         source="admin",
+        pipeline=pipeline_cfg or None,
     )
-    duration_ms = round((time.perf_counter() - t0) * 1000, 2)
 
-    hits = []
-    for i, (doc, score) in enumerate(pairs, start=1):
-        hits.append(SearchHit(
-            rank=i,
-            score=round(float(score), 4),
-            source=Path(doc.metadata.get("source", "unknown")).name,
-            role=doc.metadata.get("role"),
-            doc_type=doc.metadata.get("doc_type"),
-            game_phase=doc.metadata.get("game_phase"),
-            content=doc.page_content,
-        ))
+    hits = [
+        SearchHit(
+            rank=h["rank"],
+            score=h["score"],
+            source=h["source"],
+            role=h["role"],
+            doc_type=h["doc_type"],
+            game_phase=h["game_phase"],
+            content=h["content"],
+        )
+        for h in result["hits"]
+    ]
 
     return SearchResponse(
         query=req.query,
         role_filter=req.role_filter,
         top_k=req.top_k,
-        duration_ms=duration_ms,
+        duration_ms=result["duration_ms"],
         hits=hits,
+        pipeline=result["pipeline"],
+        stages=result["stages"],
     )
 
 
@@ -408,5 +425,10 @@ async def system_status():
             "OPENAI_BASE_URL": os.getenv("OPENAI_BASE_URL", ""),
             "CHROMA_PERSIST_DIR": os.getenv("CHROMA_PERSIST_DIR", "./chroma_db"),
             "KNOWLEDGE_DIR": os.getenv("KNOWLEDGE_DIR", "./knowledge"),
+            "USE_HYBRID_RETRIEVAL": os.getenv("USE_HYBRID_RETRIEVAL", "true"),
+            "USE_RERANKER": os.getenv("USE_RERANKER", "false"),
+            "USE_QUERY_REWRITE": os.getenv("USE_QUERY_REWRITE", "none"),
+            "RERANKER_MODEL": os.getenv("RERANKER_MODEL", "BAAI/bge-reranker-base"),
+            "RERANK_RECALL_K": os.getenv("RERANK_RECALL_K", "20"),
         },
     }

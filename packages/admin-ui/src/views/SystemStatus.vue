@@ -64,11 +64,13 @@ const status = ref({})
 
 const flow = [
   { title: '用户 Query', desc: 'API / Agent 提交检索请求' },
-  { title: '文本嵌入', desc: 'BAAI/bge-small-zh-v1.5 生成 query 向量' },
-  { title: '向量检索', desc: 'Chroma similarity_search_with_relevance_scores' },
-  { title: '元数据过滤', desc: '按角色 / 类型 / 阶段过滤命中切片' },
-  { title: '日志落盘', desc: 'JSONL 记录 query、scores、duration' },
-  { title: '返回结果', desc: 'Top-K 切片注入 LLM Prompt' },
+  { title: 'Query 改写 (可选)', desc: 'HyDE 假设性回答 / Multi-Query 多角度改写' },
+  { title: '稠密向量召回', desc: 'BGE Embedding + Chroma similarity (top recall_k)' },
+  { title: 'BM25 稀疏召回', desc: 'jieba 中文分词 + Okapi BM25 (top recall_k)' },
+  { title: 'RRF 融合', desc: 'Reciprocal Rank Fusion 合并多路候选' },
+  { title: 'BGE Reranker', desc: 'bge-reranker-base 精排到 top_k' },
+  { title: '日志落盘', desc: 'JSONL 记录 query/pipeline/stages/scores' },
+  { title: '注入 Prompt', desc: 'Top-K 切片拼入 LangChain Prompt 给 LLM' },
 ]
 
 function maskKey(k, v) {
