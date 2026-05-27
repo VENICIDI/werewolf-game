@@ -32,7 +32,7 @@ services:
     volumes:
       - backend-logs:/app/logs
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://127.0.0.1:8088/actuator/health"]
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:8088/api/stt/health"]
       interval: 30s
       timeout: 10s
       retries: 5
@@ -60,7 +60,7 @@ services:
     volumes:
       - chroma-data:/app/chroma_db
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://127.0.0.1:8000/health"]
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:8000/api/health"]
       interval: 30s
       timeout: 10s
       retries: 5

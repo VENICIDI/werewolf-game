@@ -34,7 +34,7 @@ from typing import List, Optional, Dict, Tuple, Any
 from pathlib import Path
 
 from langchain_community.vectorstores import Chroma
-from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_community.document_loaders import DirectoryLoader, TextLoader
 from langchain_core.documents import Document
 from langchain_core.retrievers import BaseRetriever
@@ -173,6 +173,7 @@ class RAGService:
             model=model,
             api_key=api_key,
             base_url=base_url,
+            chunk_size=32,  # SiliconFlow 限制每批最大 64
         )
         
         logger.info(f"OpenAI Embedding initialized: model={model}, base_url={base_url}")
@@ -240,8 +241,12 @@ class RAGService:
         for chunk in chunks:
             self._enrich_metadata(chunk)
         
-        # 向量化并存储
-        self.vectorstore.add_documents(chunks)
+        # 向量化并存储（分批发送，避免超过 SiliconFlow 每批 64 的限制）
+        batch_size = 32
+        for i in range(0, len(chunks), batch_size):
+            batch = chunks[i:i + batch_size]
+            self.vectorstore.add_documents(batch)
+            logger.info(f"Embedded batch {i // batch_size + 1}/{(len(chunks) - 1) // batch_size + 1} ({len(batch)} chunks)")
         
         logger.info(f"Loaded {len(documents)} documents, split into {len(chunks)} chunks")
         return len(documents)

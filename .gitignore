@@ -75,7 +75,7 @@ __pycache__/
 *.pyc
 
 # Admin UI 构建产物（由 admin:build 生成，挂载到 ai-service）
-packages/ai-service/admin_dist/
+# packages/ai-service/admin_dist/  # 取消忽略：需要随 Docker 镜像部署到生产环境
 packages/admin-ui/auto-imports.d.ts
 packages/admin-ui/components.d.ts
 
